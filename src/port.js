@@ -89,6 +89,8 @@ function normalizeSettings(input = {}, platform = process.platform) {
     language: choiceSetting(input.language, LANGUAGES, 'en'),
     // The heat-wave shimmer in sunny areas; on unless turned off.
     heatHaze: input.heatHaze !== false,
+    // The pause menu's Shine and blue coin tracker; on unless turned off (Eclipse has its own instead).
+    pauseTracker: input.pauseTracker !== false,
     // Which buttons the game's text shows (src/prompts.js): the GameCube's own, or another controller's or the keys.
     buttonPrompts: prompts.normalizeStyle(input.buttonPrompts),
     promptPad: prompts.normalizePad(input.promptPad),
@@ -332,6 +334,7 @@ function buildEnvironment(settings, disc, root) {
     SMS_RUMBLE: settings.rumbleStrength === 0 ? '0' : '1',
     SMS_RUMBLE_STRENGTH: String(rumbleGameStrength(settings.rumbleStrength)),
     SMS_HEAT_HAZE: settings.heatHaze === false ? '0' : '1',
+    SMS_PAUSE_TRACKER: settings.pauseTracker === false ? '0' : '1',
     SMS_BUTTON_PROMPTS: prompts.normalizeStyle(settings.buttonPrompts),
     SMS_BUTTON_PROMPT_PAD: prompts.normalizePad(settings.promptPad),
     SMS_HDR: settings.hdr ? '1' : '0',
