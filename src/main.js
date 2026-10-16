@@ -832,7 +832,7 @@ async function play(installation = null) {
   // Every style's images, Original prompts included: the pause menu's save state hint draws the buttons from them.
   env.SMS_BUTTON_PROMPT_DIR = promptDirectory();
   if (config.settings.discordPresence) env.SMS_PRESENCE = '1';
-  const look = marioLookPack(rom, root, settings);
+  const look = marioLookPack(rom, disc, root, settings);
   if (look) env.SMS_MARIO_LOOK = look;
   if (portableRoot && !env.SMS_GX_SHADER_CACHE) {
     // The game only makes the folder for its default location.
@@ -862,20 +862,22 @@ function marioFrom(rom) {
 }
 
 // Customize Mario's colours for the game: Mario's textures repainted, as a
-// pack the game reads before its texture packs (SMS_MARIO_LOOK). Made again
-// only when the colours, the disc or the HD images change; never in the way
-// of playing.
-function marioLookPack(rom, root, settings) {
+// pack the game reads before its texture packs (SMS_MARIO_LOOK). Painted from
+// the disc the game plays (Eclipse's own, with Eclipse on), so the names match
+// what the game loads, with the preview's colours from the player's disc.
+// Made again only when the colours, the disc or the HD images change; never in
+// the way of playing.
+function marioLookPack(rom, disc, root, settings) {
   const directory = path.join(app.getPath('userData'), 'mario-look');
   const look = marioColors.normalizeLook(config.marioLook);
-  if (settings.eclipse || !look.inGame || !Object.keys(look.colors).length) {
+  if (!look.inGame || !Object.keys(look.colors).length) {
     if (!look.inGame && Object.keys(look.colors).length) log('Mario keeps his usual colours: Use in the game is off in Customize Mario.');
     fs.rmSync(directory, { recursive: true, force: true });
     return null;
   }
   try {
     const started = Date.now();
-    const made = marioPack.bake({ rom, look, references: marioFrom(rom).references, directory,
+    const made = marioPack.bake({ rom: disc, look, references: marioFrom(rom).references, directory,
       packDirectories: settings.textures ? [port.texturePackDirectory(root)] : [] });
     if (Date.now() - started > 250) log(`Painted Mario in your colours in ${((Date.now() - started) / 1000).toFixed(1)} s.`);
     return made;

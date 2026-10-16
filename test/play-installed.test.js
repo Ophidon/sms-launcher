@@ -195,13 +195,23 @@ test('chosen Mario colours reach the game as a look pack, from the HD pack when 
   assert.deepEqual(plainCopy(hd.bakes[0].references), ['disc references']);
   assert.deepEqual(plainCopy(hd.bakes[0].packDirectories), [port.texturePackDirectory(hd.root)]);
   assert.equal(hd.starts[0].options.env.SMS_MARIO_LOOK, path.join(hd.directory, 'mario-look'));
+  assert.equal(hd.bakes[0].rom, hd.config.rom, 'painted from the disc the game plays');
 
   const plain = fixture(t, { marioLook: look });
   await plain.play();
   assert.deepEqual(plainCopy(plain.bakes[0].packDirectories), [], 'HD textures off: the disc textures are repainted');
 });
 
-test('without chosen colours, with Eclipse, or when painting fails, Mario plays as he is', async t => {
+test('with Eclipse, Mario is painted from the Eclipse disc the game plays', async t => {
+  const eclipse = fixture(t, { eclipse: true, marioLook: { colors: { hat: '#00ff00' } } });
+  await eclipse.play();
+  assert.equal(eclipse.bakes.length, 1);
+  assert.equal(eclipse.bakes[0].rom, path.join(eclipse.root, port.ECLIPSE_ISO));
+  assert.deepEqual(JSON.parse(JSON.stringify(eclipse.bakes[0].references)), ['disc references'], 'the preview\'s colours, from the player\'s disc');
+  assert.equal(eclipse.starts[0].options.env.SMS_MARIO_LOOK, path.join(eclipse.directory, 'mario-look'));
+});
+
+test('without chosen colours, or when painting fails, Mario plays as he is', async t => {
   const none = fixture(t);
   fs.mkdirSync(path.join(none.directory, 'mario-look'));
   await none.play();
@@ -221,10 +231,6 @@ test('without chosen colours, with Eclipse, or when painting fails, Mario plays 
   await classic.play();
   assert.deepEqual(classic.bakes, [], 'the Classic preset chooses no colours, so nothing is painted');
   assert.equal(classic.starts[0].options.env.SMS_MARIO_LOOK, undefined);
-
-  const eclipse = fixture(t, { eclipse: true, marioLook: { colors: { hat: '#00ff00' } } });
-  await eclipse.play();
-  assert.deepEqual(eclipse.bakes, []);
 
   const failing = fixture(t, { marioLook: { colors: { hat: '#00ff00' } }, bake() { throw new Error('disc unreadable'); } });
   await failing.play();

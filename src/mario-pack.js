@@ -21,6 +21,8 @@ const { partOf } = require('./mario-model');
 const VERSION = 1;
 // The parts' order when several cover one texel of the atlas.
 const PRIORITY = ['cap', 'head', 'hands', 'feet', 'body', 'aloha', 'eye', 'mouth'];
+// Super Mario Eclipse's other playable characters, each with a model of its own.
+const OTHER_CHARACTERS = ['data/luigi.szs', 'data/piantissimo.szs', 'data/shadow_mario.szs'];
 
 // The game's pack name for a disc texture (gx_hires.cpp hiresName).
 function packName({ width, height, mipmapped, level, format }) {
@@ -47,6 +49,19 @@ function targets(model) {
     }
   });
   return [...byName.values()];
+}
+
+// The pack names of the textures other characters on this disc draw. The game
+// finds pack images by texture, not by model, so a texture Mario shares with
+// them (Eclipse's Luigi and Piantissimo use his mouth) is left as it is.
+function othersTextures(disc) {
+  const names = new Set();
+  for (const archive of OTHER_CHARACTERS) {
+    if (!disc.files.has(archive)) continue;
+    for (const [file, data] of rarc(disc.file(archive)))
+      if (/\.bmd$/i.test(file)) for (const texture of j3d.parseBmd(data).textures) names.add(packName(texture));
+  }
+  return names;
 }
 
 // The images the game would load for each name, from these pack folders, in
@@ -97,8 +112,9 @@ function stamp(file) {
 // Writes the pack for `look` into `directory` (replacing what was there) and
 // returns it, or removes it and returns null when no colour is chosen. A pack
 // already made for the same look, disc and HD images is kept as it is.
-// `references` are the regions' typical colours from loadMario, so the game
-// matches the customizer's preview.
+// `rom` is the disc the game plays (Eclipse's own with Eclipse on); `references`
+// are the regions' typical colours from loadMario, so the game matches the
+// customizer's preview.
 function bake({ rom, look, references, packDirectories = [], directory }) {
   const chosen = colors.normalize(look?.colors);
   if (!Object.keys(chosen).length) {
@@ -106,12 +122,12 @@ function bake({ rom, look, references, packDirectories = [], directory }) {
     return null;
   }
   const disc = new Disc(rom);
-  let files;
-  try { files = rarc(disc.file('data/mario.szs')); }
+  let files, shared;
+  try { files = rarc(disc.file('data/mario.szs')); shared = othersTextures(disc); }
   finally { disc.close(); }
   const model = j3d.parseBmd(files.get('bmd/ma_mdl1.bmd'));
   const index = packIndex(packDirectories);
-  const list = targets(model).map(target => ({ ...target, hd: index.get(target.name) || null }));
+  const list = targets(model).filter(target => !shared.has(target.name)).map(target => ({ ...target, hd: index.get(target.name) || null }));
   const key = crypto.createHash('sha256').update(JSON.stringify({
     VERSION, chosen, rom: stamp(rom), hd: list.map(t => t.hd && stamp(t.hd)),
   })).digest('hex');
@@ -133,4 +149,4 @@ function bake({ rom, look, references, packDirectories = [], directory }) {
   return directory;
 }
 
-module.exports = { bake, packName, targets, packIndex, repaint };
+module.exports = { bake, packName, targets, othersTextures, packIndex, repaint };
