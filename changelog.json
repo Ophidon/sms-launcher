@@ -24,7 +24,8 @@
       "Fixed Gooper Blooper's tentacles moving differently in each player's game, and his defeat getting stuck in the harbor with extra camera pans and no Shine.",
       "Multiplayer: you can now see the Blooper another player is surfing on, and your own when you aren't Mario.",
       "Fixed other players being pulled into a cutscene at the start of the level when someone joined.",
-      "Fixed Delfino Plaza's boats sometimes vanishing for a player who boards them in multiplayer."
+      "Fixed Delfino Plaza's boats sometimes vanishing for a player who boards them in multiplayer.",
+      "Multiplayer: when a joining player's game is back at file select without the host, it now says those files are on the multiplayer card and not your own saves, which are still there when you press Play."
     ]
   },
   "releases": [
