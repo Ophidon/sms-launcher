@@ -119,3 +119,11 @@ test('one texture shared by two parts is repainted per part and merged', () => {
   assert.ok(at(7, 4)[2] > 150 && at(7, 4)[1] < 80, `body texel ${at(7, 4)}`);
   assert.deepEqual(at(4, 4), [214, 22, 28], 'texels no part covers keep the disc colour');
 });
+
+test("textures Eclipse's other characters draw are left out; discs without them leave out nothing", () => {
+  const archives = new Map();
+  const fake = { files: archives, file: name => { throw new Error(`read ${name}`); } };
+  assert.deepEqual([...pack.othersTextures(fake)], [], 'Sunshine has no other characters to read');
+  archives.set('data/luigi.szs', {});
+  assert.throws(() => pack.othersTextures(fake), /read data\/luigi\.szs/, "Eclipse's Luigi is read");
+});
