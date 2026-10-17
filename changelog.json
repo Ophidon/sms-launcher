@@ -4,7 +4,8 @@
     "launcher": [
       "Customize Mario now works in Super Mario Eclipse too: Mario plays there in the colours you pick, and Luigi and Piantissimo keep their own look. They share Mario's mouth, so with a skin colour chosen, his mouth keeps its usual colour in Eclipse.",
       "Pause menu tracker: turn the game's new Shine Sprite and blue coin tracker off under Gameplay if you'd rather not see it in the pause menu.",
-      "Customize Mario no longer keeps your graphics card busy while you leave it open: Mario holds still after 15 seconds untouched and while the launcher is in the background, and moves again when you point at him. On some older PCs, leaving it open made the launcher's graphics stop working."
+      "Customize Mario no longer keeps your graphics card busy while you leave it open: Mario holds still after 15 seconds untouched and while the launcher is in the background, and moves again when you point at him. On some older PCs, leaving it open made the launcher's graphics stop working.",
+      "Windows: when the launcher's folder is too deep for Windows to build the game in, as with a portable launcher kept inside another app's folder, it now says so as soon as it opens and again whenever you try to set up, update or build the game, marks how much of the path is too long and how to fix it, and stops before downloading the build tools instead of the build failing with \"No such file or directory\"."
     ],
     "game": [
       "Pause menu tracker: the pause menu shows how many of an area's Shine Sprites and blue coins you have, out of all there are, starting with the area you're in; L and R switch to the other areas you've been to."

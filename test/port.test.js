@@ -578,14 +578,36 @@ test('a Windows game folder too deep for the compiler is explained, with what to
   const before = `${base}c1da79da5dc5-windows-x64-9d02b4b55bfc`, now = `${base}c1da79d-3f2a`;
   assert.equal(before.length, 151);
   const eclipse = { eclipse: true }, sunshine = { eclipse: false };
-  const message = port.longPathProblem(before, eclipse, { platform: 'win32', portable: true });
-  assert.match(message, /^The game folder's path is 151 characters long, more than the 130 a Windows build of Super Mario Eclipse can use/);
-  assert.match(message, /Move the launcher and its SMS-Launcher-Portable folder together/);
-  assert.match(port.longPathProblem(before, eclipse, { platform: 'win32' }), /Choose a shorter folder for Setup files in Settings/);
+  const problem = port.longPathProblem(before, eclipse, { platform: 'win32', portable: true });
+  assert.deepEqual([problem.folder, problem.length, problem.limit, problem.deepest], [base.slice(0, -1), 113, 92, 167]);
+  assert.match(problem.message, /^The SMS-Launcher-Portable folder's path is 113 characters long, more than the 92 Windows can build Super Mario Eclipse in/);
+  assert.match(problem.message, /Move the launcher and its SMS-Launcher-Portable folder together/);
+  assert.match(port.longPathProblem(before, eclipse, { platform: 'win32' }).message,
+    /^The folder holding the setup files's path .* Choose a shorter folder for Setup files in Settings/);
   // Sunshine's shallower build was one character over too; the shorter folder names fit both.
-  assert.match(port.longPathProblem(before, sunshine, { platform: 'win32' }), /151 characters long, more than the 150 a Windows build of the game/);
+  assert.match(port.longPathProblem(before, sunshine, { platform: 'win32' }).message, /113 characters long, more than the 112 Windows can build the game in/);
   assert.equal(port.longPathProblem(now, eclipse, { platform: 'win32', portable: true }), null);
   assert.equal(port.longPathProblem(now, sunshine, { platform: 'win32', portable: true }), null);
   // The 260-character limit is Windows'.
   assert.equal(port.longPathProblem(before, eclipse, { platform: 'linux' }), null);
+});
+
+test('build tools too deep in a portable folder for their own headers are explained', () => {
+  // A player's portable launcher inside another launcher's Apps folder: GCC opened
+  // …\msys64\mingw64\bin\..\lib\gcc\…\..\..\..\..\include\c++\16.2.0\x86_64-w64-mingw32\bits\c++config.h
+  // at 275 characters, and every C++ file failed to find it.
+  const folder = 'C:\\Users\\leona\\Desktop\\Quiver\\QuiverLauncher-win-Portable\\Apps\\SuperMarioSunshine-SMSLauncher\\SMS-Launcher-Portable';
+  const msys = `${folder}\\build-tools\\windows-x64-9d02b4b55bfc\\msys64`;
+  const root = `${folder}\\sms-pc-port`, sunshine = { eclipse: false };
+  assert.equal(folder.length, 115);
+  // The game folder alone fits, so only the tools' headers show the problem.
+  assert.equal(port.longPathProblem(root, sunshine, { platform: 'win32', portable: true, folder }), null);
+  const problem = port.longPathProblem(root, sunshine, { platform: 'win32', portable: true, folder, msys });
+  assert.deepEqual([problem.length, problem.limit, problem.deepest], [115, 92, 167]);
+  assert.match(problem.message, /^The SMS-Launcher-Portable folder's path is 115 characters long, more than the 92 Windows can build the game in, so the build would fail/);
+  // Moved to C:\Games, both fit; a player's own MSYS2 elsewhere doesn't count against the folder.
+  const games = 'C:\\Games\\SMS-Launcher-Portable';
+  assert.equal(port.longPathProblem(`${games}\\sms-pc-port`, sunshine,
+    { platform: 'win32', portable: true, folder: games, msys: `${games}\\build-tools\\windows-x64-9d02b4b55bfc\\msys64` }), null);
+  assert.equal(port.longPathProblem(root, sunshine, { platform: 'win32', portable: true, folder, msys: 'C:\\msys64' }), null);
 });

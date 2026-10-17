@@ -574,3 +574,18 @@ pre { height: 120px; margin: 0; padding: 12px; overflow: auto; border-radius: 8p
 .mario-in-game { margin-bottom: 12px; padding: 8px 12px; border: 1px solid #e1e9e8; border-radius: 12px; background: #fff; }
 .mario-nozzles { padding: 4px 0 10px; }
 .mario-nozzles[hidden] { display: none; }
+.path-modal { width: min(680px, calc(100% - 36px)); }
+.path-summary { font-size: 15px; line-height: 1.5; }
+.path-box { margin-top: 10px; padding: 10px 14px; border: 1px solid #e2b9b4; border-radius: 10px; background: #fff; overflow-wrap: anywhere; }
+.path-box code { font: 13px/1.6 ui-monospace, Consolas, monospace; }
+.path-box mark { padding: 1px 0; border-radius: 3px; background: #f6c9c3; color: #8a1d12; }
+.path-legend { display: flex; align-items: center; gap: 8px; margin-top: 8px; color: #8a1d12; font-size: 12px; }
+.path-legend-over { width: 14px; height: 10px; border-radius: 3px; background: #f6c9c3; }
+.path-steps { margin: 12px 0 0 20px; display: grid; gap: 3px; line-height: 1.45; }
+.path-why { margin-top: 10px; color: #637980; font-size: 12px; line-height: 1.5; }
+.path-actions { justify-content: flex-end; margin-top: 12px; }
+.dark .path-box { border-color: #8a3b35; background: #0a1b27; }
+.dark .path-box mark { background: #7a2a24; color: #ffd9d4; }
+.dark .path-legend { color: #ffb4aa; }
+.dark .path-legend-over { background: #7a2a24; }
+.dark .path-why { color: #9fc3cb; }
