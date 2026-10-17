@@ -845,8 +845,19 @@ function errorText(error) {
 }
 function showError(error) { closeModal(); setMessage(errorText(error), true); }
 
+// Actions that build the game or need its build tools. Play only builds when
+// the game isn't set up, needs HD visuals, or updates automatically.
+function needsBuild(method) {
+  if (method === 'launchGame') return !current.binaryReady || !current.hdVisualsReady ||
+    Boolean(current.config.settings.autoUpdate && current.game.needsUpdate);
+  return ['installPort', 'installEclipse', 'installTextures', 'build', 'setupGame', 'updateAndPlay', 'updatePort',
+    'clean', 'cleanPreview'].includes(method);
+}
+
 async function action(method) {
   setMessage('');
+  // In a folder too deep for Windows, explain instead of starting a build that would fail.
+  if (current?.pathProblem && needsBuild(method)) { showPathProblem(); return; }
   try {
     if (['installPort', 'installEclipse', 'installTextures', 'build', 'setupGame', 'launchGame', 'updateAndPlay', 'updatePort', 'play', 'playPrevious', 'clean', 'cleanPreview'].includes(method)) closeModal();
     const result = await window.sms[method]();
