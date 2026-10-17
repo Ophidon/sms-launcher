@@ -559,7 +559,30 @@ async function checkTools(refresh = false) {
   return buildTools.check(app.getPath('userData'), { ...toolOptions(), refresh });
 }
 
+// A Windows game folder or build tools too deep for the compiler fail deep
+// into the build with "No such file or directory" for a file that is there.
+// The launcher shows this when it opens, and stops before downloading the
+// tools or building. root defaults to where the next game update builds.
+function pathProblem(root = config.repo && game.snapshotPath(config.installRoot || config.repo, config.settings, currentSource()),
+  settings = config.settings) {
+  if (process.platform !== 'win32' || !root) return null;
+  return port.longPathProblem(root, settings, { portable: Boolean(portableRoot),
+    folder: portableRoot || path.dirname(config.installRoot || config.repo),
+    msys: process.env.SMS_MSYS2_ROOT || path.join(buildTools.rootFor(app.getPath('userData')), 'msys64') });
+}
+
+// The last one that stopped a build, which the launcher shows in place of the
+// next update's: a fresh build's folder is longer.
+let blockedPath = null;
+function requireShortPaths(root, settings) {
+  const problem = blockedPath = pathProblem(root, settings);
+  if (!problem) return;
+  log(problem.message);
+  throw new Error(problem.message);
+}
+
 async function ensureBuildTools() {
+  requireShortPaths();
   if (preparingTools) throw new Error('Wait for build tools to finish preparing.');
   if (active) throw new Error(`Wait for ${active.label} to finish, or stop it first.`);
   const userData = app.getPath('userData');
@@ -723,14 +746,8 @@ async function build(forceFresh = false) {
       throw new Error('The update folder has changed. Choose another setup location in Settings and try again.');
     game.carryUserFiles(original, root);
   }
-  // A path too long for Windows' compiler fails deep into the build with
-  // "No such file or directory": say why before it starts, and again if it fails.
-  const longPath = port.longPathProblem(root, settings, { portable: Boolean(portableRoot) });
-  if (longPath) {
-    log(longPath);
-    if (window) void dialog.showMessageBox(window, { type: 'warning', buttons: ['OK'],
-      message: 'The game folder is too deep for Windows', detail: longPath }).catch(() => {});
-  }
+  // A fresh build's folder is longer than the one ensureBuildTools checked.
+  requireShortPaths(root, settings);
   if (!port.hdVisualsInstalled(root, settings)) await installTextures(root);
   else await updateTextureExtras(root, settings);
   await updateLanguagePack(root, settings);
@@ -742,10 +759,9 @@ async function build(forceFresh = false) {
     ? port.eclipseBuildCommand(root, settings, process.platform, env)
     : port.commandFor(root, 'build', [disc], process.platform, env);
   const result = await game.buildSafely(root, settings, saveDirectory,
-    // A build that fails because antivirus deleted a tool, or in a folder too
-    // deep for Windows, says so instead of CMake's error.
+    // A build that fails because antivirus deleted a tool says so instead of CMake's error.
     () => launch(cmd.command, cmd.args, { cwd: cmd.cwd, env: cmd.env }, settings.eclipse ? 'Build Eclipse port' : 'Build Sunshine port')
-      .catch(error => { throw buildTools.deletedToolsError(app.getPath('userData')) || (longPath && new Error(longPath)) || error; }),
+      .catch(error => { throw buildTools.deletedToolsError(app.getPath('userData')) || error; }),
     undefined, source);
   // Preferences switch only after a successful build. Closing the app or a
   // failed download/build leaves the last installation selected and playable.
@@ -982,7 +998,7 @@ function state() {
   const ready = repoReady && binaryReady();
   const installedBuild = ready ? game.installed(config.repo, config.settings) : null;
   return {
-    config, platform: info, repoReady, portable: Boolean(portableRoot),
+    config, platform: info, repoReady, portable: Boolean(portableRoot), pathProblem: blockedPath || pathProblem(),
     romReady: Boolean(config.rom) && !romError, romError,
     eclipseInstalled: repoReady && fs.existsSync(path.join(config.repo, port.ECLIPSE_ISO)),
     hdVisualsReady: repoReady && port.hdVisualsInstalled(config.repo, config.settings),
@@ -1340,6 +1356,7 @@ function registerHandlers() {
     log(`Restored ${result.restored} memory card file(s) from ${id}.`);
     return result;
   });
+  ipcMain.handle('show-path-folder', () => { const problem = blockedPath || pathProblem(); if (problem) shell.showItemInFolder(problem.folder); });
   ipcMain.handle('open-backups', () => {
     fs.mkdirSync(saves.backupRoot(), { recursive: true, mode: 0o700 });
     return shell.openPath(saves.backupRoot());

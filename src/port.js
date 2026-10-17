@@ -396,15 +396,36 @@ function binaryPath(root, settings, platform = process.platform) {
 // (…-eclipse/eclipse-build/CMakeFiles/eclipse_objs.dir/./<hash>/character_select.cpp.obj.d).
 function windowsPathLimit(settings) { return settings.eclipse ? 130 : 150; }
 
-// Why a Windows build of this game folder will likely fail, or null.
-function longPathProblem(root, settings, { platform = process.platform, portable = false } = {}) {
-  const limit = windowsPathLimit(settings);
-  if (platform !== 'win32' || root.length <= limit) return null;
-  return `The game folder's path is ${root.length} characters long, more than the ${limit} a Windows build of ` +
-    `${settings.eclipse ? 'Super Mario Eclipse' : 'the game'} can use, so the build will likely fail: Windows' compiler can't open ` +
-    `paths of 260 characters or more. ${portable
-      ? 'Move the launcher and its SMS-Launcher-Portable folder together to a short folder such as C:\\Games, and open it from there.'
-      : 'Choose a shorter folder for Setup files in Settings, such as C:\\Games.'}`;
+// The compiler's own headers count too. GCC opens them through its install
+// prefix as is (mingw64/bin/../lib/gcc/x86_64-w64-mingw32/16.2.0/../../../../
+// include/c++/16.2.0/…) and only its errors show the shortened path, so a
+// header that is there fails with "No such file or directory". The deepest
+// one a build includes, …/x86_64-w64-mingw32/bits/messages_members.h, is 123
+// characters below the MSYS2 folder that way; c++config.h, which every C++
+// file includes, 116.
+const WINDOWS_MSYS2_PATH_LIMIT = 136;
+const WINDOWS_MAX_PATH = 259;
+
+// When a Windows build would fail because a path is too long: the folder the
+// player can move (the portable folder) or choose (the one holding the setup
+// files), how long its path is and may be, and what to do; otherwise null.
+// The limit is the tightest of the game folder's and, when they're inside
+// that folder, the MSYS2 build tools'.
+function longPathProblem(root, settings, { platform = process.platform, portable = false,
+  folder = path.win32.dirname(root), msys = '' } = {}) {
+  if (platform !== 'win32' || !root) return null;
+  const inside = file => file.length > folder.length && file.startsWith(folder) && /[\\/]/.test(file[folder.length]);
+  const limit = Math.min(...[[root, windowsPathLimit(settings)], [msys, WINDOWS_MSYS2_PATH_LIMIT]]
+    .filter(([file]) => file && inside(file)).map(([file, most]) => most - (file.length - folder.length)));
+  if (folder.length <= limit) return null;
+  const name = portable ? 'The SMS-Launcher-Portable folder' : 'The folder holding the setup files';
+  const fix = portable
+    ? 'Move the launcher and its SMS-Launcher-Portable folder together to a short folder such as C:\\Games, and open it from there.'
+    : 'Choose a shorter folder for Setup files in Settings, such as C:\\Games.';
+  return { folder, length: folder.length, limit, deepest: WINDOWS_MAX_PATH - limit, portable,
+    message: `${name}'s path is ${folder.length} characters long, more than the ${limit} Windows can build ` +
+      `${settings.eclipse ? 'Super Mario Eclipse' : 'the game'} in, so the build would fail: Windows' compiler can't open paths of ` +
+      `260 characters or more, and the build reaches ${WINDOWS_MAX_PATH - limit} characters deeper than this folder. ${fix}` };
 }
 
 function playableInstall(saved, platform = process.platform) {

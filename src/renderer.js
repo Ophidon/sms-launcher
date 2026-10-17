@@ -794,6 +794,36 @@ function renderMacTools(tools) {
     : tools.checked ? 'Some tools still need to be installed.' : 'Checking tools…';
 }
 
+// A Windows folder too deep to build the game in: the part of its path over
+// the limit is marked, so players see how much shorter it must be.
+function showPathProblem() {
+  const problem = current?.pathProblem;
+  if (!problem) return false;
+  const over = problem.length - problem.limit;
+  $('path-folder-name').textContent = problem.portable ? 'The SMS-Launcher-Portable folder' : 'The folder holding the setup files';
+  $('path-length').textContent = problem.length;
+  $('path-limit').textContent = problem.limit;
+  const mark = document.createElement('mark');
+  mark.textContent = problem.folder.slice(problem.limit);
+  $('path-folder').replaceChildren(problem.folder.slice(0, problem.limit), mark);
+  $('path-over').textContent = `${over} character${over === 1 ? '' : 's'} too long`;
+  $('path-steps').replaceChildren(...(problem.portable ? [
+    'Close the launcher.',
+    'Move the launcher and its SMS-Launcher-Portable folder together to a short folder, such as C:\\Games.',
+    'Open the launcher from there. Your saves, settings and downloads come with it.'
+  ] : ['Open Settings and choose a shorter folder for Setup files, such as C:\\Games.']).map(text => {
+    const item = document.createElement('li');
+    item.textContent = text;
+    return item;
+  }));
+  $('path-why').textContent = `Windows' compiler can't open files whose paths are 260 characters or more, and the build ` +
+    `reaches ${problem.deepest} characters deeper than this folder.`;
+  closeModal();
+  $('path-too-long').showModal();
+  return true;
+}
+$('path-show-folder').addEventListener('click', () => window.sms.showPathFolder().catch(showError));
+
 function showMacHelp() {
   closeModal();
   $('mac-tools-help').showModal();
@@ -825,7 +855,11 @@ async function action(method) {
     if (['installPort', 'chooseRepo'].includes(method) && current.repoReady && current.tools.ready && wizardStep === 1) wizardStep = 2;
     if (method === 'chooseRom' && current.romReady && wizardStep === 2) wizardStep = 3;
     refresh(current);
-  } catch (error) { showError(error); await sync(); }
+  } catch (error) {
+    showError(error);
+    await sync();
+    if (errorText(error) === current.pathProblem?.message) showPathProblem();
+  }
 }
 
 function runWizardAction(method) {
@@ -1481,4 +1515,4 @@ window.smsGamepadNav.start({
 });
 window.sms.windowState().then(renderWindowState).catch(showError);
 setInterval(() => { if (current?.active) renderActivity(current.active); }, 1000);
-sync().then(() => { for (const line of current.logs) appendLog(line); showWhatsNew(); }).catch(showError);
+sync().then(() => { for (const line of current.logs) appendLog(line); if (!showPathProblem()) showWhatsNew(); }).catch(showError);

@@ -276,6 +276,18 @@
       </div>
     </dialog>
 
+    <dialog id="path-too-long" class="launcher-modal path-modal" aria-labelledby="path-too-long-title">
+      <div class="modal-head"><div><p class="eyebrow">CAN'T BUILD HERE</p><h1 id="path-too-long-title">Move the launcher to a shorter folder</h1><p>Windows can't build the game this deep in your folders.</p></div><button class="modal-close" data-close-modal aria-label="Close">×</button></div>
+      <div class="modal-body">
+        <p class="path-summary"><span id="path-folder-name"></span>'s path is <strong id="path-length"></strong> characters long, but the game can only be built in a folder of up to <strong id="path-limit"></strong>.</p>
+        <p class="path-box"><code id="path-folder"></code></p>
+        <p class="path-legend"><span class="path-legend-over" aria-hidden="true"></span><span id="path-over"></span></p>
+        <ol id="path-steps" class="path-steps"></ol>
+        <p id="path-why" class="path-why"></p>
+        <div class="actions path-actions"><button id="path-show-folder" class="subtle">Show in File Explorer</button><button class="solid" data-close-modal>OK</button></div>
+      </div>
+    </dialog>
+
     <section id="activity-log" class="activity-dock" aria-label="Activity log">
       <div class="console-header">
         <button id="toggle-activity-log" class="console-toggle" aria-expanded="false" aria-controls="console-body" title="Show activity log"><svg class="console-symbol" viewBox="0 0 20 20" aria-hidden="true"><path d="m4 5 4 4-4 4m6 0h6"/></svg><strong>Activity log</strong><span id="console-state" class="console-state">Idle</span><svg class="console-chevron" viewBox="0 0 20 20" aria-hidden="true"><path d="m5 12 5-5 5 5"/></svg></button>

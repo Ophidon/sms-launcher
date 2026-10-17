@@ -44,6 +44,7 @@ contextBridge.exposeInMainWorld('sms', {
   },
   restoreSaves: id => ipcRenderer.invoke('restore-saves', id),
   openBackups: () => ipcRenderer.invoke('open-backups'),
+  showPathFolder: () => ipcRenderer.invoke('show-path-folder'),
   saveStates: () => ipcRenderer.invoke('save-states'),
   importSaveState: () => ipcRenderer.invoke('import-save-state'),
   showSaveState: name => ipcRenderer.invoke('show-save-state', name),
