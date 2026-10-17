@@ -656,7 +656,7 @@ function refresh(data) {
     $(key).value = String(config.settings[key]);
   renderVolume();
   renderRanges();
-  for (const key of ['fullscreen', 'invertCameraX', 'invertCameraY', 'freeCamera', 'mouseCamera', 'skipMovies', 'pauseTracker', 'heatHaze', 'overlay', 'fxaa', 'hudEdges', 'textures', 'shaderWarmup', 'cutscenes', 'eclipse', 'autoUpdate', 'shareUsage', 'discordPresence', 'darkMode']) $(key).checked = config.settings[key];
+  for (const key of ['fullscreen', 'invertCameraX', 'invertCameraY', 'freeCamera', 'cstickAim', 'mouseCamera', 'skipMovies', 'pauseTracker', 'heatHaze', 'overlay', 'fxaa', 'hudEdges', 'textures', 'shaderWarmup', 'cutscenes', 'eclipse', 'autoUpdate', 'shareUsage', 'discordPresence', 'darkMode']) $(key).checked = config.settings[key];
   renderTheme();
   keyBindings = config.settings.keyBindings || {};
   padBindings = config.settings.padBindings || {};
@@ -683,7 +683,7 @@ function refresh(data) {
   $('update-channel-field').hidden = data.portable;
   $('update-channel-note').hidden = data.portable;
   renderGameSource(data);
-  for (const key of ['arch', 'widescreen', 'resolution', 'volume', 'frameRate', 'language', 'vsync', 'skipMovies', 'pauseTracker', 'heatHaze', 'overlay', 'fullscreen', 'fullscreenMode', 'exclusiveResolution', 'display', 'invertCameraX', 'invertCameraY', 'freeCamera', 'cameraSpeed', 'mouseCamera', 'mouseSensitivity', 'msaa', 'fxaa', 'anisotropic', 'sharpen', 'brightness', 'aspect', 'presentFilter', 'hudEdges', 'textures', 'textureLoading', 'shaderWarmup', 'cutscenes', 'eclipse', 'autoUpdate', 'shareUsage', 'discordPresence', 'darkMode', 'updateChannel', 'buttonPrompts', 'promptPad', 'graphicsPreset', 'fsrMode'])
+  for (const key of ['arch', 'widescreen', 'resolution', 'volume', 'frameRate', 'language', 'vsync', 'skipMovies', 'pauseTracker', 'heatHaze', 'overlay', 'fullscreen', 'fullscreenMode', 'exclusiveResolution', 'display', 'invertCameraX', 'invertCameraY', 'freeCamera', 'cstickAim', 'cameraSpeed', 'mouseCamera', 'mouseSensitivity', 'msaa', 'fxaa', 'anisotropic', 'sharpen', 'brightness', 'aspect', 'presentFilter', 'hudEdges', 'textures', 'textureLoading', 'shaderWarmup', 'cutscenes', 'eclipse', 'autoUpdate', 'shareUsage', 'discordPresence', 'darkMode', 'updateChannel', 'buttonPrompts', 'promptPad', 'graphicsPreset', 'fsrMode'])
     $(key).disabled = Boolean(data.active);
   // Languages need a game version with language packs. Eclipse has none and plays in English;
   // the chosen language stays for Super Mario Sunshine.
@@ -976,7 +976,7 @@ function settingsValue() {
     frameRate: Number($('frameRate').value), language: $('language').value, fullscreen: $('fullscreen').checked, fullscreenMode: $('fullscreenMode').value,
     exclusiveResolution: $('exclusiveResolution').value, display: $('display').value, vsync: $('vsync').value,
     skipMovies: $('skipMovies').checked, pauseTracker: $('pauseTracker').checked, heatHaze: $('heatHaze').checked, overlay: $('overlay').checked,
-    freeCamera: $('freeCamera').checked, cameraSpeed: Number($('cameraSpeed').value),
+    freeCamera: $('freeCamera').checked, cstickAim: $('cstickAim').checked, cameraSpeed: Number($('cameraSpeed').value),
     mouseCamera: $('mouseCamera').checked, mouseSensitivity: Number($('mouseSensitivity').value),
     msaa: Number($('msaa').value), fxaa: $('fxaa').checked, anisotropic: Number($('anisotropic').value),
     sharpen: Number($('sharpen').value), brightness: Number($('brightness').value), aspect: $('aspect').value,
@@ -1431,7 +1431,7 @@ $('import-save-state').addEventListener('click', async () => {
   } catch (error) { $('save-state-result').textContent = errorText(error); }
 });
 $('open-save-states').addEventListener('click', () => window.sms.openSaveStates().catch(showError));
-for (const key of ['arch', 'widescreen', 'resolution', 'volume', 'frameRate', 'language', 'vsync', 'skipMovies', 'pauseTracker', 'heatHaze', 'overlay', 'fullscreen', 'fullscreenMode', 'exclusiveResolution', 'display', 'invertCameraX', 'invertCameraY', 'freeCamera', 'cameraSpeed', 'mouseCamera', 'mouseSensitivity', 'msaa', 'fxaa', 'anisotropic', 'sharpen', 'brightness', 'aspect', 'presentFilter', 'hudEdges', 'textures', 'textureLoading', 'shaderWarmup', 'cutscenes', 'eclipse', 'autoUpdate', 'shareUsage', 'discordPresence', 'darkMode', 'updateChannel', 'buttonPrompts', 'promptPad', 'hdr', 'hdrCalibration', 'hdrPaperWhite', 'hdrPeak', 'hdrContrast', 'hdrSaturation', 'hdrHighlights', 'fsrMode'])
+for (const key of ['arch', 'widescreen', 'resolution', 'volume', 'frameRate', 'language', 'vsync', 'skipMovies', 'pauseTracker', 'heatHaze', 'overlay', 'fullscreen', 'fullscreenMode', 'exclusiveResolution', 'display', 'invertCameraX', 'invertCameraY', 'freeCamera', 'cstickAim', 'cameraSpeed', 'mouseCamera', 'mouseSensitivity', 'msaa', 'fxaa', 'anisotropic', 'sharpen', 'brightness', 'aspect', 'presentFilter', 'hudEdges', 'textures', 'textureLoading', 'shaderWarmup', 'cutscenes', 'eclipse', 'autoUpdate', 'shareUsage', 'discordPresence', 'darkMode', 'updateChannel', 'buttonPrompts', 'promptPad', 'hdr', 'hdrCalibration', 'hdrPaperWhite', 'hdrPeak', 'hdrContrast', 'hdrSaturation', 'hdrHighlights', 'fsrMode'])
   $(key).addEventListener('change', saveSettings);
 $('volume').addEventListener('input', renderVolume);
 for (const key of ['cameraSpeed', 'mouseSensitivity', 'sharpen', 'brightness']) $(key).addEventListener('input', renderRanges);

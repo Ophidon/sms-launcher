@@ -109,6 +109,8 @@ function normalizeSettings(input = {}, platform = process.platform) {
     invertCameraY: input.invertCameraY !== false,
     // The camera stays where it is put instead of swinging back behind Mario; manual turning speed; mouse look.
     freeCamera: Boolean(input.freeCamera),
+    // The C-stick turns (and aims FLUDD in) the close-up camera Y opens, as well as the control stick.
+    cstickAim: Boolean(input.cstickAim),
     cameraSpeed: numberSetting(input.cameraSpeed, 100, 10, 400),
     mouseCamera: Boolean(input.mouseCamera),
     mouseSensitivity: numberSetting(input.mouseSensitivity, 100, 5, 1000),
@@ -349,6 +351,7 @@ function buildEnvironment(settings, disc, root) {
     SMS_CAMERA_INVERT_X: settings.invertCameraX ? '1' : '0',
     SMS_CAMERA_INVERT_Y: settings.invertCameraY ? '1' : '0',
     SMS_FREE_CAMERA: settings.freeCamera ? '1' : '0',
+    SMS_CLOSE_CAMERA_CSTICK: settings.cstickAim ? '1' : '0',
     SMS_CAMERA_SPEED: String(settings.cameraSpeed ?? 100),
     SMS_MOUSE_CAMERA: settings.mouseCamera ? '1' : '0',
     SMS_MOUSE_SENSITIVITY: String(settings.mouseSensitivity ?? 100),
