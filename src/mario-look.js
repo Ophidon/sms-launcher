@@ -367,35 +367,76 @@ function createViewer(canvas, data) {
     renderer.setSize(width, height, false);
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
+    redraw();  // a new size clears the canvas, even while Mario holds still
   }
   const observer = new ResizeObserver(resize);
   observer.observe(canvas.parentElement);
 
-  let running = false, started = 0, frame = 0;
-  function tick(now) {
-    if (!running) return;
+  // Every frame drawn costs the GPU, and some drivers give out under a steady
+  // load (a Windows 7 PC's launcher GPU process crashed after sitting on
+  // Customize Mario). So Mario idles at the animation's own 30 fps for IDLE_MS
+  // after the player last did something, then holds still (the last frame
+  // stays on the canvas) until they move over him, drag, scroll, press a key or
+  // change something; nothing is animated while the launcher is in the
+  // background, as when the game runs in front of it.
+  const IDLE_MS = 15000;
+  let wanted = false, running = false, started = 0, frame = 0, lastDraw = -Infinity;
+  let lastActive = performance.now(), background = document.hidden;
+  const listening = new AbortController();
+  const draw = now => {
     // requestAnimationFrame times can fall just before start(): wrap, never negative.
     const frames = data.idle.frames;
     frame = (((now - started) / 1000 * data.idle.fps) % frames + frames) % frames;
     pose(frame);
     place();
     renderer.render(scene, camera);
+    lastDraw = now;
+  };
+  function tick(now) {
+    if (!running) return;
+    if (!wanted || background || now - lastActive > IDLE_MS) { running = false; return; }
+    if (dragging || now - lastDraw >= 1000 / data.idle.fps - 2) draw(now);
     requestAnimationFrame(tick);
   }
+  function wake() {
+    lastActive = performance.now();
+    if (!wanted || running || background || disposed) return;
+    running = true;
+    started = performance.now() - frame / data.idle.fps * 1000;
+    requestAnimationFrame(tick);
+  }
+  // One frame for a change made while Mario holds still (or in the background,
+  // as while the system colour picker is open).
+  let redrawQueued = false;
+  function redraw() {
+    wake();
+    if (running || redrawQueued || disposed) return;
+    redrawQueued = true;
+    requestAnimationFrame(now => {
+      redrawQueued = false;
+      if (!disposed) draw(started + frame / data.idle.fps * 1000);
+    });
+  }
+  for (const type of ['pointerdown', 'pointermove', 'wheel', 'keydown', 'dblclick'])
+    canvas.addEventListener(type, wake, { passive: true });
+  window.addEventListener('blur', () => { background = true; }, { signal: listening.signal });
+  window.addEventListener('focus', () => { background = false; wake(); }, { signal: listening.signal });
+  document.addEventListener('visibilitychange', () => { background = document.hidden; wake(); }, { signal: listening.signal });
 
   return {
     start() {
-      if (running) return;
-      running = true;
-      started = performance.now() - frame / data.idle.fps * 1000;
+      wanted = true;
       resize();
-      requestAnimationFrame(tick);
+      wake();
+      redraw();
     },
-    stop() { running = false; },
+    stop() { wanted = false; running = false; },
     // Frees every GPU resource and the WebGL context itself.
     dispose() {
       disposed = true;
       running = false;
+      wanted = false;
+      listening.abort();
       observer.disconnect();
       scene.traverse(object => {
         if (!object.isMesh) return;
@@ -412,12 +453,17 @@ function createViewer(canvas, data) {
         Colors.recolor(source, data.references, colors, pixels);
         texture.needsUpdate = true;
       }
+      redraw();
     },
-    setAloha(on) { for (const { shape, mesh } of body.meshes) if (shape.part === 'aloha') mesh.visible = on; },
+    setAloha(on) {
+      for (const { shape, mesh } of body.meshes) if (shape.part === 'aloha') mesh.visible = on;
+      redraw();
+    },
     setFludd(on, nozzle) {
       fludd.on = on;
       fludd.nozzle = nozzles[nozzle] ? nozzle : 'spray';
       showFludd();
+      redraw();
     },
   };
 }
