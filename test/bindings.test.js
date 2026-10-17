@@ -92,3 +92,18 @@ test('two controller buttons held together are one binding, written as the game 
   assert.ok(lines.includes('SAVE_STATE = F5 PAD_BACK+PAD_Y'));
   assert.ok(lines.includes('LOAD_STATE = F6'));
 });
+
+test('mouse buttons bind as keys, by MouseEvent.button, under the names the game reads', () => {
+  assert.equal(bindings.keyFromMouse(0), 'MOUSE_LEFT');
+  assert.equal(bindings.keyFromMouse(1), 'MOUSE_MIDDLE');
+  assert.equal(bindings.keyFromMouse(2), 'MOUSE_RIGHT');
+  assert.equal(bindings.keyFromMouse(3), 'MOUSE_BACK');
+  assert.equal(bindings.keyFromMouse(4), 'MOUSE_FORWARD');
+  assert.equal(bindings.keyFromMouse(5), null);
+  assert.deepEqual(bindings.normalize({ A: ['SPACE', 'MOUSE_LEFT', 'MOUSE_BOGUS'] }), { A: ['SPACE', 'MOUSE_LEFT'] });
+  assert.ok(bindings.fileText({ B: ['MOUSE_RIGHT'] }).includes('\nB = MOUSE_RIGHT\n'));
+  assert.equal(bindings.keyLabel('MOUSE_LEFT'), 'Left click');
+  assert.equal(bindings.keyLabel('KP_8'), 'KP 8');
+  assert.ok(bindings.isMouse('MOUSE_BACK'));
+  assert.ok(!bindings.isMouse('SPACE'));
+});

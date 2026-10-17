@@ -67,6 +67,9 @@
     PERIOD: '.', SLASH: '/', KP_DIVIDE: 'Num/', KP_MULTIPLY: 'Num*', KP_MINUS: 'Num-', KP_PLUS: 'Num+', KP_ENTER: 'NumEnt'
   };
   function keyLabel(key) { return KEY_LABELS[key] || key.replace(/^KP_/, 'Num'); }
+  // A key cap, or for a mouse button (MOUSE_LEFT ...) a mouse with that button dark.
+  const MOUSE = { MOUSE_LEFT: 'left', MOUSE_MIDDLE: 'middle', MOUSE_RIGHT: 'right', MOUSE_BACK: 'back', MOUSE_FORWARD: 'forward' };
+  function keyIcon(key) { return MOUSE[key] ? { kind: 'mouse', button: MOUSE[key] } : { kind: 'key', text: keyLabel(key) }; }
 
   // A controller button as that style shows it.
   function padIcon(style, pad) {
@@ -82,7 +85,7 @@
   function saveStateIcon(style, part, keyBindings, padBindings) {
     if (style === 'keyboard') {
       const key = (bindings.keysFor(keyBindings, 'SAVE_STATE')[0] || '').split('+')[part];
-      return key ? { kind: 'key', text: keyLabel(key) } : { kind: 'empty' };
+      return key ? keyIcon(key) : { kind: 'empty' };
     }
     const pad = (bindings.padsFor(padBindings, 'SAVE_STATE')[0] || '').split('+')[part];
     return pad ? padIcon(style, pad) : { kind: 'empty' };
@@ -96,11 +99,11 @@
       if (glyph === 'CSTICK') {
         if (options.mouseCamera) return { kind: 'mouse' };
         const keys = ['CSTICK_UP', 'CSTICK_LEFT', 'CSTICK_DOWN', 'CSTICK_RIGHT'].map(id => bindings.keysFor(keyBindings, id)[0]);
-        if (keys.every(key => key && keyLabel(key).length === 1)) return { kind: 'key', text: keys.map(keyLabel).join('') };
-        return keys[0] ? { kind: 'key', text: keyLabel(keys[0]) } : { kind: 'none', text: 'C' };
+        if (keys.every(key => key && !MOUSE[key] && keyLabel(key).length === 1)) return { kind: 'key', text: keys.map(keyLabel).join('') };
+        return keys[0] ? keyIcon(keys[0]) : { kind: 'none', text: 'C' };
       }
       const key = bindings.keysFor(keyBindings, glyph)[0];
-      return key ? { kind: 'key', text: keyLabel(key) } : { kind: 'none', text: glyph };
+      return key ? keyIcon(key) : { kind: 'none', text: glyph };
     }
     if (glyph === 'CSTICK') return { kind: 'stick', text: style === 'xbox' ? 'RS' : 'R' };
     const pad = bindings.padsFor(padBindings, glyph)[0];
@@ -202,9 +205,19 @@
     case 'empty':
       break;
     case 'mouse':
+      // a side button sticks out of the mouse's left side: forward above back
+      if (item.button === 'back' || item.button === 'forward') {
+        roundRect(ctx, x + 10, item.button === 'forward' ? 28 : 42, 10, 12, 3); outlined(ctx, '#1b1f24', '#1b1f24');
+      }
       roundRect(ctx, x + 16, 4, 32, 56, 16); outlined(ctx, '#f2f4f6', '#1b1f24');
+      if (item.button === 'left' || item.button === 'right') {
+        ctx.save(); roundRect(ctx, x + 16, 4, 32, 56, 16); ctx.clip();
+        ctx.fillStyle = '#1b1f24'; ctx.fillRect(item.button === 'left' ? x + 16 : cx, 4, 16, 20);
+        ctx.restore();
+      }
       ctx.beginPath(); ctx.moveTo(cx, 6); ctx.lineTo(cx, 24); ctx.moveTo(x + 17, 24); ctx.lineTo(x + 47, 24);
       ctx.lineWidth = 3; ctx.strokeStyle = '#1b1f24'; ctx.stroke();
+      if (item.button === 'middle') { roundRect(ctx, cx - 4, 8, 8, 13, 4); ctx.fillStyle = '#1b1f24'; ctx.fill(); }
       break;
     default:
       ctx.beginPath(); ctx.arc(cx, cy, 25, 0, Math.PI * 2); outlined(ctx, '#7b828c');
