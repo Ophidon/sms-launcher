@@ -519,15 +519,19 @@ function gameRunCommand(root, settings, disc, platform = process.platform, envir
       args: ['--library-path', environment.SMS_LINUX32_LIBRARY_PATH, binary, disc], cwd: root,
       env: { ...environment, SMS_GAME_EXECUTABLE: binary } };
   if (platform !== 'win32') return { command: binary, args: [disc], cwd: root, env: environment };
-  const msys = environment.MSYS2_ROOT || 'C:\\msys64';
-  const runtime = settings.arch === '32' ? 'mingw32' : 'mingw64';
-  const bins = settings.arch === '32' && environment.SMS_WINDOWS_32_CROSS
-    ? [path.join(msys, 'opt', 'i686-w64-mingw32', 'bin'), path.join(msys, runtime, 'bin')]
-    : [path.join(msys, runtime, 'bin')];
   return {
     command: binary, args: [disc], cwd: root,
-    env: prependWindowsPath(environment, bins)
+    env: prependWindowsPath(environment, gameRuntimeFolders(settings, environment))
   };
+}
+
+// Where the Windows game's DLLs come from: the runtime of the compiler that built it.
+function gameRuntimeFolders(settings, environment = process.env) {
+  const msys = environment.MSYS2_ROOT || 'C:\\msys64';
+  const runtime = settings.arch === '32' ? 'mingw32' : 'mingw64';
+  return settings.arch === '32' && environment.SMS_WINDOWS_32_CROSS
+    ? [path.join(msys, 'opt', 'i686-w64-mingw32', 'bin'), path.join(msys, runtime, 'bin')]
+    : [path.join(msys, runtime, 'bin')];
 }
 
 function eclipseRunCommand(...args) { return gameRunCommand(...args); }
@@ -537,4 +541,4 @@ module.exports = { PORT_URL, ECLIPSE_ISO, platformInfo, isPort, validateRom, nor
   LANGUAGES, LANGUAGE_PACKS, gameLanguage, languagePackDirectory, languagePacksSupported, languageAvailable, languageChoices,
   languagePackInstalled, languagePackWanted,
   cutscenePackDirectory, cutscenePackInstalled, cutscenePackSupported, cutscenePackRequirements, wantsCutscenes, hdVisualsInstalled, buildEnvironment, gameDisc, binaryPath,
-  commandFor, eclipseBuildCommand, eclipseRunCommand, playableInstall, windowsPathLimit, longPathProblem };
+  commandFor, eclipseBuildCommand, eclipseRunCommand, gameRuntimeFolders, playableInstall, windowsPathLimit, longPathProblem };

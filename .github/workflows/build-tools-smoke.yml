@@ -56,6 +56,8 @@ jobs:
       - run: node scripts/smoke-build-tools.js
         env:
           SMS_SMOKE_ARCHES: ${{ matrix.arches }}
+          # Older same-named DLLs in System32, as some players have.
+          SMS_SMOKE_SYSTEM32_DECOYS: ${{ runner.os == 'Windows' && '1' || '' }}
       - name: Verify a warm compiler cache hit
         if: runner.os == 'Windows'
         shell: pwsh

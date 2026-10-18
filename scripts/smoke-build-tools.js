@@ -8,6 +8,7 @@ const path = require('node:path');
 const buildTools = require('../src/build-tools');
 const port = require('../src/port');
 const game = require('../src/game-version');
+const windowsDlls = require('../src/windows-dlls');
 const { execFileSync, spawnSync } = require('node:child_process');
 const capture = async (command, args, cwd, env) => execFileSync(command, args, { cwd, env, encoding: 'utf8' }).trim();
 const { run, runMain } = require('./tool-run');
@@ -25,6 +26,53 @@ function executableType(file) {
       throw new Error(`Not a native executable: ${file}`);
     return { bits: pe.readUInt16LE(24) === 0x20b ? '64' : '32', machine: pe.readUInt16LE(4), pe };
   } finally { fs.closeSync(fd); }
+}
+
+// Some players' System32 holds older DLLs named like the build tools' own
+// (libwinpthread-1.dll, zlib1.dll...), which Windows loads before the PATH's:
+// GCC then fails without a message. A real system DLL under those names stands
+// in for them, so the build and the game must get past them as the launcher's do.
+const DECOYS = {
+  System32: ['libwinpthread-1.dll', 'libgcc_s_seh-1.dll', 'zlib1.dll', 'libzstd.dll', 'libstdc++-6.dll', 'SDL2.dll'],
+  SysWOW64: ['libwinpthread-1.dll', 'libgcc_s_dw2-1.dll', 'libstdc++-6.dll', 'SDL2.dll']
+};
+
+function plantSystemDecoys() {
+  const planted = [];
+  process.on('exit', () => { for (const file of planted) fs.rmSync(file, { force: true }); });
+  for (const [folder, names] of Object.entries(DECOYS)) {
+    const directory = path.join(process.env.SystemRoot, folder);
+    for (const name of names.filter(name => !fs.existsSync(path.join(directory, name)))) {
+      fs.copyFileSync(path.join(directory, 'version.dll'), path.join(directory, name));
+      planted.push(path.join(directory, name));
+    }
+  }
+  process.stdout.write(`Planted stand-in system DLLs: ${planted.join(', ')}\n`);
+  return planted;
+}
+
+// What the launcher does before each build (main.js shieldBuildTools), with a
+// check first that the stand-ins really break the compiler the way they do for players.
+function shieldBuildTools(toolRoot, env, planted) {
+  const msys = path.join(toolRoot, 'msys64');
+  if (planted.length) {
+    const probe = path.join(os.tmpdir(), 'sms-system-dll-probe.c');
+    fs.writeFileSync(probe, 'int main(void) { return 0; }\n');
+    const broken = spawnSync(path.join(msys, 'mingw64', 'bin', 'gcc.exe'), ['-c', probe, '-o', `${probe}.o`],
+      { env, timeout: 60000, windowsHide: true, encoding: 'utf8' });
+    if (broken.status === 0) throw new Error('The stand-in system DLLs did not break the unshielded compiler.');
+    const found = windowsDlls.shieldToolchain(msys, { place: false }).conflicts.map(file => path.basename(file).toLowerCase());
+    for (const name of ['libwinpthread-1.dll', 'zlib1.dll'])
+      if (!found.includes(name)) throw new Error(`The launcher did not find the stand-in ${name}: ${found.join(', ')}`);
+  }
+  const result = windowsDlls.shieldToolchain(msys);
+  if (result.errors.length) throw new Error(`Could not shield the build tools: ${result.errors.join('; ')}`);
+  process.stdout.write(`Build tools' own DLLs placed beside their programs: ${result.placed.join(', ') || 'none needed'}\n`);
+}
+
+function shieldGameProgram(program, settings, env) {
+  const result = windowsDlls.shield([program], port.gameRuntimeFolders(settings, env));
+  if (result.errors.length) throw new Error(`Could not shield ${program}: ${result.errors.join('; ')}`);
 }
 
 async function main() {
@@ -46,6 +94,10 @@ async function main() {
   });
   if (buildTools.status(userData).mode !== 'private') throw new Error('Private tools were not prepared.');
   const toolRoot = buildTools.rootFor(userData);
+  if (process.platform === 'win32') {
+    const planted = process.env.SMS_SMOKE_SYSTEM32_DECOYS === '1' ? plantSystemDecoys() : [];
+    shieldBuildTools(toolRoot, buildTools.environment(userData, { ...process.env, SMS_ARCH: '64' }), planted);
+  }
   // Configure the self-tests with the game, so checking them needs no second
   // configure (on Windows that reapplies every decomp patch, almost two minutes).
   // Game revisions whose build.sh ignores it are reconfigured below.
@@ -126,6 +178,7 @@ async function main() {
           throw new Error('The Windows x64 game image must stay below 4 GiB.');
         const cmake = path.join(env.MSYS2_ROOT, 'mingw64', 'bin', 'cmake.exe');
         await run(cmake, ['--build', path.dirname(binary), '--target', 'sms_windows_stack_test'], { cwd: root, env });
+        shieldGameProgram(path.join(path.dirname(binary), 'sms_windows_stack_test.exe'), settings, env);
         await run(path.join(path.dirname(binary), 'sms_windows_stack_test.exe'), [], { cwd: root, env },
           'Check Windows x64 game stacks and thread exits');
       }
@@ -137,6 +190,7 @@ async function main() {
     fs.writeFileSync(invalidDisc, Buffer.alloc(32));
     const startEnv = { ...env, SMS_GAME_EXECUTABLE: binary,
       SMS_SAVE_DIR: path.join(userData, 'test-saves'), SMS_DISC_IMAGE: invalidDisc };
+    if (process.platform === 'win32') shieldGameProgram(binary, settings, env);
     const launch = process.platform === 'win32'
       ? port.commandFor(root, 'run', [invalidDisc], process.platform, startEnv)
       : { command: loader || binary,
@@ -160,6 +214,7 @@ async function main() {
     await run(cmake, ['--build', path.dirname(binary), '--target', 'gx_windowtest', '--parallel', '2'], { cwd: root, env });
     const windowTest = path.join(path.dirname(binary), 'platform', 'gx', process.platform === 'win32' ? 'gx_windowtest.exe' : 'gx_windowtest');
     if (process.platform === 'win32') {
+      shieldGameProgram(windowTest, settings, env);
       await run(path.join(env.MSYS2_ROOT, 'usr', 'bin', 'bash.exe'),
         ['-c', '"$(cygpath -u "$1")"', 'sms-window-check', windowTest], { cwd: root, env }, 'Verify game window placement');
     } else {
