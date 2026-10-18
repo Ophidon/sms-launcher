@@ -61,3 +61,10 @@ test('the strips end with the save state binding, for the pause menu\'s hint', (
     [{ kind: 'pill', text: 'R3' }, { kind: 'empty' }]);
 });
 
+
+test('keyboard prompts draw a bound mouse button as the mouse with that button', () => {
+  assert.deepEqual(prompts.icon('keyboard', 'A', { A: ['MOUSE_LEFT', 'SPACE'] }, {}), { kind: 'mouse', button: 'left' });
+  assert.deepEqual(prompts.icon('keyboard', 'B', { B: ['MOUSE_FORWARD'] }, {}), { kind: 'mouse', button: 'forward' });
+  assert.deepEqual(prompts.icon('keyboard', 'CSTICK', { CSTICK_UP: ['MOUSE_MIDDLE'] }, {}), { kind: 'mouse', button: 'middle' });
+  assert.deepEqual(prompts.icon('keyboard', 'SAVE_STATE_1', { SAVE_STATE: ['MOUSE_RIGHT'] }, {}), { kind: 'mouse', button: 'right' });
+});
