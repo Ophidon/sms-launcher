@@ -8,7 +8,8 @@
       "Skip intro: turn it on under Gameplay to start the game at the title screen, without the Nintendo and Dolby logos or the opening movie.",
       "Customize Mario no longer keeps your graphics card busy while you leave it open: Mario holds still after 15 seconds untouched and while the launcher is in the background, and moves again when you point at him. On some older PCs, leaving it open made the launcher's graphics stop working.",
       "Windows: when the launcher's folder is too deep for Windows to build the game in, as with a portable launcher kept inside another app's folder, it now says so as soon as it opens and again whenever you try to set up, update or build the game, marks how much of the path is too long and how to fix it, and stops before downloading the build tools instead of the build failing with \"No such file or directory\".",
-      "Mouse buttons can now be bound under Settings → Controls: choose Change or Add, then click the left, right, middle or a side mouse button, and the game reads it like a key."
+      "Mouse buttons can now be bound under Settings → Controls: choose Change or Add, then click the left, right, middle or a side mouse button, and the game reads it like a key.",
+      "Windows: fixed builds failing with \"The C compiler is not able to compile a simple test program\", and the game then not starting with \"DLL entry point not found\", on PCs where another program put older copies of DLLs like libwinpthread-1.dll or zlib1.dll in System32. The build tools and the game now always load their own copies, and the activity log says when Windows has others."
     ],
     "game": [
       "Pause menu tracker: the pause menu shows how many of an area's Shine Sprites and blue coins you have, out of all there are, starting with the area you're in; L and R switch to the other areas you've been to.",

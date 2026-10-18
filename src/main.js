@@ -9,6 +9,7 @@ const port = require('./port');
 const saves = require('./saves');
 const gciSave = require('./gci-save');
 const buildTools = require('./build-tools');
+const windowsDlls = require('./windows-dlls');
 const game = require('./game-version');
 const updateChannel = require('./update-channel');
 const steam = require('./steam');
@@ -517,7 +518,7 @@ async function launch(command, args, options = {}, label = 'Task', isGame = fals
     broadcast('activity', activityState());
     if (error) throw error;
     if (code !== 0 || signal) {
-      throw new Error(failureMessage(label, { code, signal }, recent, { game: isGame }));
+      throw Object.assign(new Error(failureMessage(label, { code, signal }, recent, { game: isGame })), { exitCode: code });
     }
     log(`✓ ${label} finished`);
     return { ok: true };
@@ -582,6 +583,61 @@ function requireShortPaths(root, settings) {
 }
 
 async function ensureBuildTools() {
+  await prepareBuildTools();
+  shieldBuildTools();
+}
+
+// Another program's same-named DLLs in System32 stand in for the build tools'
+// own (windows-dlls.js): the compiler then fails without a message, which
+// CMake reports as "not able to compile a simple test program". The prepared
+// tools get their DLLs beside each program that needs them; a player's own
+// MSYS2 is left as it is, with the cause in the activity log.
+let ownToolsWarned = false;
+function shieldBuildTools() {
+  if (process.platform !== 'win32') return;
+  const own = toolsStatus().mode === 'own';
+  if (own && ownToolsWarned) return;
+  const msys = own ? process.env.SMS_MSYS2_ROOT : path.join(buildTools.rootFor(app.getPath('userData')), 'msys64');
+  const result = windowsDlls.shieldToolchain(msys, { place: !own });
+  for (const error of result.errors) log(`Could not give the build tools their own DLL: ${error}`);
+  if (!result.conflicts.length) return;
+  if (own) {
+    ownToolsWarned = true;
+    log(`Windows has its own copies of ${systemDllList(result.conflicts)}, which your MSYS2's compiler loads instead of MSYS2's. ` +
+      'If the build says the compiler is not able to compile a simple test program, remove SMS_MSYS2_ROOT to use the prepared build tools.');
+  } else if (result.placed.length) {
+    log(`Windows has its own copies of ${systemDllList(result.conflicts)}. The build tools now use theirs instead.`);
+  }
+}
+
+// The game loads its DLLs the same way: from its build folder before System32.
+function shieldGame(root, settings, env) {
+  if (process.platform !== 'win32') return;
+  const result = windowsDlls.shield([port.binaryPath(root, settings)], port.gameRuntimeFolders(settings, env));
+  for (const error of result.errors) log(`Could not give the game its own DLL: ${error}`);
+  if (result.conflicts.length && result.placed.length)
+    log(`Windows has its own copies of ${systemDllList(result.conflicts)}. The game now uses the ones it was built with.`);
+}
+
+// Windows stops a program before it starts when a DLL it needs is missing,
+// lacks a function or fails to load, and says which only in a dialog.
+const DLL_FAILURES = new Set([0xC0000135, 0xC0000139, 0xC0000142]);
+function explainDllFailure(error, root, settings, env) {
+  if (process.platform !== 'win32' || !Number.isInteger(error.exitCode) || !DLL_FAILURES.has(error.exitCode >>> 0)) return;
+  const binary = port.binaryPath(root, settings);
+  const { conflicts } = windowsDlls.shield([binary], port.gameRuntimeFolders(settings, env), { place: false });
+  log('The game could not load one of its DLLs.' +
+    (conflicts.length ? ` Windows has its own copies of ${systemDllList(conflicts)}; the game has its own beside it.` : '') +
+    ` To see which DLL Windows means, open ${path.dirname(binary)} and double-click ${path.basename(binary)}, then send what it says with the activity log.`);
+}
+
+function systemDllList(files) {
+  const names = [...new Set(files.map(file => path.basename(file)))];
+  const folders = [...new Set(files.map(file => path.dirname(file)))];
+  return `${names.join(', ')} in ${folders.join(' and ')}`;
+}
+
+async function prepareBuildTools() {
   requireShortPaths();
   if (preparingTools) throw new Error('Wait for build tools to finish preparing.');
   if (active) throw new Error(`Wait for ${active.label} to finish, or stop it first.`);
@@ -763,6 +819,8 @@ async function build(forceFresh = false) {
     () => launch(cmd.command, cmd.args, { cwd: cmd.cwd, env: cmd.env }, settings.eclipse ? 'Build Eclipse port' : 'Build Sunshine port')
       .catch(error => { throw buildTools.deletedToolsError(app.getPath('userData')) || error; }),
     undefined, source);
+  // Ready for sms-standalone.exe, which players can also start from Explorer.
+  shieldGame(root, settings, env);
   // Preferences switch only after a successful build. Closing the app or a
   // failed download/build leaves the last installation selected and playable.
   const earlier = { ...config };
@@ -814,6 +872,7 @@ async function displayInfo() {
   const recordedTools = game.toolRoot(root, settings);
   const base = { ...process.env, SMS_ARCH: settings.arch };
   const env = recordedTools ? buildTools.environmentAtRoot(recordedTools, base) : toolEnv(base);
+  shieldGame(root, settings, env);
   const cmd = port.commandFor(root, 'run', ['--display-info'], process.platform, env);
   const stdout = await new Promise(resolve => execFile(cmd.command, cmd.args,
     { cwd: cmd.cwd, env: cmd.env, timeout: 15000, windowsHide: true }, (_error, out) => resolve(String(out || ''))));
@@ -838,6 +897,7 @@ async function play(installation = null) {
   const env = recordedTools
     ? buildTools.environmentAtRoot(recordedTools, { ...port.buildEnvironment(settings, disc, root), SMS_SAVE_DIR: saveDir })
     : toolEnv({ ...port.buildEnvironment(settings, disc, root), SMS_SAVE_DIR: saveDir });
+  shieldGame(root, settings, env);
   // Changed keys go to a file of the launcher's own, so a bindings.txt kept by hand in the game folder is left alone.
   if (Object.keys(settings.keyBindings || {}).length || Object.keys(settings.padBindings || {}).length) {
     const file = path.join(app.getPath('userData'), 'bindings.txt');
@@ -863,6 +923,9 @@ async function play(installation = null) {
   startPresence(startedAt, settings.eclipse);
   try {
     return await launch(cmd.command, cmd.args, { cwd: cmd.cwd, env: cmd.env }, 'Play Super Mario Sunshine', true);
+  } catch (error) {
+    explainDllFailure(error, root, settings, env);
+    throw error;
   } finally {
     stopPresence(startedAt);
     try { makeSaveBackup('after-play'); }
