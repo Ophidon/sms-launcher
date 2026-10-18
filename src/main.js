@@ -797,8 +797,8 @@ async function setupGame() {
 }
 
 const PLAYER_SETTINGS = [
-  'volume', 'invertCameraX', 'invertCameraY', 'keyBindings', 'padBindings', 'softTrigger', 'rumbleStrength', 'freeCamera', 'cameraSpeed', 'mouseCamera',
-  'mouseSensitivity', 'skipMovies', 'language', 'heatHaze', 'pauseTracker', 'buttonPrompts', 'promptPad', 'hdr', 'hdrCalibration', 'hdrPaperWhite', 'hdrPeak', 'hdrContrast', 'hdrSaturation', 'hdrHighlights', 'overlay', 'fullscreenMode', 'exclusiveResolution', 'display', 'vsync',
+  'volume', 'invertCameraX', 'invertCameraY', 'keyBindings', 'padBindings', 'softTrigger', 'rumbleStrength', 'freeCamera', 'cstickAim', 'cameraSpeed', 'mouseCamera',
+  'mouseSensitivity', 'skipMovies', 'skipIntro', 'language', 'heatHaze', 'pauseTracker', 'buttonPrompts', 'promptPad', 'hdr', 'hdrCalibration', 'hdrPaperWhite', 'hdrPeak', 'hdrContrast', 'hdrSaturation', 'hdrHighlights', 'overlay', 'fullscreenMode', 'exclusiveResolution', 'display', 'vsync',
   'msaa', 'fxaa', 'anisotropic', 'sharpen', 'fsrMode', 'brightness', 'aspect', 'presentFilter'
 ];
 function promptDirectory() { return path.join(app.getPath('userData'), 'prompts'); }

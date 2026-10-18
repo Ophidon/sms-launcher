@@ -72,13 +72,14 @@ $('rumbleStrength').addEventListener('change', () => saveSettings());
 function bindingNote() {
   return bindingMode === 'controller'
     ? 'Choose Change, then press a button on your controller, or hold two together. Esc cancels. The sticks always move the sticks.'
-    : 'Choose Change, then press a key. Esc cancels.';
+    : 'Choose Change, then press a key or click a mouse button. Esc cancels.';
 }
 
 function stopCapture() {
   if (!capture) return;
   capture = null;
   window.removeEventListener('keydown', captureKey, true);
+  window.removeEventListener('mousedown', captureMouse, true);
   cancelAnimationFrame(padPoll);
   $('binding-note').textContent = bindingNote();
   renderBindings();
@@ -121,21 +122,44 @@ function captureKey(event) {
   event.preventDefault();
   event.stopPropagation();
   if (event.repeat) return;
-  const { id, add } = capture;
   if (event.code === 'Escape' && !event.shiftKey) { stopCapture(); return; }
   if (bindingMode === 'controller') return;  // waiting for a controller button
   const key = SmsBindings.keyFromCode(event.code);
   if (!key) { $('binding-note').textContent = 'The game cannot read that key. Try another, or Esc to cancel.'; return; }
+  bindKey(key);
+}
+
+// The click that sets a mouse button binding does nothing else: not the button under the pointer, nor a menu.
+function swallowClick(event) { event.preventDefault(); event.stopPropagation(); }
+function swallowNextClicks() {
+  const types = ['mouseup', 'click', 'auxclick', 'contextmenu'];
+  for (const type of types) window.addEventListener(type, swallowClick, true);
+  setTimeout(() => { for (const type of types) window.removeEventListener(type, swallowClick, true); }, 600);
+}
+
+function bindKey(key) {
+  const { id, add } = capture;
   const keys = add ? [...SmsBindings.keysFor(keyBindings, id).filter(item => item !== key), key] : [key];
   keyBindings = SmsBindings.normalize({ ...keyBindings, [id]: keys });
   stopCapture();
   saveSettings();
 }
 
+// A mouse button binds as a key does (the game reads MOUSE_LEFT ... as keys).
+function captureMouse(event) {
+  const key = SmsBindings.keyFromMouse(event.button);
+  if (!key) return;
+  event.preventDefault();
+  event.stopPropagation();
+  swallowNextClicks();
+  bindKey(key);
+}
+
 function startCapture(id, add) {
   stopCapture();
   capture = { id, add };
   window.addEventListener('keydown', captureKey, true);
+  if (bindingMode === 'keyboard') window.addEventListener('mousedown', captureMouse, true);
   if (bindingMode === 'controller') {
     if (![...(navigator.getGamepads ? navigator.getGamepads() : [])].some(Boolean))
       $('binding-note').textContent = 'No controller found yet. Connect one and press any button on it, or press Esc to cancel.';
@@ -217,8 +241,9 @@ function renderBindings() {
     const keys = document.createElement('span'); keys.className = 'binding-keys';
     const what = controller ? 'button' : 'key';
     const items = controller ? SmsBindings.padsFor(padBindings, id).map(SmsBindings.padLabel)
-      : SmsBindings.keysFor(keyBindings, id).map(key => key.replace('_', ' '));
-    if (capture?.id === id) keys.textContent = capture.add ? `Press a ${what} to add…` : controller ? 'Press a button, or two together…' : `Press a ${what}…`;
+      : SmsBindings.keysFor(keyBindings, id).map(SmsBindings.keyLabel);
+    const press = controller ? 'a button' : 'a key or mouse button';
+    if (capture?.id === id) keys.textContent = capture.add ? `Press ${press} to add…` : controller ? 'Press a button, or two together…' : `Press ${press}…`;
     else if (!items.length) { keys.textContent = 'None'; keys.classList.add('binding-none'); }
     else keys.replaceChildren(...items.map(text => {
       const item = document.createElement('kbd'); item.textContent = text; return item;
@@ -656,7 +681,7 @@ function refresh(data) {
     $(key).value = String(config.settings[key]);
   renderVolume();
   renderRanges();
-  for (const key of ['fullscreen', 'invertCameraX', 'invertCameraY', 'freeCamera', 'mouseCamera', 'skipMovies', 'pauseTracker', 'heatHaze', 'overlay', 'fxaa', 'hudEdges', 'textures', 'shaderWarmup', 'cutscenes', 'eclipse', 'autoUpdate', 'shareUsage', 'discordPresence', 'darkMode']) $(key).checked = config.settings[key];
+  for (const key of ['fullscreen', 'invertCameraX', 'invertCameraY', 'freeCamera', 'cstickAim', 'mouseCamera', 'skipMovies', 'skipIntro', 'pauseTracker', 'heatHaze', 'overlay', 'fxaa', 'hudEdges', 'textures', 'shaderWarmup', 'cutscenes', 'eclipse', 'autoUpdate', 'shareUsage', 'discordPresence', 'darkMode']) $(key).checked = config.settings[key];
   renderTheme();
   keyBindings = config.settings.keyBindings || {};
   padBindings = config.settings.padBindings || {};
@@ -683,7 +708,7 @@ function refresh(data) {
   $('update-channel-field').hidden = data.portable;
   $('update-channel-note').hidden = data.portable;
   renderGameSource(data);
-  for (const key of ['arch', 'widescreen', 'resolution', 'volume', 'frameRate', 'language', 'vsync', 'skipMovies', 'pauseTracker', 'heatHaze', 'overlay', 'fullscreen', 'fullscreenMode', 'exclusiveResolution', 'display', 'invertCameraX', 'invertCameraY', 'freeCamera', 'cameraSpeed', 'mouseCamera', 'mouseSensitivity', 'msaa', 'fxaa', 'anisotropic', 'sharpen', 'brightness', 'aspect', 'presentFilter', 'hudEdges', 'textures', 'textureLoading', 'shaderWarmup', 'cutscenes', 'eclipse', 'autoUpdate', 'shareUsage', 'discordPresence', 'darkMode', 'updateChannel', 'buttonPrompts', 'promptPad', 'graphicsPreset', 'fsrMode'])
+  for (const key of ['arch', 'widescreen', 'resolution', 'volume', 'frameRate', 'language', 'vsync', 'skipMovies', 'skipIntro', 'pauseTracker', 'heatHaze', 'overlay', 'fullscreen', 'fullscreenMode', 'exclusiveResolution', 'display', 'invertCameraX', 'invertCameraY', 'freeCamera', 'cstickAim', 'cameraSpeed', 'mouseCamera', 'mouseSensitivity', 'msaa', 'fxaa', 'anisotropic', 'sharpen', 'brightness', 'aspect', 'presentFilter', 'hudEdges', 'textures', 'textureLoading', 'shaderWarmup', 'cutscenes', 'eclipse', 'autoUpdate', 'shareUsage', 'discordPresence', 'darkMode', 'updateChannel', 'buttonPrompts', 'promptPad', 'graphicsPreset', 'fsrMode'])
     $(key).disabled = Boolean(data.active);
   // Languages need a game version with language packs. Eclipse has none and plays in English;
   // the chosen language stays for Super Mario Sunshine.
@@ -975,8 +1000,8 @@ function settingsValue() {
     arch: $('arch').value, widescreen: $('widescreen').value, resolution: Number($('resolution').value), volume: Number($('volume').value),
     frameRate: Number($('frameRate').value), language: $('language').value, fullscreen: $('fullscreen').checked, fullscreenMode: $('fullscreenMode').value,
     exclusiveResolution: $('exclusiveResolution').value, display: $('display').value, vsync: $('vsync').value,
-    skipMovies: $('skipMovies').checked, pauseTracker: $('pauseTracker').checked, heatHaze: $('heatHaze').checked, overlay: $('overlay').checked,
-    freeCamera: $('freeCamera').checked, cameraSpeed: Number($('cameraSpeed').value),
+    skipMovies: $('skipMovies').checked, skipIntro: $('skipIntro').checked, pauseTracker: $('pauseTracker').checked, heatHaze: $('heatHaze').checked, overlay: $('overlay').checked,
+    freeCamera: $('freeCamera').checked, cstickAim: $('cstickAim').checked, cameraSpeed: Number($('cameraSpeed').value),
     mouseCamera: $('mouseCamera').checked, mouseSensitivity: Number($('mouseSensitivity').value),
     msaa: Number($('msaa').value), fxaa: $('fxaa').checked, anisotropic: Number($('anisotropic').value),
     sharpen: Number($('sharpen').value), brightness: Number($('brightness').value), aspect: $('aspect').value,
@@ -1370,8 +1395,8 @@ $('restore-saves').addEventListener('click', async () => {
 // --- Save states (src/savestates.js): the game saves them, the launcher lists, imports and deletes them.
 function saveStateHelp() {
   const pad = SmsBindings.padsFor(padBindings, 'SAVE_STATE').map(SmsBindings.padLabel)[0];
-  const saveKey = SmsBindings.keysFor(keyBindings, 'SAVE_STATE')[0];
-  const loadKey = SmsBindings.keysFor(keyBindings, 'LOAD_STATE')[0];
+  const saveKey = SmsBindings.keysFor(keyBindings, 'SAVE_STATE').map(SmsBindings.keyLabel)[0];
+  const loadKey = SmsBindings.keysFor(keyBindings, 'LOAD_STATE').map(SmsBindings.keyLabel)[0];
   const save = [pad, saveKey].filter(Boolean).join(' or ') || 'the Save a state control';
   return `In a level, ${save} saves the moment you're in; pause and press the same to load a state` +
     `${loadKey ? ` (${loadKey} loads the newest)` : ''}. A state loads exactly in the game build that saved it; ` +
@@ -1431,7 +1456,7 @@ $('import-save-state').addEventListener('click', async () => {
   } catch (error) { $('save-state-result').textContent = errorText(error); }
 });
 $('open-save-states').addEventListener('click', () => window.sms.openSaveStates().catch(showError));
-for (const key of ['arch', 'widescreen', 'resolution', 'volume', 'frameRate', 'language', 'vsync', 'skipMovies', 'pauseTracker', 'heatHaze', 'overlay', 'fullscreen', 'fullscreenMode', 'exclusiveResolution', 'display', 'invertCameraX', 'invertCameraY', 'freeCamera', 'cameraSpeed', 'mouseCamera', 'mouseSensitivity', 'msaa', 'fxaa', 'anisotropic', 'sharpen', 'brightness', 'aspect', 'presentFilter', 'hudEdges', 'textures', 'textureLoading', 'shaderWarmup', 'cutscenes', 'eclipse', 'autoUpdate', 'shareUsage', 'discordPresence', 'darkMode', 'updateChannel', 'buttonPrompts', 'promptPad', 'hdr', 'hdrCalibration', 'hdrPaperWhite', 'hdrPeak', 'hdrContrast', 'hdrSaturation', 'hdrHighlights', 'fsrMode'])
+for (const key of ['arch', 'widescreen', 'resolution', 'volume', 'frameRate', 'language', 'vsync', 'skipMovies', 'skipIntro', 'pauseTracker', 'heatHaze', 'overlay', 'fullscreen', 'fullscreenMode', 'exclusiveResolution', 'display', 'invertCameraX', 'invertCameraY', 'freeCamera', 'cstickAim', 'cameraSpeed', 'mouseCamera', 'mouseSensitivity', 'msaa', 'fxaa', 'anisotropic', 'sharpen', 'brightness', 'aspect', 'presentFilter', 'hudEdges', 'textures', 'textureLoading', 'shaderWarmup', 'cutscenes', 'eclipse', 'autoUpdate', 'shareUsage', 'discordPresence', 'darkMode', 'updateChannel', 'buttonPrompts', 'promptPad', 'hdr', 'hdrCalibration', 'hdrPaperWhite', 'hdrPeak', 'hdrContrast', 'hdrSaturation', 'hdrHighlights', 'fsrMode'])
   $(key).addEventListener('change', saveSettings);
 $('volume').addEventListener('input', renderVolume);
 for (const key of ['cameraSpeed', 'mouseSensitivity', 'sharpen', 'brightness']) $(key).addEventListener('input', renderRanges);

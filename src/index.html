@@ -80,16 +80,18 @@
               <label class="switch"><span><strong>Super Mario Eclipse <span id="eclipse-badge" class="badge">Optional</span></strong><small>Fan-made expansion.</small></span><input id="eclipse" type="checkbox"><i></i></label>
               <div class="row-note" id="eclipse-note"><span id="eclipse-platform-note"></span><button id="install-eclipse" class="text-button">Install Eclipse</button></div>
               <label class="switch"><span><strong>Skip cutscenes</strong><small>Skips every movie, including the intro.</small></span><input id="skipMovies" type="checkbox"><i></i></label>
+              <label class="switch"><span><strong>Skip intro</strong><small>Starts at the title screen, without the Nintendo and Dolby logos or the opening movie.</small></span><input id="skipIntro" type="checkbox"><i></i></label>
               <label class="switch"><span><strong>Pause menu tracker</strong><small>Shine Sprites and blue coins for each area in the pause menu; L and R switch areas.</small></span><input id="pauseTracker" type="checkbox"><i></i></label>
               <label class="field range-field"><span><strong>Volume</strong><output id="volume-value" for="volume">100%</output></span><input id="volume" type="range" min="0" max="100" step="5" aria-label="Game volume"></label>
             </div>
             <h2 class="group-title">Camera</h2>
             <div class="settings-group">
               <label class="switch"><span><strong>Invert camera X</strong><small>Flip C-stick left and right.</small></span><input id="invertCameraX" type="checkbox"><i></i></label>
-              <label class="switch"><span><strong>Invert camera Y</strong><small>Flip C-stick up and down.</small></span><input id="invertCameraY" type="checkbox"><i></i></label>
+              <label class="switch"><span><strong>Invert camera Y</strong><small>Flip C-stick up and down, and FLUDD's aim when you spray in place.</small></span><input id="invertCameraY" type="checkbox"><i></i></label>
               <label class="switch"><span><strong>Free camera</strong><small>Stays where you point it; L recentres.</small></span><input id="freeCamera" type="checkbox"><i></i></label>
+              <label class="switch"><span><strong>Aim with the C-stick</strong><small>In the close-up view Y opens, the C-stick aims FLUDD too, as in shooters.</small></span><input id="cstickAim" type="checkbox"><i></i></label>
               <label class="field range-field"><span><strong>Camera speed</strong><output id="cameraSpeed-value" for="cameraSpeed">100%</output></span><input id="cameraSpeed" type="range" min="25" max="300" step="5" aria-label="Camera speed"></label>
-              <label class="switch"><span><strong>Mouse look</strong><small>Turn the camera with the mouse; F10 frees it.</small></span><input id="mouseCamera" type="checkbox"><i></i></label>
+              <label class="switch"><span><strong>Mouse look</strong><small>Orbit the camera around Mario with the mouse and zoom with the wheel; F10 frees it.</small></span><input id="mouseCamera" type="checkbox"><i></i></label>
               <label class="field range-field"><span><strong>Mouse sensitivity</strong><output id="mouseSensitivity-value" for="mouseSensitivity">100%</output></span><input id="mouseSensitivity" type="range" min="25" max="400" step="5" aria-label="Mouse sensitivity"></label>
             </div>
           </section>
@@ -163,7 +165,7 @@
             <div class="controls-head"><h2 class="group-title">Buttons</h2><div class="binding-modes" role="group" aria-label="Show bindings for"><button class="subtle" data-binding-mode="keyboard" aria-pressed="true">Keyboard</button><button class="subtle" data-binding-mode="controller" aria-pressed="false">Controller</button></div></div>
             <div class="settings-group controls-panel">
               <div id="binding-list" class="binding-list"></div>
-              <div class="actions"><button class="subtle" id="reset-bindings">Reset all to defaults</button><span id="binding-note" class="helper" role="status">Choose Change, then press a key. Esc cancels.</span></div>
+              <div class="actions"><button class="subtle" id="reset-bindings">Reset all to defaults</button><span id="binding-note" class="helper" role="status">Choose Change, then press a key or click a mouse button. Esc cancels.</span></div>
             </div>
             <h2 class="group-title">Prompts, triggers and rumble</h2>
             <div class="settings-group">

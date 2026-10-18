@@ -54,6 +54,7 @@ function fixture(t, { metadata = true, textures = false, eclipse = false, discor
           return { ...env, MSYS2_ROOT: path.join(selected, 'msys64') };
         },
         environment(_userData, env) { return { ...env, MSYS2_ROOT: path.join(toolRoot, 'msys64') }; },
+        rootFor: userData => path.join(userData, 'build-tools'),
         async ensure() { throw new Error('Playing must not prepare new tools'); },
         async check() { throw new Error('Playing must not prepare new tools'); },
         status() { throw new Error('Playing must not prepare new tools'); } };

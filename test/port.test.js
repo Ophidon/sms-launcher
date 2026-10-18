@@ -110,13 +110,13 @@ test('settings keep only changed, known key bindings', () => {
 
 test('new settings default to the game as it was, so updating changes nothing until chosen', () => {
   const s = port.normalizeSettings({});
-  assert.deepEqual([s.freeCamera, s.cameraSpeed, s.mouseCamera, s.mouseSensitivity], [false, 100, false, 100]);
+  assert.deepEqual([s.freeCamera, s.cstickAim, s.cameraSpeed, s.mouseCamera, s.mouseSensitivity], [false, false, 100, false, 100]);
   assert.deepEqual([s.fullscreenMode, s.exclusiveResolution, s.display, s.vsync, s.skipMovies, s.overlay],
     ['desktop', 'desktop', 'launcher', 'off', false, false]);
   assert.deepEqual([s.msaa, s.fxaa, s.anisotropic, s.sharpen, s.brightness, s.aspect, s.presentFilter],
     [0, false, 0, 0, 100, 'keep', 'bilinear']);
   const env = port.buildEnvironment(s, '/my/disc.iso', '/port');
-  assert.deepEqual([env.SMS_FREE_CAMERA, env.SMS_CAMERA_SPEED, env.SMS_MOUSE_CAMERA, env.SMS_MOUSE_SENSITIVITY], ['0', '100', '0', '100']);
+  assert.deepEqual([env.SMS_FREE_CAMERA, env.SMS_CLOSE_CAMERA_CSTICK, env.SMS_CAMERA_SPEED, env.SMS_MOUSE_CAMERA, env.SMS_MOUSE_SENSITIVITY], ['0', '0', '100', '0', '100']);
   assert.deepEqual([env.SMS_FULLSCREEN, env.SMS_VSYNC, env.SMS_SKIP_MOVIES, env.SMS_OVERLAY], ['0', '0', '0', '0']);
   assert.deepEqual([env.SMS_MSAA, env.SMS_FXAA, env.SMS_ANISO, env.SMS_SHARPEN, env.SMS_GAMMA, env.SMS_ASPECT, env.SMS_PRESENT_FILTER],
     ['0', '0', '0', '0', '1.00', 'keep', 'bilinear']);
@@ -125,12 +125,12 @@ test('new settings default to the game as it was, so updating changes nothing un
 
 test('chosen settings reach the game as its environment variables', () => {
   const env = port.buildEnvironment(port.normalizeSettings({
-    freeCamera: true, cameraSpeed: '150', mouseCamera: true, mouseSensitivity: 250,
+    freeCamera: true, cstickAim: true, cameraSpeed: '150', mouseCamera: true, mouseSensitivity: 250,
     fullscreen: true, fullscreenMode: 'exclusive', exclusiveResolution: '1920x1080', display: 'primary', vsync: 'adaptive',
     skipMovies: true, overlay: true, msaa: 4, fxaa: true, anisotropic: '16', sharpen: 40, brightness: 115,
     aspect: 'integer', presentFilter: 'sharp'
   }), '/my/disc.iso', '/port');
-  assert.deepEqual([env.SMS_FREE_CAMERA, env.SMS_CAMERA_SPEED, env.SMS_MOUSE_CAMERA, env.SMS_MOUSE_SENSITIVITY], ['1', '150', '1', '250']);
+  assert.deepEqual([env.SMS_FREE_CAMERA, env.SMS_CLOSE_CAMERA_CSTICK, env.SMS_CAMERA_SPEED, env.SMS_MOUSE_CAMERA, env.SMS_MOUSE_SENSITIVITY], ['1', '1', '150', '1', '250']);
   assert.deepEqual([env.SMS_FULLSCREEN, env.SMS_FULLSCREEN_MODE, env.SMS_DISPLAY, env.SMS_VSYNC], ['exclusive', '1920x1080', '0', 'adaptive']);
   assert.deepEqual([env.SMS_SKIP_MOVIES, env.SMS_OVERLAY], ['1', '1']);
   assert.deepEqual([env.SMS_MSAA, env.SMS_FXAA, env.SMS_ANISO, env.SMS_SHARPEN, env.SMS_GAMMA, env.SMS_ASPECT, env.SMS_PRESENT_FILTER],
@@ -213,6 +213,13 @@ test('the heat-wave effect stays on unless turned off, and reaches the game as S
   assert.equal(port.normalizeSettings({ heatHaze: false }).heatHaze, false);
   assert.equal(port.buildEnvironment(port.normalizeSettings({}), '/my/disc.iso', '/port').SMS_HEAT_HAZE, '1');
   assert.equal(port.buildEnvironment(port.normalizeSettings({ heatHaze: false }), '/my/disc.iso', '/port').SMS_HEAT_HAZE, '0');
+});
+
+test('skip intro stays off unless turned on, and reaches the game as SMS_SKIP_INTRO', () => {
+  assert.equal(port.normalizeSettings({}).skipIntro, false);
+  assert.equal(port.normalizeSettings({ skipIntro: true }).skipIntro, true);
+  assert.equal(port.buildEnvironment(port.normalizeSettings({}), '/my/disc.iso', '/port').SMS_SKIP_INTRO, '0');
+  assert.equal(port.buildEnvironment(port.normalizeSettings({ skipIntro: true }), '/my/disc.iso', '/port').SMS_SKIP_INTRO, '1');
 });
 
 test('the pause menu tracker stays on unless turned off, and reaches the game as SMS_PAUSE_TRACKER', () => {

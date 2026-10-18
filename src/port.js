@@ -85,6 +85,8 @@ function normalizeSettings(input = {}, platform = process.platform) {
     vsync: choiceSetting(input.vsync, ['off', 'on', 'adaptive'], 'off'),
     // Straight to the title screen, and the game's frame-time overlay at start.
     skipMovies: Boolean(input.skipMovies),
+    // Straight to the title: no Nintendo and Dolby logos or opening movie; off unless turned on.
+    skipIntro: Boolean(input.skipIntro),
     // The game's language: the disc's own English, or a language pack (French, German, Spanish, Italian).
     language: choiceSetting(input.language, LANGUAGES, 'en'),
     // The heat-wave shimmer in sunny areas; on unless turned off.
@@ -109,6 +111,8 @@ function normalizeSettings(input = {}, platform = process.platform) {
     invertCameraY: input.invertCameraY !== false,
     // The camera stays where it is put instead of swinging back behind Mario; manual turning speed; mouse look.
     freeCamera: Boolean(input.freeCamera),
+    // The C-stick turns (and aims FLUDD in) the close-up camera Y opens, as well as the control stick.
+    cstickAim: Boolean(input.cstickAim),
     cameraSpeed: numberSetting(input.cameraSpeed, 100, 10, 400),
     mouseCamera: Boolean(input.mouseCamera),
     mouseSensitivity: numberSetting(input.mouseSensitivity, 100, 5, 1000),
@@ -329,6 +333,7 @@ function buildEnvironment(settings, disc, root) {
     SMS_FULLSCREEN: settings.fullscreen ? (settings.fullscreenMode === 'exclusive' ? 'exclusive' : '1') : '0',
     SMS_VSYNC: settings.vsync === 'adaptive' ? 'adaptive' : settings.vsync === 'on' ? '1' : '0',
     SMS_SKIP_MOVIES: settings.skipMovies ? '1' : '0',
+    SMS_SKIP_INTRO: settings.skipIntro ? '1' : '0',
     SMS_LANGUAGE: root && !languageAvailable(root, gameLanguage(settings)) ? 'en' : gameLanguage(settings),
     SMS_SOFT_TRIGGER: String(settings.softTrigger ?? 40),
     SMS_RUMBLE: settings.rumbleStrength === 0 ? '0' : '1',
@@ -349,6 +354,7 @@ function buildEnvironment(settings, disc, root) {
     SMS_CAMERA_INVERT_X: settings.invertCameraX ? '1' : '0',
     SMS_CAMERA_INVERT_Y: settings.invertCameraY ? '1' : '0',
     SMS_FREE_CAMERA: settings.freeCamera ? '1' : '0',
+    SMS_CLOSE_CAMERA_CSTICK: settings.cstickAim ? '1' : '0',
     SMS_CAMERA_SPEED: String(settings.cameraSpeed ?? 100),
     SMS_MOUSE_CAMERA: settings.mouseCamera ? '1' : '0',
     SMS_MOUSE_SENSITIVITY: String(settings.mouseSensitivity ?? 100),

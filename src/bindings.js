@@ -2,7 +2,8 @@
 // Keyboard and controller bindings for the game (platform/pad/pad.cpp reads
 // them from the file named by SMS_BINDINGS: one `CONTROL = KEY ... PAD_...`
 // line per control; its keys replace the control's keys and its PAD_ buttons
-// replace its controller buttons; PAD_LB+PAD_LT is two buttons held together).
+// replace its controller buttons; PAD_LB+PAD_LT is two buttons held together;
+// mouse buttons, MOUSE_LEFT and so on, count as keys).
 // The launcher keeps only the controls a player changed; everything else stays
 // the game's default.
 (function (root, factory) {
@@ -49,7 +50,14 @@
   };
   for (const letter of 'ABCDEFGHIJKLMNOPQRSTUVWXYZ') CODES[`Key${letter}`] = letter;
   for (let digit = 0; digit <= 9; digit++) { CODES[`Digit${digit}`] = String(digit); CODES[`Numpad${digit}`] = `KP_${digit}`; }
-  const KEYS = new Set(Object.values(CODES));
+  // Mouse buttons the game reads as keys (kKeys in pad.cpp), in MouseEvent.button order: 0 is the left button,
+  // 1 the middle (wheel), 2 the right, 3 and 4 the side buttons.
+  const MOUSE_BUTTONS = [
+    { id: 'MOUSE_LEFT', label: 'Left click' }, { id: 'MOUSE_MIDDLE', label: 'Middle click' },
+    { id: 'MOUSE_RIGHT', label: 'Right click' }, { id: 'MOUSE_BACK', label: 'Mouse back' },
+    { id: 'MOUSE_FORWARD', label: 'Mouse forward' }
+  ];
+  const KEYS = new Set([...Object.values(CODES), ...MOUSE_BUTTONS.map(button => button.id)]);
   const MAX_KEYS = 8;  // kMaxKeys in pad.cpp
 
   // Controller buttons the game reads (kPadButtons in pad.cpp), named for an Xbox pad, in the order of the
@@ -86,6 +94,11 @@
 
   // The key name for a KeyboardEvent.code, or null for a key the game cannot read.
   function keyFromCode(code) { return CODES[code] || null; }
+  // The key name for a MouseEvent.button, or null for a button the game cannot read.
+  function keyFromMouse(button) { return MOUSE_BUTTONS[button]?.id || null; }
+  function isMouse(key) { return MOUSE_BUTTONS.some(button => button.id === key); }
+  // How the Controls page shows a key: "LSHIFT", "KP 8", "Left click".
+  function keyLabel(key) { return MOUSE_BUTTONS.find(button => button.id === key)?.label || key.replace('_', ' '); }
 
   // Only the controls that differ from the defaults, each a list of known keys.
   function normalize(input) {
@@ -125,6 +138,7 @@
     return `${lines.join('\n')}\n`;
   }
 
-  return { CONTROLS, DEFAULTS, PAD_BUTTONS, PAD_DEFAULTS, keyFromCode, normalize, keysFor, fileText,
+  return { CONTROLS, DEFAULTS, PAD_BUTTONS, PAD_DEFAULTS, MOUSE_BUTTONS, keyFromCode, keyFromMouse, isMouse, keyLabel,
+    normalize, keysFor, fileText,
     padFromIndex, padLabel, padCombo, normalizePads, padsFor };
 });
