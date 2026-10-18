@@ -1,31 +1,41 @@
 {
   "_instructions": "Players see this file in the launcher. Add each player-visible change here in the same commit: launcher changes to beta.launcher, game changes Beta now builds to beta.game. Releases move beta into a new entry (npm run update:game does it). One plain sentence for players per line, no commit hashes or PR numbers. See AGENTS.md.",
   "beta": {
-    "launcher": [
-      "Aim with the C-stick: a new switch under Camera lets the C-stick aim FLUDD in the close-up view Y opens. Off by default.",
-      "Customize Mario now works in Super Mario Eclipse too: Mario plays there in the colours you pick, and Luigi and Piantissimo keep their own look. They share Mario's mouth, so with a skin colour chosen, his mouth keeps its usual colour in Eclipse.",
-      "Pause menu tracker: turn the game's new Shine Sprite and blue coin tracker off under Gameplay if you'd rather not see it in the pause menu.",
-      "Skip intro: turn it on under Gameplay to start the game at the title screen, without the Nintendo and Dolby logos or the opening movie.",
-      "Customize Mario no longer keeps your graphics card busy while you leave it open: Mario holds still after 15 seconds untouched and while the launcher is in the background, and moves again when you point at him. On some older PCs, leaving it open made the launcher's graphics stop working.",
-      "Windows: when the launcher's folder is too deep for Windows to build the game in, as with a portable launcher kept inside another app's folder, it now says so as soon as it opens and again whenever you try to set up, update or build the game, marks how much of the path is too long and how to fix it, and stops before downloading the build tools instead of the build failing with \"No such file or directory\".",
-      "Mouse buttons can now be bound under Settings → Controls: choose Change or Add, then click the left, right, middle or a side mouse button, and the game reads it like a key.",
-      "Windows: fixed builds failing with \"The C compiler is not able to compile a simple test program\", and the game then not starting with \"DLL entry point not found\", on PCs where another program put older copies of DLLs like libwinpthread-1.dll or zlib1.dll in System32. The build tools and the game now always load their own copies, and the activity log says when Windows has others."
-    ],
-    "game": [
-      "Pause menu tracker: the pause menu shows how many of an area's Shine Sprites and blue coins you have, out of all there are, starting with the area you're in; L and R switch to the other areas you've been to.",
-      "Fixed Super Mario Eclipse never saving a level's coin record, so the episode select and the map always showed 00.",
-      "Fixed the game lagging for as long as the controller rumbles, seen most on Linux with Steam Input and at high frame rates. Weak rumbles now play as a gentler, steady rumble instead of quick full-strength pulses.",
-      "Widescreen: the black wipe that opens at the end of a stage's title card now covers the whole screen and slides out past its edges, instead of leaving the stage showing at both sides.",
-      "Fixed missing music in Super Mario Eclipse: the Tutorial, the castle's other floors and its basement played no song, and other stages sometimes lost theirs.",
-      "The Nintendo and Dolby logos at startup can now be skipped with A, like the opening movie.",
-      "Escape now asks \"Quit the game?\" before quitting, with Cancel picked to begin with, instead of closing the game straight away and losing unsaved progress.",
-      "Mouse look now orbits the camera around Mario: moving the mouse up and down tilts the camera over or under him at the same distance instead of moving it nearer and further, and the mouse wheel zooms it, scrolling down to move it out and up to bring it in. L still recentres it.",
-      "Mouse buttons can be bound to the game's buttons, as keys are, and the camera follows the mouse more closely as you turn it.",
-      "Fixed Invert camera Y not flipping FLUDD's up and down aim while you hold R all the way down to spray in place.",
-      "Aim with the C-stick: in the close-up view Y opens, the C-stick can aim FLUDD and turn the view, as in modern shooters, the same way it turns the normal camera (Invert camera X and Y apply); the control stick still works there too."
-    ]
+    "launcher": [],
+    "game": []
   },
   "releases": [
+    {
+      "version": "0.1.63",
+      "date": "2026-10-18",
+      "launcher": [
+        "Aim with the C-stick: a new switch under Camera lets the C-stick aim FLUDD in the close-up view Y opens. Off by default.",
+        "Customize Mario now works in Super Mario Eclipse too: Mario plays there in the colours you pick, and Luigi and Piantissimo keep their own look. They share Mario's mouth, so with a skin colour chosen, his mouth keeps its usual colour in Eclipse.",
+        "Pause menu tracker: turn the game's new Shine Sprite and blue coin tracker off under Gameplay if you'd rather not see it in the pause menu.",
+        "Skip intro: turn it on under Gameplay to start the game at the title screen, without the Nintendo and Dolby logos or the opening movie.",
+        "Customize Mario no longer keeps your graphics card busy while you leave it open: Mario holds still after 15 seconds untouched and while the launcher is in the background, and moves again when you point at him. On some older PCs, leaving it open made the launcher's graphics stop working.",
+        "Windows: when the launcher's folder is too deep for Windows to build the game in, as with a portable launcher kept inside another app's folder, it now says so as soon as it opens and again whenever you try to set up, update or build the game, marks how much of the path is too long and how to fix it, and stops before downloading the build tools instead of the build failing with \"No such file or directory\".",
+        "Mouse buttons can now be bound under Settings → Controls: choose Change or Add, then click the left, right, middle or a side mouse button, and the game reads it like a key.",
+        "Windows: fixed builds failing with \"The C compiler is not able to compile a simple test program\", and the game then not starting with \"DLL entry point not found\", on PCs where another program put older copies of DLLs like libwinpthread-1.dll or zlib1.dll in System32. The build tools and the game now always load their own copies, and the activity log says when Windows has others."
+      ],
+      "game": {
+        "version": "2026.10.18.1",
+        "commit": "a2ff4eef099b22b2af487d1b5e3ac09ffe667d31",
+        "changes": [
+          "Pause menu tracker: the pause menu shows how many of an area's Shine Sprites and blue coins you have, out of all there are, starting with the area you're in; L and R switch to the other areas you've been to.",
+          "Fixed Super Mario Eclipse never saving a level's coin record, so the episode select and the map always showed 00.",
+          "Fixed the game lagging for as long as the controller rumbles, seen most on Linux with Steam Input and at high frame rates. Weak rumbles now play as a gentler, steady rumble instead of quick full-strength pulses.",
+          "Widescreen: the black wipe that opens at the end of a stage's title card now covers the whole screen and slides out past its edges, instead of leaving the stage showing at both sides.",
+          "Fixed missing music in Super Mario Eclipse: the Tutorial, the castle's other floors and its basement played no song, and other stages sometimes lost theirs.",
+          "The Nintendo and Dolby logos at startup can now be skipped with A, like the opening movie.",
+          "Escape now asks \"Quit the game?\" before quitting, with Cancel picked to begin with, instead of closing the game straight away and losing unsaved progress.",
+          "Mouse look now orbits the camera around Mario: moving the mouse up and down tilts the camera over or under him at the same distance instead of moving it nearer and further, and the mouse wheel zooms it, scrolling down to move it out and up to bring it in. L still recentres it.",
+          "Mouse buttons can be bound to the game's buttons, as keys are, and the camera follows the mouse more closely as you turn it.",
+          "Fixed Invert camera Y not flipping FLUDD's up and down aim while you hold R all the way down to spray in place.",
+          "Aim with the C-stick: in the close-up view Y opens, the C-stick can aim FLUDD and turn the view, as in modern shooters, the same way it turns the normal camera (Invert camera X and Y apply); the control stick still works there too."
+        ]
+      }
+    },
     {
       "version": "0.1.62",
       "date": "2026-10-16",
