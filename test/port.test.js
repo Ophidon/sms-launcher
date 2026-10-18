@@ -215,6 +215,13 @@ test('the heat-wave effect stays on unless turned off, and reaches the game as S
   assert.equal(port.buildEnvironment(port.normalizeSettings({ heatHaze: false }), '/my/disc.iso', '/port').SMS_HEAT_HAZE, '0');
 });
 
+test('skip intro stays off unless turned on, and reaches the game as SMS_SKIP_INTRO', () => {
+  assert.equal(port.normalizeSettings({}).skipIntro, false);
+  assert.equal(port.normalizeSettings({ skipIntro: true }).skipIntro, true);
+  assert.equal(port.buildEnvironment(port.normalizeSettings({}), '/my/disc.iso', '/port').SMS_SKIP_INTRO, '0');
+  assert.equal(port.buildEnvironment(port.normalizeSettings({ skipIntro: true }), '/my/disc.iso', '/port').SMS_SKIP_INTRO, '1');
+});
+
 test('the pause menu tracker stays on unless turned off, and reaches the game as SMS_PAUSE_TRACKER', () => {
   assert.equal(port.normalizeSettings({}).pauseTracker, true);
   assert.equal(port.normalizeSettings({ pauseTracker: false }).pauseTracker, false);

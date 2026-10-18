@@ -5,13 +5,15 @@
       "Aim with the C-stick: a new switch under Camera lets the C-stick aim FLUDD in the close-up view Y opens. Off by default.",
       "Customize Mario now works in Super Mario Eclipse too: Mario plays there in the colours you pick, and Luigi and Piantissimo keep their own look. They share Mario's mouth, so with a skin colour chosen, his mouth keeps its usual colour in Eclipse.",
       "Pause menu tracker: turn the game's new Shine Sprite and blue coin tracker off under Gameplay if you'd rather not see it in the pause menu.",
+      "Skip intro: turn it on under Gameplay to start the game at the title screen, without the Nintendo and Dolby logos or the opening movie.",
       "Customize Mario no longer keeps your graphics card busy while you leave it open: Mario holds still after 15 seconds untouched and while the launcher is in the background, and moves again when you point at him. On some older PCs, leaving it open made the launcher's graphics stop working.",
       "Windows: when the launcher's folder is too deep for Windows to build the game in, as with a portable launcher kept inside another app's folder, it now says so as soon as it opens and again whenever you try to set up, update or build the game, marks how much of the path is too long and how to fix it, and stops before downloading the build tools instead of the build failing with \"No such file or directory\"."
     ],
     "game": [
       "Aim with the C-stick: in the close-up view Y opens, the C-stick can aim FLUDD and turn the view, as in modern shooters, the same way it turns the normal camera (Invert camera X and Y apply); the control stick still works there too.",
       "Fixed Invert camera Y not flipping FLUDD's up and down aim while you hold R all the way down to spray in place.",
-      "Pause menu tracker: the pause menu shows how many of an area's Shine Sprites and blue coins you have, out of all there are, starting with the area you're in; L and R switch to the other areas you've been to."
+      "Pause menu tracker: the pause menu shows how many of an area's Shine Sprites and blue coins you have, out of all there are, starting with the area you're in; L and R switch to the other areas you've been to.",
+      "The Nintendo and Dolby logos at startup can now be skipped with A, like the opening movie."
     ]
   },
   "releases": [
