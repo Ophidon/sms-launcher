@@ -272,6 +272,13 @@ test('the pause menu tracker stays on unless turned off, and reaches the game as
   assert.equal(port.buildEnvironment(port.normalizeSettings({ pauseTracker: false }), '/my/disc.iso', '/port').SMS_PAUSE_TRACKER, '0');
 });
 
+test('the radar stays off unless turned on, and reaches the game as SMS_RADAR', () => {
+  assert.equal(port.normalizeSettings({}).radar, false);
+  assert.equal(port.normalizeSettings({ radar: true }).radar, true);
+  assert.equal(port.buildEnvironment(port.normalizeSettings({}), '/my/disc.iso', '/port').SMS_RADAR, '0');
+  assert.equal(port.buildEnvironment(port.normalizeSettings({ radar: true }), '/my/disc.iso', '/port').SMS_RADAR, '1');
+});
+
 test('Windows upgrade keeps the existing 32-bit game available with its original settings and tools', t => {
   const root = temporary();
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));

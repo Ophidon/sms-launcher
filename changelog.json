@@ -14,7 +14,8 @@
       "The launcher has a new logo: a golden sun at the top left.",
       "Fixed HD texture, HD cutscene and language pack downloads failing on some Windows computers with a CERTIFICATE_VERIFY_FAILED error.",
       "Fixed setting up Super Mario Eclipse failing with \"macOS supports 64 bit only\" when the Apple Silicon build is on.",
-      "Super Mario Eclipse on a Mac now uses the Vulkan renderer when you choose it under Graphics, instead of OpenGL."
+      "Super Mario Eclipse on a Mac now uses the Vulkan renderer when you choose it under Graphics, instead of OpenGL.",
+      "Radar: turn on a round map at the top right of the game under Gameplay. It shows the area close around Mario, with the area's Shine Sprites and blue coins, and is off by default."
     ],
     "game": [
       "Multiplayer: up to eight players play the host's level and save together as Mario, Luigi, Wario, Metal Mario, and Fire, Purple, Orange and Ice Mario, each in their own colours, sharing blue and red coins, coins, lives, enemies, switches, FLUDD's water and the goop it cleans, getting every Shine and watching cutscenes together, fighting the same bosses, Bowser and Bowser Jr. on a hot tub that tips under every player, goop piranha plants and Shadow Mario, cooling off the same Chain Chomp, cleaning the same goop-covered Piantas, hitting the same switches and boxes, carrying and throwing the same fruit and barrels, popping the same balloons, riding the same boats, Ferris wheel and merry-go-round, playing the same casino slots, rolling the same watermelon, finding NPCs in the same places and stopping to talk to them, seeing the same seagulls, pigeons and fish (and the coins they carry), riding the same cranes, windmills, lifts and swinging boards, feeding Yoshi's egg the same fruit and each hatching their own Yoshi, with enemies and events reacting to whichever player is nearest, following the host to other areas, and watching the others when out of lives until a 1-up brings them back. Friends can join once the host has picked a save file, and anyone joining while the host is on the way somewhere arrives where the host is going. Everyone arrives in each level the way the host does, with the same opening and movies, and a cutscene plays once for everyone. Enemies, NPCs and Shadow Mario move smoothly in step with the host's game and chase each player where they really are, a coin two players grab at once counts once, and if the connection drops, the game reconnects by itself and you keep your character.",
@@ -67,7 +68,8 @@
       "Multiplayer: graffiti is shared. Another player's water cleans it in your game too, graffiti erased in anyone's game is gone in everyone's, as is graffiti whose blue coin someone already took, and players who join later find it as it is now.",
       "Fixed another player's Shine camera showing no Shine in multiplayer: the Shine now comes out with it.",
       "Fixed 50 coins sometimes giving no extra life, or two, in multiplayer: every 50 coins the group collects now gives exactly one, with the 1-up sound for everyone.",
-      "Multiplayer: messages and the player list now use the names players joined with, instead of Mario, Luigi or Wario."
+      "Multiplayer: messages and the player list now use the names players joined with, instead of Mario, Luigi or Wario.",
+      "Radar: a round map at the top right shows the area close around Mario, north up, with an arrow for the way he faces and the area's Shine Sprites and blue coins, including those still to appear. It scrolls as he moves and hides in cutscenes and the pause menu."
     ]
   },
   "releases": [
