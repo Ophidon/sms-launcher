@@ -88,6 +88,15 @@ async function prepareFromUpstream(userData, { platform = process.platform, run,
           fs.writeFileSync(path.join(llvm, name),
             `#!/bin/sh\nexec "$(dirname "$0")/../../bin/${tool}"${args.map(arg => ` ${arg}`).join('')} "$@"\n`, { mode: 0o755 });
         }
+        // clang always passes Apple's linker -lto_library <prefix>/lib/libLTO.dylib,
+        // and newer linkers (Xcode 16.4's) reject it when that is a link to
+        // libLTO.<version>.dylib: make it the library itself.
+        const lto = path.join(prefix, 'lib', 'libLTO.dylib');
+        if (fs.lstatSync(lto).isSymbolicLink()) {
+          const target = fs.realpathSync(lto);
+          fs.rmSync(lto);
+          fs.copyFileSync(target, lto);
+        }
       }
     }
     if (platform === 'linux') {

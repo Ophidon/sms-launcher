@@ -43,6 +43,7 @@ async function main() {
     const report = await buildTools.check(userData, { env: finder, refresh: true, archives: true, rosetta });
     if (!report.ready || report.mode !== 'private') throw new Error(report.message);
     process.stdout.write(`Private Mac preflight passed with Finder's PATH: ${finder.PATH}\n`);
+    if (ARCHES.includes('arm64')) checkLlvm(userData, finder);
     const root = path.join(userData, 'port');
     {
       const env = buildTools.environment(userData, finder);
@@ -59,6 +60,25 @@ async function main() {
       await compile(root, arch, env, userData);
     }
   } finally { fs.rmSync(userData, { recursive: true, force: true }); }
+}
+
+// The Apple Silicon game's compiler links a program, whatever the game version
+// (an older one skips the arm64 build below): Apple's linker is particular
+// about the libLTO.dylib clang names.
+function checkLlvm(userData, finder) {
+  const env = buildTools.environment(userData, { ...finder, SMS_ARCH: 'arm64' });
+  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'sms-llvm-'));
+  try {
+    for (const [compiler, file, source] of [['clang', 'probe.c', 'int main(void) { return 0; }\n'],
+      ['clang++', 'probe.cpp', '#include <string>\nint main() { return std::string("ok").size() == 2 ? 0 : 1; }\n']]) {
+      fs.writeFileSync(path.join(scratch, file), source);
+      const result = spawnSync(path.join(env.SMS_LLVM_BIN, compiler), ['-arch', 'arm64', path.join(scratch, file), '-o',
+        path.join(scratch, 'probe')], { env, encoding: 'utf8' });
+      if (result.status !== 0) throw new Error(`The toolset's ${compiler} cannot build a program: ${result.stderr || result.error?.message}`);
+      if (spawnSync(path.join(scratch, 'probe')).status !== 0) throw new Error(`The program ${compiler} built does not run.`);
+    }
+    process.stdout.write(`The Apple Silicon compiler builds and links programs: ${env.SMS_LLVM_BIN}\n`);
+  } finally { fs.rmSync(scratch, { recursive: true, force: true }); }
 }
 
 async function compile(root, arch, env, userData) {

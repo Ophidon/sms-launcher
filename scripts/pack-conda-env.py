@@ -32,6 +32,7 @@ for record in environment.files:
     installed = os.path.join(prefix, record.target)
     # conda-pack normally copies managed symlinks from its original package cache.
     # Use our flattened links so extraction never has to follow a symlink chain.
-    if os.path.islink(installed):
+    # And a link replaced by the file itself (libLTO.dylib, for Apple's linker).
+    if os.path.islink(installed) or os.path.islink(record.source) and os.path.isfile(installed):
         record.source = installed
 environment.pack(output=output, arcroot="env", force=True)
