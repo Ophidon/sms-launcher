@@ -17,6 +17,11 @@ function state() {
   };
 }
 
+// The platform and processor a state's platformInfo describes, so saving settings in a test does not depend on the computer running it.
+function host(platform) {
+  return [{ linux: 'linux', macos: 'darwin', windows: 'win32' }[platform.id], platform.arches.includes('arm64') ? 'arm64' : 'x64'];
+}
+
 async function renderer(data = state(), copyError = null, notes = { releases: [], unseen: [], current: '0.1.39' }, steam = {}) {
   const importResult = { imported: [{ name: 'GMSE04_super_mario_sunshine', game: 'eclipse', title: 'Super Mario Eclipse',
     shines: [3, null, 1], file: '04-GMSE-super_mario_sunshine.gci' }],
@@ -56,7 +61,7 @@ async function renderer(data = state(), copyError = null, notes = { releases: []
     onLogReset(callback) { resetCallback = callback; },
     saveActivityLog: async () => { calls.push('saveActivityLog'); },
     copyActivityLog: async () => { calls.push('copyActivityLog'); if (copyError) throw copyError; },
-    saveSettings: async value => { calls.push(['saveSettings', value]); return { ...data, config: { ...data.config, settings: port.normalizeSettings(value) } }; },
+    saveSettings: async value => { calls.push(['saveSettings', value]); return { ...data, config: { ...data.config, settings: port.normalizeSettings(value, ...host(data.platform)) } }; },
     changelog: async () => notes, markChangelogSeen: async () => { changelogSeen.push(true); },
     play: async () => { calls.push('play'); }, launchGame: async () => { calls.push('launchGame'); },
     updateAndPlay: async () => { calls.push('updateAndPlay'); },
