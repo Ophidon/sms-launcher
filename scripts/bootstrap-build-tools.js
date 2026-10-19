@@ -88,9 +88,6 @@ async function prepareFromUpstream(userData, { platform = process.platform, run,
           fs.writeFileSync(path.join(llvm, name),
             `#!/bin/sh\nexec "$(dirname "$0")/../../bin/${tool}"${args.map(arg => ` ${arg}`).join('')} "$@"\n`, { mode: 0o755 });
         }
-        // The plugin needs LLVM's headers, not its static libraries (about 1 GB).
-        for (const file of fs.readdirSync(path.join(prefix, 'lib')))
-          if (/^lib(LLVM|clang|lld|MLIR|Polly).*\.a$/.test(file)) fs.rmSync(path.join(prefix, 'lib', file));
       }
     }
     if (platform === 'linux') {
