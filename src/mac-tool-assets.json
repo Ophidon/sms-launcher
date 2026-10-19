@@ -11,13 +11,13 @@
       "toolset": "2026-09-27.1"
     },
     "arm64": {
-      "name": "sms-build-tools-macos-arm64-2026-09-27.1.tar.gz",
-      "url": "https://github.com/chasem-dev/sms-launcher/releases/download/mac-build-tools-2026-09-27.1/sms-build-tools-macos-arm64-2026-09-27.1.tar.gz",
-      "sha256": "602b7ebaee914f1303899f9df49491ba58ed9ad67f8e4435e027d7ed6654fc66",
-      "size": 224532456,
-      "sources": "https://github.com/chasem-dev/sms-launcher/releases/download/mac-build-tools-2026-09-27.1/sms-build-tools-macos-arm64-2026-09-27.1-sources.tar.gz",
-      "notices": "https://github.com/chasem-dev/sms-launcher/releases/download/mac-build-tools-2026-09-27.1/sms-build-tools-macos-arm64-2026-09-27.1-NOTICES.md",
-      "toolset": "2026-10-19.1"
+      "toolset": "2026-10-19.1",
+      "name": "sms-build-tools-macos-arm64-2026-10-19.1.tar.gz",
+      "url": "https://github.com/chasem-dev/sms-launcher/releases/download/build-tools-macos-arm64-2026-10-19.1/sms-build-tools-macos-arm64-2026-10-19.1.tar.gz",
+      "sha256": "47038d87d37da21b6bd005089769d15d7d4b1db0daf95b32155aafb52177dfc3",
+      "size": 272806242,
+      "sources": "https://github.com/chasem-dev/sms-launcher/releases/download/build-tools-macos-arm64-2026-10-19.1/sms-build-tools-macos-arm64-2026-10-19.1-sources.tar.gz",
+      "notices": "https://github.com/chasem-dev/sms-launcher/releases/download/build-tools-macos-arm64-2026-10-19.1/sms-build-tools-macos-arm64-2026-10-19.1-NOTICES.md"
     }
   }
 }
