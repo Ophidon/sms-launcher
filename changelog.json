@@ -8,7 +8,7 @@
       "Messages in the corner of the launcher now have a close button, and sit below the tabs so they no longer cover Settings.",
       "Choosing your game disc now checks the whole file: an incomplete copy, an RVZ, WIA, GCZ or NKit image, a ZIP, 7-Zip or RAR archive, a Wii disc, or another region or game each get a message saying what it is and what to do, instead of failing partway through setting up the game. When setting up does fail, the message now gives the reason instead of only the file that failed.",
       "A green number on the Multiplayer tab's icon shows how many players are in public games right now, so you can see when someone is playing online. It's hidden when nobody is.",
-      "Renderer: choose OpenGL or Vulkan under Graphics, on Linux and Mac. Vulkan is often faster, and if it can't start on your computer the game uses OpenGL.",
+      "Renderer: choose OpenGL or Vulkan under Graphics, on Linux and Mac. Vulkan is experimental: it is often faster, and if it can't start on your computer the game uses OpenGL.",
       "Apple Silicon build: on a Mac, turn it on under Manage game, Files to build the game for Apple Silicon instead of running it through Rosetta, which is faster. It is off by default, and Super Mario Eclipse still plays through Rosetta."
     ],
     "game": [
