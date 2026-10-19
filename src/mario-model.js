@@ -37,11 +37,42 @@ const NOZZLES = {
   turbo: 'watergun2/back_wg/back_wg.bmd',
 };
 
+// FLUDD's files: in Mario's archive on the Sunshine disc; Super Mario Eclipse
+// moves them to the common one.
+function fluddFiles(disc, files) {
+  if (files.has(FLUDD)) return files;
+  const common = disc.files.has('data/common.szs') ? rarc(disc.file('data/common.szs')) : new Map();
+  return common.has(FLUDD) ? common : files;
+}
+
+// FLUDD's pack and its nozzles, parsed. The nozzles' dummy texture is the
+// pack's, which TWaterGun swaps in for H_watergun_main_dummy.
+function loadFludd(files) {
+  const pack = j3d.parseBmd(files.get(FLUDD));
+  return {
+    pack, packTexture: pack.textures.find(texture => /watergun_main/i.test(texture.name) && !/dummy/i.test(texture.name)) || pack.textures[1],
+    nozzles: Object.fromEntries(Object.entries(NOZZLES).map(([id, file]) => [id, j3d.parseBmd(files.get(file))])),
+  };
+}
+
+// The shapes FLUDD draws with a texture of its own (not the water inside the
+// tank), with the texture each is painted with.
+function fluddShapes(model, packTexture) {
+  return model.shapes.flatMap(shape => {
+    const material = model.materials[shape.material];
+    if (/waterline/i.test(material.name)) return [];  // the water level inside the tank
+    const source = model.textures[material.textures[0]];
+    return [{ shape, material, source: source && /dummy/i.test(source.name) ? packTexture : source }];
+  });
+}
+
 function loadMario(rom) {
   const disc = new Disc(rom);
-  let files;
-  try { files = rarc(disc.file('data/mario.szs')); }
-  finally { disc.close(); }
+  let files, fluddArchive;
+  try {
+    files = rarc(disc.file('data/mario.szs'));
+    fluddArchive = fluddFiles(disc, files);
+  } finally { disc.close(); }
   const model = j3d.parseBmd(files.get(MODEL));
   const idle = j3d.parseBck(files.get(IDLE));
 
@@ -64,19 +95,19 @@ function loadMario(rom) {
     return { ...shape, part, texture, doubleSided: material.cull === 0 };
   }));
 
-  const pack = j3d.parseBmd(files.get(FLUDD));
-  const packTexture = pack.textures[1];  // what TWaterGun swaps in for H_watergun_main_dummy
-  const fluddRig = (data, attach) => rig(data, data.shapes.flatMap(shape => {
-    const material = data.materials[shape.material];
-    if (/waterline/i.test(material.name)) return [];  // the water level inside the tank
-    const source = data.textures[material.textures[0]];
-    const texture = source ? textureFor(/dummy/i.test(source.name) ? packTexture : source, 'fludd') : -1;
-    return [{ ...shape, part: 'fludd', texture, doubleSided: material.cull === 0, translucent: material.mode === 4 }];
+  const { pack, packTexture, nozzles } = loadFludd(fluddArchive);
+  const fluddRig = (data, attach) => rig(data, fluddShapes(data, packTexture).map(({ shape, material, source }) => {
+    const texture = source ? textureFor(source, 'fludd') : -1;
+    if (texture >= 0) {
+      const { width, height, covered, wrapS, wrapT } = textures[texture];
+      colors.coverage(width, height, shape.uv, shape.index, covered, wrapS, wrapT);
+    }
+    return { ...shape, part: 'fludd', texture, doubleSided: material.cull === 0, translucent: material.mode === 4 };
   }), attach);
   const fludd = {
     pack: fluddRig(pack, { joint: jointIndex(model, 'jnt_chest'), tilt: true }),
-    nozzles: Object.fromEntries(Object.entries(NOZZLES).map(([id, file]) =>
-      [id, fluddRig(j3d.parseBmd(files.get(file)), { joint: jointIndex(pack, 'nozzle_center') })])),
+    nozzles: Object.fromEntries(Object.entries(nozzles).map(([id, data]) =>
+      [id, fluddRig(data, { joint: jointIndex(pack, 'nozzle_center') })])),
   };
 
   for (const texture of textures) {
@@ -132,4 +163,4 @@ function toonBands({ rgba }) {
   return [low / 255, high / 255];
 }
 
-module.exports = { loadMario, partOf, bake, NOZZLES };
+module.exports = { loadMario, partOf, bake, fluddFiles, loadFludd, fluddShapes, NOZZLES, FLUDD };

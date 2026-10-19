@@ -9,6 +9,9 @@ const GROUPS = [
   { title: 'Outfit', regions: ['hat', 'emblem', 'emblemLetter', 'shirt', 'overalls', 'buttons', 'gloves', 'shoes'] },
   { title: 'Face', regions: ['skin', 'hair', 'eyebrows', 'mustache', 'eyes'] },
 ];
+// The colours that belong to FLUDD, and the rest (Mario's). Each one's presets
+// change only its own.
+const only = (colors, fludd) => Object.fromEntries(Object.entries(colors).filter(([id]) => Colors.FLUDD_REGIONS.includes(id) === fludd));
 const WRAP = [THREE.ClampToEdgeWrapping, THREE.RepeatWrapping, THREE.MirroredRepeatWrapping];
 
 let viewer = null, model = null, look = Colors.normalizeLook(), saveTimer = null, loading = null;
@@ -111,7 +114,7 @@ function save() {
 
 // --- Panel -------------------------------------------------------------------
 
-function swatch(id) {
+function swatch(id, onChange = () => {}) {
   const index = Colors.REGIONS.findIndex(region => region.id === id), original = model.references[index]?.color;
   if (!original) return null;
   const row = document.createElement('label');
@@ -121,27 +124,32 @@ function swatch(id) {
   row.querySelector('.mario-swatch-name').textContent = Colors.REGIONS[index].label;
   const input = row.querySelector('input');
   input.setAttribute('aria-label', `${Colors.REGIONS[index].label} colour`);
-  input.addEventListener('input', () => change(() => { look.colors = { ...look.colors, [id]: input.value }; }));
+  input.addEventListener('input', () => change(() => { look.colors = { ...look.colors, [id]: input.value }; onChange(); }));
   row.querySelector('button').addEventListener('click', event => {
     event.preventDefault();
-    change(() => { const { [id]: _, ...rest } = look.colors; look.colors = rest; });
+    change(() => { const { [id]: _, ...rest } = look.colors; look.colors = rest; onChange(); });
   });
   return row;
 }
 
 $('mario-in-game').addEventListener('change', event => change(() => { look.inGame = event.target.checked; }));
 
-function renderControls() {
-  const presets = $('mario-presets');
-  presets.replaceChildren(...Colors.PRESETS.map(preset => {
+// A row of preset buttons; `fludd` presets replace FLUDD's colours, the others Mario's.
+function presetButtons(presets, fludd, onChange = () => {}) {
+  return presets.map(preset => {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'mario-preset';
     button.dataset.preset = preset.id;
+    button.dataset.fludd = String(fludd);
     button.textContent = preset.label;
-    button.addEventListener('click', () => change(() => { look.colors = { ...preset.colors }; }));
+    button.addEventListener('click', () => change(() => { look.colors = { ...only(look.colors, !fludd), ...preset.colors }; onChange(); }));
     return button;
-  }));
+  });
+}
+
+function renderControls() {
+  $('mario-presets').replaceChildren(...presetButtons(Colors.PRESETS, false));
   const list = $('mario-regions');
   list.replaceChildren();
   for (const group of GROUPS) {
@@ -172,7 +180,7 @@ function renderControls() {
   fluddBox.className = 'mario-swatches';
   const wear = document.createElement('label');
   wear.className = 'switch mario-aloha';
-  wear.innerHTML = '<span><strong>Wear FLUDD</strong><small>The water pack, with the nozzle you pick.</small></span><input id="mario-fludd" type="checkbox"><i></i>';
+  wear.innerHTML = '<span><strong>Wear FLUDD</strong><small>See FLUDD on Mario here, with the nozzle you pick. FLUDD\'s colours show in the game either way.</small></span><input id="mario-fludd" type="checkbox"><i></i>';
   wear.querySelector('input').addEventListener('change', event => change(() => { look.fludd = event.target.checked; }));
   const picker = document.createElement('div');
   picker.id = 'mario-nozzles';
@@ -188,7 +196,14 @@ function renderControls() {
     button.addEventListener('click', () => change(() => { look.nozzle = nozzle.id; }));
     return button;
   }));
-  fluddBox.append(wear, picker);
+  // Picking FLUDD's colours puts FLUDD on Mario, to see them.
+  const wearFludd = () => { look.fludd = true; };
+  const fluddPresets = document.createElement('div');
+  fluddPresets.className = 'mario-presets mario-fludd-presets';
+  fluddPresets.setAttribute('role', 'group');
+  fluddPresets.setAttribute('aria-label', 'FLUDD presets');
+  fluddPresets.append(...presetButtons(Colors.FLUDD_PRESETS, true, wearFludd));
+  fluddBox.append(wear, picker, fluddPresets, ...Colors.FLUDD_REGIONS.map(id => swatch(id, wearFludd)).filter(Boolean));
   list.append(fluddHeading, fluddBox);
   syncControls();
 }
@@ -201,9 +216,13 @@ function syncControls() {
     if (input.value !== value) input.value = value;
     row.classList.toggle('changed', Boolean(look.colors[id]));
   }
-  const key = JSON.stringify(look.colors);
-  for (const button of document.querySelectorAll('.mario-preset[data-preset]'))
-    button.classList.toggle('active', JSON.stringify(Colors.PRESETS.find(p => p.id === button.dataset.preset).colors) === key);
+  for (const button of document.querySelectorAll('.mario-preset[data-preset]')) {
+    const fludd = button.dataset.fludd === 'true', presets = fludd ? Colors.FLUDD_PRESETS : Colors.PRESETS;
+    const preset = presets.find(p => p.id === button.dataset.preset).colors, mine = only(look.colors, fludd);
+    const active = Object.keys(preset).length === Object.keys(mine).length && Object.keys(preset).every(id => preset[id] === mine[id]);
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', String(active));
+  }
   $('mario-in-game').checked = look.inGame;
   $('mario-preview-note').textContent = look.inGame ? 'Your colours show in the game the next time it starts.'
     : 'The game shows Mario as usual: Use in the game is off.';

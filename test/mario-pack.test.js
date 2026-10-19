@@ -135,6 +135,30 @@ test('a look goes to other players as its chosen regions in order, only real reg
   assert.equal(pack.lookText(null), '');
 });
 
+test("FLUDD's colours go to other players after Mario's", () => {
+  assert.equal(pack.lookText({ colors: { fluddTrim: '#ff0000', hat: '#2fa846', fluddBody: '#123456' } }),
+    'hat=2fa846;fluddBody=123456;fluddTrim=ff0000');
+});
+
+test("FLUDD's texture is painted from all its pack's and every nozzle's triangles, not the water inside", () => {
+  const texture = (name, size) => ({ name, width: size, height: size, mipmapped: false, format: 14, level: Buffer.from(name) });
+  const main = texture('H_watergun_main_s3tc', 8), dummy = texture('H_watergun_main_dummy', 2), water = texture('H_watergun_water', 4);
+  const shape = (material, u) => ({ material, uv: Float32Array.of(u, 0, u + 0.1, 0, u, 0.1), index: Uint32Array.of(0, 1, 2) });
+  const mario = { textures: [], shapes: [], materials: [], joints: [] };
+  const fludd = {
+    packTexture: main,
+    // the pack lists its texture once per material, as separate entries with the same pixels
+    pack: { textures: [main, water, { ...main }], materials: [{ name: '_mat_G_main', textures: [0] }, { name: '_mat_waterline', textures: [1] },
+      { name: '_mat_froater', textures: [2] }], shapes: [shape(0, 0), shape(1, 0.5), shape(2, 0.25)] },
+    nozzles: { spray: { textures: [dummy], materials: [{ name: '_mat_nozzle', textures: [0] }], shapes: [shape(0, 0.75)] } },
+  };
+  const list = pack.targets(mario, fludd);
+  assert.deepEqual(list.map(target => target.name), [pack.packName(main)]);
+  assert.deepEqual([...list[0].parts.keys()], ['fludd']);
+  assert.deepEqual(list[0].parts.get('fludd').map(s => s.uv[0]), [0, 0.25, 0.75], "every pack entry's and the nozzle's, not the waterline's");
+  assert.deepEqual(pack.targets(mario), [], 'without FLUDD, only Mario');
+});
+
 test('a paint file holds the picture and, per texel, region, blend region, blend share and lightness', () => {
   const rgba = Uint8Array.from([1, 2, 3, 255, 4, 5, 6, 255]);
   const map = { mask: Uint8Array.from([0, 255]), second: Uint8Array.from([255, 255]), mix: Uint8Array.from([0, 0]),

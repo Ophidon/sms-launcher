@@ -9,7 +9,7 @@ const { Disc, parseFst } = require('../src/disc');
 const { yaz0, rarc } = require('../src/archive');
 const j3d = require('../src/j3d');
 const colors = require('../src/mario-colors');
-const { partOf, bake, NOZZLES } = require('../src/mario-model');
+const { partOf, bake, fluddFiles, NOZZLES, FLUDD } = require('../src/mario-model');
 
 // A file system table: root, data/, data/mario.szs, opening.bnr.
 function fst(files) {
@@ -145,6 +145,15 @@ test('every nozzle the customizer offers has a model', () => {
   assert.deepEqual(Object.keys(NOZZLES), colors.NOZZLES.map(nozzle => nozzle.id));
 });
 
+test("FLUDD comes from Mario's archive, or Eclipse's common one", () => {
+  const withFludd = new Map([[FLUDD, Buffer.alloc(0)]]), without = new Map();
+  const disc = { files: new Map(), file: name => { throw new Error(`read ${name}`); } };
+  assert.equal(fluddFiles(disc, withFludd), withFludd);
+  assert.equal(fluddFiles(disc, without), without, 'a disc with neither keeps Mario\'s');
+  disc.files.set('data/common.szs', {});
+  assert.throws(() => fluddFiles(disc, without), /read data\/common\.szs/);
+});
+
 test('shapes are told apart by the joint they hang off or their material', () => {
   const model = {
     joints: [{ name: 'mdl1' }, { name: 'M_head_cap1' }, { name: 'M_head' }, { name: 'M_hand1_L' }, { name: 'M_foot_R' }],
@@ -193,6 +202,25 @@ test('the cap letter is the red the emblem encloses, even where the emblem is cu
   assert.equal(mask[6 * size + 3], region('emblem'));
   assert.equal(mask[0], region('hat'));
   assert.equal(mask[6 * size + 10], region('hat'));
+});
+
+test("FLUDD's texture sorts into its body, metal, straps and trim, keeping the gauge's dark dot", () => {
+  // Shades from FLUDD's texture on the disc, the ochre shading by its screw among them.
+  const shades = [[[246, 228, 56], 'fluddBody'], [[189, 109, 16], 'fluddBody'], [[192, 192, 208], 'fluddMetal'],
+    [[96, 96, 112], 'fluddMetal'], [[128, 48, 0], 'fluddStraps'], [[96, 48, 16], 'fluddStraps'], [[64, 64, 230], 'fluddTrim']];
+  const mask = colors.classify(image(shades.length, 1, x => shades[x][0]), shades.length, 1, 'fludd');
+  shades.forEach(([rgb, id], x) => assert.equal(mask[x], region(id), `${rgb} is ${id}`));
+  assert.equal(colors.classify(image(1, 1, () => [16, 16, 20]), 1, 1, 'fludd')[0], 255);
+});
+
+test("Mario's presets change only Mario's colours, FLUDD's only FLUDD's", () => {
+  assert.deepEqual(colors.FLUDD_REGIONS, ['fluddBody', 'fluddMetal', 'fluddStraps', 'fluddTrim']);
+  for (const preset of colors.PRESETS)
+    assert.ok(Object.keys(preset.colors).every(id => !colors.FLUDD_REGIONS.includes(id)), preset.id);
+  for (const preset of colors.FLUDD_PRESETS) {
+    assert.ok(Object.keys(preset.colors).every(id => colors.FLUDD_REGIONS.includes(id)), preset.id);
+    assert.deepEqual(colors.normalize(preset.colors), preset.colors, preset.id);
+  }
 });
 
 test('a part covers the texels its triangles reach, wrapping round a repeating texture', () => {

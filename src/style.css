@@ -661,6 +661,7 @@ pre { height: 120px; margin: 0; padding: 12px; overflow: auto; border-radius: 8p
 .mario-in-game { margin-bottom: 12px; padding: 8px 12px; border: 1px solid #e1e9e8; border-radius: 12px; background: #fff; }
 .mario-nozzles { padding: 4px 0 10px; }
 .mario-nozzles[hidden] { display: none; }
+.mario-fludd-presets { padding: 6px 0 8px; border-top: 1px solid #eef2f1; }
 .path-modal { width: min(680px, calc(100% - 36px)); }
 .path-summary { font-size: 15px; line-height: 1.5; }
 .path-box { margin-top: 10px; padding: 10px 14px; border: 1px solid #e2b9b4; border-radius: 10px; background: #fff; overflow-wrap: anywhere; }
