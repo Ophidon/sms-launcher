@@ -683,10 +683,12 @@ pre { height: 120px; margin: 0; padding: 12px; overflow: auto; border-radius: 8p
 .nav-tab:hover { background: #ffffff0d; color: #fff; }
 .nav-tab.active { background: linear-gradient(180deg, #ffc75a00, #ffc75a1c); color: #ffe2a3; box-shadow: inset 0 -3px 0 #ffc75a; }
 .nav-badge { padding: 2px 7px; border-radius: 999px; background: #ffc75a2e; color: #ffda91; font-size: 10px; font-style: normal; font-weight: 800; }
-/* Players in public games right now, on the Multiplayer tab: hidden when nobody is. */
-.nav-online { display: inline-flex; align-items: center; gap: 5px; margin-left: -2px; color: #9be8b4; font-size: 11.5px; font-style: normal; font-weight: 750; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.nav-online i { width: 7px; height: 7px; border-radius: 50%; background: #3fbf6f; box-shadow: 0 0 0 3px #3fbf6f33; animation: nav-online-pulse 2.4s ease-in-out infinite; }
-@keyframes nav-online-pulse { 50% { box-shadow: 0 0 0 5px #3fbf6f14; } }
+/* Players in public games right now, as a green second half of the Multiplayer tab's Beta pill: hidden when nobody is. */
+.nav-badge:has(.nav-online:not([hidden])) { display: inline-flex; align-items: stretch; padding: 0; overflow: hidden; }
+.nav-badge:has(.nav-online:not([hidden])) > span:first-child { padding: 2px 6px 2px 7px; }
+.nav-online { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px 2px 6px; background: #3fbf6f2e; color: #a6f0bf; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.nav-online i { width: 6px; height: 6px; border-radius: 50%; background: #4fd583; box-shadow: 0 0 0 2px #4fd58333; animation: nav-online-pulse 2.4s ease-in-out infinite; }
+@keyframes nav-online-pulse { 50% { box-shadow: 0 0 0 3px #4fd58314; } }
 @media (prefers-reduced-motion: reduce) { .nav-online i { animation: none; } }
 .nav-spacer { flex: 1; }
 .nav-link { display: flex; align-items: center; gap: 9px; padding: 6px 10px; border: 0; border-radius: 9px; background: transparent; color: #c4dfe6; font-size: 12.5px; font-weight: 650; }
