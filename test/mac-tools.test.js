@@ -108,3 +108,11 @@ test('falls back to the default SDK when no SDK links', async () => {
   const fake = fixture({ sdks: ['MacOSX27.0.sdk'], unlinkable: ['/SDK/MacOSX.sdk', '/SDK/MacOSX27.0.sdk'] });
   assert.equal((await mac.inspect({}, fake)).sdkPath, '/SDK/MacOSX.sdk');
 });
+
+test('the Apple Silicon build does not need Rosetta', async () => {
+  const inspection = await mac.inspect({}, fixture({ rosetta: false }));
+  const native = mac.report(inspection, { rosetta: false });
+  assert.equal(native.ready, true);
+  assert.equal(native.commands, '');
+  assert.equal(mac.report(inspection).ready, false);
+});

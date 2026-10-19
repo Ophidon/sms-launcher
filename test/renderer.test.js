@@ -585,3 +585,50 @@ test('the Multiplayer tab shows how many play in public games, and nothing when 
   ui.listeners.publicOnline(null);
   assert.equal(badge.hidden, true);
 });
+
+test('the Apple Silicon switch shows on macOS only, and builds the arm64 game when turned on', async () => {
+  const mac = state();
+  mac.platform = port.platformInfo('darwin', 'arm64');
+  mac.config.settings = port.normalizeSettings({}, 'darwin', 'arm64');
+  const ui = await renderer(mac);
+  assert.equal(ui.elements.get('appleSilicon-field').hidden, false);
+  assert.equal(ui.elements.get('arch-field').hidden, true);
+  assert.equal(ui.elements.get('appleSilicon').checked, false);
+  assert.equal(ui.elements.get('appleSilicon').disabled, false);
+  ui.elements.get('appleSilicon').checked = true;
+  ui.elements.get('appleSilicon').dispatch('change');
+  await new Promise(setImmediate);
+  assert.equal(ui.calls.at(-1)[1].arch, 'arm64');
+
+  const intel = state();
+  intel.platform = port.platformInfo('darwin', 'x64');
+  intel.config.settings = port.normalizeSettings({}, 'darwin', 'x64');
+  const intelUi = await renderer(intel);
+  assert.equal(intelUi.elements.get('appleSilicon-field').hidden, false);
+  assert.equal(intelUi.elements.get('appleSilicon').disabled, true);
+
+  const windows = state();
+  windows.platform = port.platformInfo('win32');
+  windows.config.settings = port.normalizeSettings({}, 'win32');
+  const windowsUi = await renderer(windows);
+  assert.equal(windowsUi.elements.get('appleSilicon-field').hidden, true);
+  assert.equal(windowsUi.elements.get('arch-field').hidden, false);
+});
+
+test('the Renderer list is saved with the others, and hidden where only OpenGL is offered', async () => {
+  const data = state();
+  data.platform = port.platformInfo('linux');
+  data.config.settings = port.normalizeSettings({}, 'linux');
+  const ui = await renderer(data);
+  assert.equal(ui.elements.get('renderer-field').hidden, false);
+  assert.equal(ui.elements.get('renderer').value, 'opengl');
+  ui.elements.get('renderer').value = 'vulkan';
+  ui.elements.get('renderer').dispatch('change');
+  await new Promise(setImmediate);
+  assert.equal(ui.calls.at(-1)[1].renderer, 'vulkan');
+
+  const windows = state();
+  windows.platform = port.platformInfo('win32');
+  windows.config.settings = port.normalizeSettings({}, 'win32');
+  assert.equal((await renderer(windows)).elements.get('renderer-field').hidden, true);
+});

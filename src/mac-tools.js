@@ -117,8 +117,11 @@ async function inspect(base = process.env, { run = probe, exists = executable, l
   };
 }
 
-function report(inspection = { checked: false, requirements: [] }, { archives = false, managed = false } = {}) {
-  const requirements = inspection.requirements.map(item => ({ ...item, optional: item.id === 'zip' && !archives }));
+// rosetta: whether the game is built for x86_64 (Rosetta runs it); the Apple
+// Silicon build does not need it.
+function report(inspection = { checked: false, requirements: [] }, { archives = false, managed = false, rosetta = true } = {}) {
+  const requirements = inspection.requirements.map(item => ({ ...item,
+    optional: item.id === 'zip' && !archives || item.id === 'rosetta' && !rosetta }));
   const missing = requirements.filter(item => !item.ready && !item.optional);
   const commands = [];
   if (missing.some(item => item.id === 'apple')) commands.push('xcode-select --install');

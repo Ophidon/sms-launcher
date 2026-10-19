@@ -578,7 +578,8 @@ function toolEnv(base = process.env) {
 }
 
 function toolOptions() {
-  return { archives: Boolean(config.settings.textures || config.settings.eclipse) };
+  // The Apple Silicon build runs without Rosetta.
+  return { archives: Boolean(config.settings.textures || config.settings.eclipse), rosetta: config.settings.arch !== 'arm64' };
 }
 
 function toolsStatus() {
@@ -688,6 +689,7 @@ async function prepareBuildTools() {
   broadcast('activity', { label: active.label, detail: active.detail, percent: null, startedAt });
   try {
     await buildTools.prepare(userData, {
+      ...toolOptions(),
       forcePrivate,
       progress(percent, detail) {
         if (!active || active.child) return;
@@ -886,7 +888,7 @@ async function setupGame() {
 const PLAYER_SETTINGS = [
   'volume', 'invertCameraX', 'invertCameraY', 'keyBindings', 'padBindings', 'softTrigger', 'rumbleStrength', 'freeCamera', 'cstickAim', 'cameraSpeed', 'mouseCamera',
   'mouseSensitivity', 'skipMovies', 'skipIntro', 'language', 'heatHaze', 'pauseTracker', 'buttonPrompts', 'promptPad', 'hdr', 'hdrCalibration', 'hdrPaperWhite', 'hdrPeak', 'hdrContrast', 'hdrSaturation', 'hdrHighlights', 'overlay', 'fullscreenMode', 'exclusiveResolution', 'display', 'vsync',
-  'msaa', 'fxaa', 'anisotropic', 'sharpen', 'fsrMode', 'brightness', 'aspect', 'presentFilter'
+  'msaa', 'fxaa', 'anisotropic', 'sharpen', 'fsrMode', 'brightness', 'aspect', 'presentFilter', 'renderer'
 ];
 function promptDirectory() { return path.join(app.getPath('userData'), 'prompts'); }
 

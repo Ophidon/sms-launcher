@@ -20,7 +20,7 @@ jobs:
           - os: macos-15
             arch: arm64
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 90
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4
         if: (inputs.arch == 'all' || inputs.arch == matrix.arch)
@@ -48,6 +48,8 @@ jobs:
         run: node scripts/smoke-mac-tools.js
         env:
           SMS_TOOL_ASSET_MANIFEST: tool-assets/manifest-macos-${{ matrix.arch }}.json
+          # the arm64 toolset also builds the Apple Silicon game
+          SMS_SMOKE_ARCHES: ${{ matrix.arch == 'arm64' && '64,arm64' || '64' }}
       - uses: actions/upload-artifact@v4
         if: (inputs.arch == 'all' || inputs.arch == matrix.arch) && always()
         with:

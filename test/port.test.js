@@ -97,7 +97,8 @@ test('names disc files the game cannot read, whatever they are called', () => {
 
 test('offers only platform-supported architectures and keeps builds separate', () => {
   assert.deepEqual(port.platformInfo('linux').arches, ['64', '32']);
-  assert.deepEqual(port.platformInfo('darwin').arches, ['64']);
+  assert.deepEqual(port.platformInfo('darwin', 'x64').arches, ['64']);
+  assert.deepEqual(port.platformInfo('darwin', 'arm64').arches, ['64', 'arm64']);
   assert.deepEqual(port.platformInfo('win32').arches, ['64', '32']);
   const windows = port.normalizeSettings({ arch: '64' }, 'win32');
   assert.equal(windows.arch, '64');
@@ -659,4 +660,27 @@ test('build tools too deep in a portable folder for their own headers are explai
   assert.equal(port.longPathProblem(`${games}\\sms-pc-port`, sunshine,
     { platform: 'win32', portable: true, folder: games, msys: `${games}\\build-tools\\windows-x64-9d02b4b55bfc\\msys64` }), null);
   assert.equal(port.longPathProblem(root, sunshine, { platform: 'win32', portable: true, folder, msys: 'C:\\msys64' }), null);
+});
+
+test('the Apple Silicon build is offered on Apple Silicon Macs only, and not for Eclipse', () => {
+  assert.equal(port.normalizeSettings({ arch: 'arm64' }, 'darwin', 'arm64').arch, 'arm64');
+  assert.equal(port.normalizeSettings({ arch: 'arm64' }, 'darwin', 'x64').arch, '64');
+  assert.equal(port.normalizeSettings({}, 'darwin', 'arm64').arch, '64');
+  assert.equal(port.normalizeSettings({ arch: 'arm64', eclipse: true }, 'darwin', 'arm64').arch, '64');
+  assert.equal(port.normalizeSettings({ arch: 'arm64' }, 'linux', 'arm64').arch, '64');
+  const native = port.normalizeSettings({ arch: 'arm64' }, 'darwin', 'arm64');
+  assert.match(port.binaryPath('/port', native, 'darwin'), /macos-arm64[\\/]sms$/);
+  assert.equal(port.buildEnvironment(native, '/my/disc.iso', '/port').SMS_ARCH, 'arm64');
+});
+
+test('the renderer is OpenGL or Vulkan where Vulkan is offered, and OpenGL on Windows', () => {
+  assert.equal(port.normalizeSettings({}, 'linux').renderer, 'opengl');
+  assert.equal(port.normalizeSettings({ renderer: 'vulkan' }, 'linux').renderer, 'vulkan');
+  assert.equal(port.normalizeSettings({ renderer: 'vulkan' }, 'darwin').renderer, 'vulkan');
+  assert.equal(port.normalizeSettings({ renderer: 'vulkan' }, 'win32').renderer, 'opengl');
+  assert.equal(port.normalizeSettings({ renderer: 'metal' }, 'linux').renderer, 'opengl');
+  assert.deepEqual(port.platformInfo('win32').renderers, ['opengl']);
+  const vulkan = port.normalizeSettings({ renderer: 'vulkan' }, 'linux');
+  assert.equal(port.buildEnvironment(vulkan, '/my/disc.iso', '/port').SMS_GX_BACKEND, 'vulkan');
+  assert.equal(port.buildEnvironment(port.normalizeSettings({}, 'linux'), '/my/disc.iso', '/port').SMS_GX_BACKEND, 'opengl');
 });
