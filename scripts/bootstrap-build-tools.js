@@ -164,6 +164,18 @@ async function prepareFromUpstream(userData, { platform = process.platform, run,
       { cwd: msys, env }, 'Prepare build tools');
     if (!fs.existsSync(path.join(msys, 'mingw64', 'bin', 'g++.exe')))
       throw new Error('Windows compiler is missing after tool setup.');
+    // MinGW's ca-certificates install can leave its bundles empty (2026-10-05.1
+    // shipped that way), which breaks every HTTPS download the bundled Python
+    // makes. MSYS2's own copy holds the same Mozilla roots.
+    const certificates = path.join(msys, 'usr', 'ssl', 'certs', 'ca-bundle.crt');
+    if (!fs.existsSync(certificates) || !fs.statSync(certificates).size)
+      throw new Error('MSYS2 certificate bundle is missing after tool setup.');
+    for (const file of [['etc', 'ssl', 'cert.pem'], ['etc', 'ssl', 'certs', 'ca-bundle.crt'],
+      ['etc', 'pki', 'ca-trust', 'extracted', 'pem', 'tls-ca-bundle.pem']].map(parts => path.join(msys, 'mingw64', ...parts)))
+      if (!fs.existsSync(file) || !fs.statSync(file).size) {
+        fs.mkdirSync(path.dirname(file), { recursive: true });
+        fs.copyFileSync(certificates, file);
+      }
     if (!fs.existsSync(path.join(msys, 'mingw64', 'bin', 'clang++.exe')))
       throw new Error('The Eclipse compiler is missing after tool setup.');
     const runtimes = path.join(msys, 'opt', 'i686-w64-mingw32', 'bin');

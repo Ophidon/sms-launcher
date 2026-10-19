@@ -229,6 +229,36 @@ test('Windows build tools ignore another Python install\'s environment', t => {
   assert.equal(tools.environmentAtRoot(root, { PYTHONPATH: 'kept' }, 'linux').PYTHONPATH, 'kept');
 });
 
+test('Windows tools give Python a non-empty CA bundle when MinGW\'s shipped empty', t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sms-ca-bundle-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const msys = path.join(root, 'msys64');
+  const mingw = path.join(msys, 'mingw64', 'etc', 'ssl', 'cert.pem');
+  const usr = path.join(msys, 'usr', 'ssl', 'certs', 'ca-bundle.crt');
+  for (const file of [mingw, usr]) fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.mkdirSync(path.join(msys, 'usr', 'bin'));
+  fs.writeFileSync(path.join(msys, 'usr', 'bin', 'bash.exe'), '');
+  // The 2026-10-05.1 archive: MinGW's bundle is 0 bytes, MSYS2's is complete.
+  fs.writeFileSync(mingw, '');
+  fs.writeFileSync(usr, '-----BEGIN CERTIFICATE-----\n');
+  const env = tools.environmentAtRoot(root, { Path: 'C:\\WINDOWS\\system32', SMS_ARCH: '64' }, 'win32');
+  assert.equal(env.SSL_CERT_FILE, usr);
+  assert.equal(require('../src/port').commandFor(root, 'textures', [], 'win32', env).env.SSL_CERT_FILE, usr);
+  // A repaired MinGW bundle is preferred.
+  fs.writeFileSync(mingw, '-----BEGIN CERTIFICATE-----\n');
+  assert.equal(tools.environmentAtRoot(root, { SMS_ARCH: '64' }, 'win32').SSL_CERT_FILE, mingw);
+  // The player's own bundle wins, but not a stale setting naming nothing.
+  const own = path.join(root, 'company.pem');
+  fs.writeFileSync(own, '-----BEGIN CERTIFICATE-----\n');
+  assert.equal(tools.environmentAtRoot(root, { ssl_cert_file: own, SMS_ARCH: '64' }, 'win32').ssl_cert_file, own);
+  const stale = tools.environmentAtRoot(root, { ssl_cert_file: path.join(root, 'gone.pem'), SMS_ARCH: '64' }, 'win32');
+  assert.deepEqual(Object.keys(stale).filter(key => key.toUpperCase() === 'SSL_CERT_FILE'), ['SSL_CERT_FILE']);
+  assert.equal(stale.SSL_CERT_FILE, mingw);
+  // Linux and Mac keep their own OpenSSL configuration.
+  fs.mkdirSync(path.join(root, 'env'));
+  assert.equal(tools.environmentAtRoot(root, {}, 'linux').SSL_CERT_FILE, undefined);
+});
+
 test('32-bit Windows target uses x64 helpers and a cross compiler, with target DLLs first', t => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sms-cross-tools-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));

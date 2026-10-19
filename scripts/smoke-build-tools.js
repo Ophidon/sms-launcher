@@ -108,6 +108,12 @@ async function main() {
     ? path.join(checkoutEnv.MSYS2_ROOT, 'usr', 'bin', 'git.exe')
     : path.join(toolRoot, 'env', 'bin', 'git');
   if (!fs.existsSync(git)) throw new Error(`Private Git is missing: ${git}`);
+  if (process.platform === 'win32') {
+    // An empty bundle fails every texture and cutscene download.
+    const certificates = path.join(checkoutEnv.MSYS2_ROOT, 'mingw64', 'etc', 'ssl', 'cert.pem');
+    if (!fs.existsSync(certificates) || !fs.statSync(certificates).size)
+      throw new Error(`The bundled Python has no CA certificates: ${certificates}`);
+  }
   const root = path.join(os.tmpdir(), process.platform === 'win32'
     ? 'SMS Port Private Tools CI' : 'sms-port-private-tools-ci');
   if (fs.existsSync(root)) throw new Error(`Smoke build folder already exists: ${root}`);
