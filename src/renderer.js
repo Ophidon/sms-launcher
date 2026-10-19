@@ -688,6 +688,7 @@ function refresh(data) {
   renderActivity(data.active);
   renderAppUpdate(data.appUpdate);
   renderOnline(data.online);
+  renderPublicOnline(data.publicOnline);
   const installedVersion = data.binaryReady ? data.game.installedVersion : null;
   const gameVersion = installedVersion || (data.binaryReady ? 'Version unavailable' : 'Not installed');
   $('version-summary').textContent = `Launcher v${data.game.launcherVersion} · Game ${installedVersion || (data.binaryReady ? 'version unavailable' : 'not installed')}`;
@@ -1823,6 +1824,16 @@ function renderOnline(value) {
   $('online-count').hidden = false;
 }
 window.sms.onOnline(renderOnline);
+// Players in public games right now (src/main.js: checkPublicOnline), on the Multiplayer tab: a sign someone is
+// playing online. Hidden when nobody is, or the list can't be had.
+function renderPublicOnline(value) {
+  const players = value?.players || 0;
+  $('mp-online').hidden = players === 0;
+  $('mp-online-count').textContent = players.toLocaleString();
+  $('mp-online').title = players === 0 ? '' : `${players} ${players === 1 ? 'player' : 'players'} in `
+    + `${value.games === 1 ? 'a public game' : `${value.games} public games`} right now`;
+}
+window.sms.onPublicOnline(renderPublicOnline);
 $('install-app-update').addEventListener('click', () => window.sms.installAppUpdate().catch(showError));
 $('check-updates').addEventListener('click', checkForUpdates);
 function renderWindowState(value) {

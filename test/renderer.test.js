@@ -52,7 +52,7 @@ async function renderer(data = state(), copyError = null, notes = { releases: []
   const sms = {
     state: async () => data, windowState: async () => ({}), zoomFactor: () => 1,
     importDolphinSave: async file => { calls.push('importDolphinSave'); droppedFiles.push(file); return importResult; },
-    onLog(callback) { logCallback = callback; }, onActivity(callback) { activityCallback = callback; }, onAppUpdate() {}, onWindowState() {}, onOnline(callback) { listeners.online = callback; },
+    onLog(callback) { logCallback = callback; }, onActivity(callback) { activityCallback = callback; }, onAppUpdate() {}, onWindowState() {}, onOnline(callback) { listeners.online = callback; }, onPublicOnline(callback) { listeners.publicOnline = callback; },
     onLogReset(callback) { resetCallback = callback; },
     saveActivityLog: async () => { calls.push('saveActivityLog'); },
     copyActivityLog: async () => { calls.push('copyActivityLog'); if (copyError) throw copyError; },
@@ -567,4 +567,19 @@ test('a hosted room shows under Play and on Multiplayer, and goes when the game 
   assert.equal(ui.elements.get('page-home').hidden, false);
   await ui.emitActivity(null);
   for (const id of ['play-room', 'mp-room']) assert.equal(ui.elements.get(id).hidden, true);
+});
+
+test('the Multiplayer tab shows how many play in public games, and nothing when nobody does', async () => {
+  const ui = await renderer({ ...state(), publicOnline: { players: 3, games: 2 } });
+  const badge = ui.elements.get('mp-online');
+  assert.equal(badge.hidden, false);
+  assert.equal(ui.elements.get('mp-online-count').textContent, '3');
+  assert.equal(badge.title, '3 players in 2 public games right now');
+  ui.listeners.publicOnline({ players: 1, games: 1 });
+  assert.equal(badge.title, '1 player in a public game right now');
+  ui.listeners.publicOnline({ players: 0, games: 0 });
+  assert.equal(badge.hidden, true);
+  ui.listeners.publicOnline({ players: 2, games: 1 });
+  ui.listeners.publicOnline(null);
+  assert.equal(badge.hidden, true);
 });
