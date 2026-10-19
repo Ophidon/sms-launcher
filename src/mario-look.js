@@ -158,7 +158,7 @@ function renderControls() {
     heading.textContent = group.title;
     const box = document.createElement('div');
     box.className = 'mario-swatches';
-    box.append(...group.regions.map(swatch).filter(Boolean));
+    box.append(...group.regions.map(id => swatch(id)).filter(Boolean));
     list.append(heading, box);
   }
   const heading = document.createElement('h2');
