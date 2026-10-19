@@ -15,12 +15,12 @@ const j3d = require('./j3d');
 const colors = require('./mario-colors');
 const image = require('./texture-image');
 const { xxh64 } = require('./xxh64');
-const { partOf } = require('./mario-model');
+const { partOf, fluddFiles, loadFludd, fluddShapes } = require('./mario-model');
 
 // Bumped whenever baking changes, so older packs are made again.
-const VERSION = 1;
+const VERSION = 2;
 // The parts' order when several cover one texel of the atlas.
-const PRIORITY = ['cap', 'head', 'hands', 'feet', 'body', 'aloha', 'eye', 'mouth'];
+const PRIORITY = ['cap', 'head', 'hands', 'feet', 'body', 'aloha', 'eye', 'mouth', 'fludd'];
 // Super Mario Eclipse's other playable characters, each with a model of its own.
 const OTHER_CHARACTERS = ['data/luigi.szs', 'data/piantissimo.szs', 'data/shadow_mario.szs'];
 
@@ -31,24 +31,37 @@ function packName({ width, height, mipmapped, level, format }) {
 
 // Every texture Mario's colours touch: its pack name, its disc pixels, and the
 // parts (with their triangles) drawn with it. Eyes have five blink frames,
-// drawn with the same triangles.
-function targets(model) {
+// drawn with the same triangles. With `fludd` (loadFludd), FLUDD's texture
+// too, with the triangles of its pack and every nozzle.
+function targets(model, fludd = null) {
   const byName = new Map();
+  const add = (source, part, shape) => {
+    const name = packName(source);
+    if (!byName.has(name)) byName.set(name, { name, source, parts: new Map() });
+    const parts = byName.get(name).parts;
+    if (!parts.has(part)) parts.set(part, []);
+    parts.get(part).push(shape);
+  };
   const eyeFrames = model.textures.filter(t => /^H_ma_eye\d/i.test(t.name));
   model.shapes.forEach((shape, i) => {
     const part = partOf(shape, model, i);
     if (!colors.PARTS[part]) return;
     const material = model.materials[shape.material];
-    const sources = part === 'eye' ? eyeFrames : [model.textures[material.textures[0]]];
-    for (const source of sources) {
-      const name = packName(source);
-      if (!byName.has(name)) byName.set(name, { name, source, parts: new Map() });
-      const parts = byName.get(name).parts;
-      if (!parts.has(part)) parts.set(part, []);
-      parts.get(part).push(shape);
-    }
+    for (const source of part === 'eye' ? eyeFrames : [model.textures[material.textures[0]]]) add(source, part, shape);
   });
+  // The pack lists its texture once per material, each entry with the same
+  // pixels: the game finds them all by that one pack name.
+  const fluddName = fludd && packName(fludd.packTexture);
+  if (fludd) for (const data of [fludd.pack, ...Object.values(fludd.nozzles)])
+    for (const { shape, source } of fluddShapes(data, fludd.packTexture))
+      if (source && packName(source) === fluddName) add(fludd.packTexture, 'fludd', shape);
   return [...byName.values()];
+}
+
+// Mario's model and FLUDD's, from the disc's archives.
+function readModels(disc) {
+  const files = rarc(disc.file('data/mario.szs'));
+  return { model: j3d.parseBmd(files.get('bmd/ma_mdl1.bmd')), fludd: loadFludd(fluddFiles(disc, files)) };
 }
 
 // The pack names of the textures other characters on this disc draw. The game
@@ -132,12 +145,11 @@ function bake({ rom, look, references, packDirectories = [], directory }) {
     return null;
   }
   const disc = new Disc(rom);
-  let files, shared;
-  try { files = rarc(disc.file('data/mario.szs')); shared = othersTextures(disc); }
+  let model, fludd, shared;
+  try { ({ model, fludd } = readModels(disc)); shared = othersTextures(disc); }
   finally { disc.close(); }
-  const model = j3d.parseBmd(files.get('bmd/ma_mdl1.bmd'));
   const index = packIndex(packDirectories);
-  const list = targets(model).filter(target => !shared.has(target.name)).map(target => ({ ...target, hd: index.get(target.name) || null }));
+  const list = targets(model, fludd).filter(target => !shared.has(target.name)).map(target => ({ ...target, hd: index.get(target.name) || null }));
   const key = crypto.createHash('sha256').update(JSON.stringify({
     VERSION, chosen, rom: stamp(rom), hd: list.map(t => t.hd && stamp(t.hd)),
   })).digest('hex');
@@ -186,12 +198,11 @@ function paintFile({ width, height, rgba }, map) {
 }
 function bakePaint({ rom, references, packDirectories = [], directory }) {
   const disc = new Disc(rom);
-  let files;
-  try { files = rarc(disc.file('data/mario.szs')); }
+  let model, fludd;
+  try { ({ model, fludd } = readModels(disc)); }
   finally { disc.close(); }
-  const model = j3d.parseBmd(files.get('bmd/ma_mdl1.bmd'));
   const index = packIndex(packDirectories);
-  const list = targets(model).map(target => ({ ...target, hd: index.get(target.name) || null }));
+  const list = targets(model, fludd).map(target => ({ ...target, hd: index.get(target.name) || null }));
   const key = crypto.createHash('sha256').update(JSON.stringify({
     PAINT_VERSION, VERSION, rom: stamp(rom), hd: list.map(t => t.hd && stamp(t.hd)),
   })).digest('hex');
@@ -211,8 +222,8 @@ function bakePaint({ rom, references, packDirectories = [], directory }) {
     const source = target.hd ? image.readImage(target.hd) : target.source;
     const file = `${n}.paint`;
     fs.writeFileSync(path.join(temporary, file), paintFile(source, paintMap(source, target.parts, references, target.source)));
-    // every texture of the model with this picture (the game finds them by name)
-    const names = new Set(model.textures.filter(texture => packName(texture) === target.name).map(texture => texture.name));
+    // every texture of the models with this picture (the game finds them by name)
+    const names = new Set([...model.textures, ...fludd.pack.textures].filter(texture => packName(texture) === target.name).map(texture => texture.name));
     for (const name of names) lines.push(`texture ${name} ${file}`);
   });
   fs.writeFileSync(path.join(temporary, 'paint.txt'), `${lines.join('\n')}\n`);

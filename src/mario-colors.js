@@ -27,10 +27,17 @@
     { id: 'gloves', label: 'Gloves', seeds: [[246, 246, 248], [200, 204, 214], [170, 176, 190]] },
     { id: 'shoes', label: 'Shoes', seeds: [[184, 104, 44], [124, 62, 24], [220, 150, 80]] },
     { id: 'alohaShirt', label: 'Shine shirt', seeds: [[130, 236, 255], [90, 200, 230], [190, 250, 255]] },
+    // FLUDD's pack and nozzles share one texture of their own. (Its see-through
+    // tank has no texture: its colours are the model's, so they stay.)
+    { id: 'fluddBody', label: 'Body', seeds: [[246, 228, 56], [200, 170, 10], [255, 248, 150], [190, 110, 16], [205, 134, 24]] },
+    { id: 'fluddMetal', label: 'Metal', seeds: [[196, 196, 212], [100, 100, 116], [148, 132, 148], [244, 244, 248], [60, 60, 72], [140, 118, 90], [123, 110, 62]] },
+    { id: 'fluddStraps', label: 'Straps', seeds: [[132, 52, 4], [100, 50, 18], [160, 64, 10], [70, 30, 8]] },
+    { id: 'fluddTrim', label: 'Trim', seeds: [[70, 70, 236], [36, 44, 170], [120, 120, 255]] },
   ];
   const KEEP = {
     white: [[250, 250, 255], [214, 226, 240]],
     shine: [[236, 184, 40], [160, 104, 20], [90, 60, 10], [255, 240, 120], [30, 20, 10]],
+    dark: [[20, 20, 24], [0, 0, 0]],
   };
 
   // Which regions each part of the model can show. The same red is the cap on
@@ -45,7 +52,10 @@
     mouth: ['skin'],
     // The Shine shirt Mario wears after he buys it, drawn over his shirt.
     aloha: ['alohaShirt', 'keep:shine'],
+    // FLUDD: its pack, its nozzles and the straps that hold it on Mario.
+    fludd: ['fluddBody', 'fluddMetal', 'fluddStraps', 'fluddTrim', 'keep:dark'],
   };
+  const FLUDD_REGIONS = REGIONS.filter(region => PARTS.fludd.includes(region.id)).map(region => region.id);
 
   const PRESETS = [
     { id: 'classic', label: 'Classic', colors: {} },
@@ -55,6 +65,15 @@
     { id: 'fire', label: 'Fire Mario', colors: { hat: '#f4f4f4', shirt: '#f4f4f4', overalls: '#d8261d', emblemLetter: '#d8261d' } },
     { id: 'shadow', label: 'Shadow Mario', colors: { hat: '#1d2f7a', shirt: '#1d2f7a', emblem: '#3b55b8', emblemLetter: '#1d2f7a', overalls: '#14215c', buttons: '#3b55b8', gloves: '#2b45a8', shoes: '#14215c', skin: '#3150c0', hair: '#0e1a4a', eyebrows: '#0e1a4a', mustache: '#0e1a4a', eyes: '#ff3a2a' } },
     { id: 'gold', label: 'Gold', colors: { hat: '#e8b923', shirt: '#e8b923', emblem: '#fff2b0', emblemLetter: '#e8b923', overalls: '#c99a12', buttons: '#fff2b0', gloves: '#fff2b0', shoes: '#a87a10', skin: '#f0c850', hair: '#8a6400', eyebrows: '#8a6400', mustache: '#6a4c00' } },
+  ];
+
+  // FLUDD's own presets: they change only FLUDD's colours, and Mario's presets
+  // only Mario's.
+  const FLUDD_PRESETS = [
+    { id: 'classic', label: 'Classic', colors: {} },
+    { id: 'gold', label: 'Gold', colors: { fluddBody: '#e8b923', fluddMetal: '#f0d36a', fluddStraps: '#8a6400', fluddTrim: '#fff2b0' } },
+    { id: 'midnight', label: 'Midnight', colors: { fluddBody: '#2b2f45', fluddMetal: '#6e7896', fluddStraps: '#1a1a22', fluddTrim: '#ff3a2a' } },
+    { id: 'coral', label: 'Coral', colors: { fluddBody: '#ff7a6b', fluddMetal: '#f4ecea', fluddStraps: '#3b6fb6', fluddTrim: '#2fc4b2' } },
   ];
 
   // CIE Lab, with lightness counted at half weight so shading within a region
@@ -298,5 +317,5 @@
     };
   }
 
-  return { REGIONS, PARTS, PRESETS, NOZZLES, coverage, classify, lightness, references, blendEdges, ramp, recolor, normalize, normalizeLook, hex };
+  return { REGIONS, PARTS, PRESETS, FLUDD_REGIONS, FLUDD_PRESETS, NOZZLES, coverage, classify, lightness, references, blendEdges, ramp, recolor, normalize, normalizeLook, hex };
 });
