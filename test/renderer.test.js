@@ -577,6 +577,8 @@ test('the Multiplayer tab shows how many play in public games, and nothing when 
   assert.equal(badge.title, '3 players in 2 public games right now');
   ui.listeners.publicOnline({ players: 1, games: 1 });
   assert.equal(badge.title, '1 player in a public game right now');
+  ui.listeners.publicOnline({ players: 140, games: 20 });
+  assert.equal(ui.elements.get('mp-online-count').textContent, '99+');
   ui.listeners.publicOnline({ players: 0, games: 0 });
   assert.equal(badge.hidden, true);
   ui.listeners.publicOnline({ players: 2, games: 1 });

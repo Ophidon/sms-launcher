@@ -1829,7 +1829,7 @@ window.sms.onOnline(renderOnline);
 function renderPublicOnline(value) {
   const players = value?.players || 0;
   $('mp-online').hidden = players === 0;
-  $('mp-online-count').textContent = players.toLocaleString();
+  $('mp-online-count').textContent = players > 99 ? '99+' : String(players);
   $('mp-online').title = players === 0 ? '' : `${players} ${players === 1 ? 'player' : 'players'} in `
     + `${value.games === 1 ? 'a public game' : `${value.games} public games`} right now`;
 }
