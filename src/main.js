@@ -1151,10 +1151,32 @@ async function hostGame(input) {
 // full), or null.
 async function publicGames() {
   const list = await rooms.listPublic();
+  setPublicOnline(list);
   const mine = localVersions();
   return list.map(room => ({ code: rooms.formatRoomCode(room.code), name: multiplayer.playerName(room.name, 'Host'),
     status: String(room.status || '').slice(0, 63), players: room.players, maxPlayers: room.maxPlayers, minutes: room.minutes,
     problem: multiplayer.joinProblem(room, mine) }));
+}
+
+// Players in public games right now, shown on the Multiplayer tab (hidden at 0) as a sign someone is playing. The
+// list is checked every minute while the window shows, and whenever the Multiplayer page loads it.
+const PUBLIC_ONLINE_EVERY = 60 * 1000;
+let publicOnline = null, publicOnlineTimer = null;
+function setPublicOnline(list) {
+  const value = list && rooms.publicPlayers(list, rooms.parseRoomCode(hostedRoom));
+  if (JSON.stringify(value) === JSON.stringify(publicOnline)) return;
+  publicOnline = value;
+  broadcast('public-online', publicOnline);
+}
+async function checkPublicOnline() {
+  if (!window || window.isDestroyed() || !window.isVisible() || window.isMinimized()) return;
+  // Offline, or the server can't answer: no count rather than an old one.
+  try { setPublicOnline(await rooms.listPublic()); } catch (_) { setPublicOnline(null); }
+}
+function watchPublicOnline() {
+  clearInterval(publicOnlineTimer);
+  publicOnlineTimer = setInterval(checkPublicOnline, PUBLIC_ONLINE_EVERY);
+  checkPublicOnline();
 }
 
 // "Ping": how long a host's game takes to answer, the way a join would reach it (for a room code: connected like a
@@ -1333,7 +1355,7 @@ function state() {
       installedToolVersion: installedBuild?.toolVersion || null,
       toolVersion: buildTools.toolsetFor(), needsUpdate: repoReady && !game.isCurrent(config.repo, config.settings, currentSource()),
       previousReady: Boolean(config.previousInstall && binaryReady(config.previousInstall.repo, config.previousInstall.settings)) },
-    active: activityState(), appUpdate, online, logs: activityLog.snapshot(), logResetSequence: activityLog.resetSequence(),
+    active: activityState(), appUpdate, online, publicOnline, logs: activityLog.snapshot(), logResetSequence: activityLog.resetSequence(),
     saveDirectory: currentSaveDirectory(), backupDirectory: saves.backupRoot(),
     backups: saves.listBackups().filter(item => item.source === currentSaveDirectory())
   };
@@ -1759,6 +1781,8 @@ function createWindow() {
   const sendWindowState = () => broadcast('window-state', { fullscreen: window.isFullScreen() });
   window.on('enter-full-screen', sendWindowState);
   window.on('leave-full-screen', sendWindowState);
+  // Back from the taskbar: the online count catches up at once rather than at the next minute.
+  window.on('restore', checkPublicOnline);
   window.loadFile(path.join(__dirname, 'index.html'));
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   window.webContents.on('console-message', details => {
@@ -1774,6 +1798,7 @@ if (ownsInstance) app.whenReady().then(async () => {
   setupTelemetry();
   if (playOnStart && await playDirectly()) return app.quit();
   createWindow();
+  watchPublicOnline();
   // Only with the window: a launcher update installs on quit, which `--play` does as the game closes.
   setupAppUpdater();
   exclusive('Remove old game versions', removeOldVersions).catch(() => {});

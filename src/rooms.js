@@ -203,6 +203,19 @@ async function listPublic({ url = serverUrl(), fetchImpl = globalThis.fetch } = 
   return Array.isArray(body?.rooms) ? body.rooms : [];
 }
 
+// Who is playing in public games right now, for the Multiplayer tab: the players and the games with anyone in them,
+// leaving out this launcher's own game (by its room code).
+function publicPlayers(list, ownCode = null) {
+  let players = 0, games = 0;
+  for (const room of list) {
+    const count = Number.isInteger(room?.players) && room.players > 0 ? room.players : 0;
+    if (!count || (ownCode && room.code === ownCode)) continue;
+    players += count;
+    games++;
+  }
+  return { players, games };
+}
+
 // --- Hosting
 
 // A player the host's launcher passes packets for: its own socket on this
@@ -602,5 +615,5 @@ async function join(options) {
   return new JoinLink(options).start();
 }
 
-module.exports = { parseRoomCode, formatRoomCode, serverUrl, lookup, listPublic, host, join, punchPacket, readPunch, candidates,
+module.exports = { parseRoomCode, formatRoomCode, serverUrl, lookup, listPublic, publicPlayers, host, join, punchPacket, readPunch, candidates,
   freeLoopbackPort, HELLO, ACK, KEEP };

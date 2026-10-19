@@ -351,3 +351,10 @@ test('the public list comes back as the server sends it, or says why not', async
   await assert.rejects(rooms.listPublic({ url: 'https://x', fetchImpl: answer(500) }), /had a problem/);
   await assert.rejects(rooms.listPublic({ url: 'https://x', fetchImpl: async () => { throw new Error('x'); } }), /Couldn't reach/);
 });
+
+test('publicPlayers counts players in public games, leaving out empty games and this launcher\'s own', () => {
+  const list = [{ code: 'ABC123', players: 3 }, { code: 'DEF456', players: 0 }, { code: 'GHJ789', players: 2 }, { code: 'KMN234' }];
+  assert.deepEqual(rooms.publicPlayers(list), { players: 5, games: 2 });
+  assert.deepEqual(rooms.publicPlayers(list, 'ABC123'), { players: 2, games: 1 });
+  assert.deepEqual(rooms.publicPlayers([]), { players: 0, games: 0 });
+});
