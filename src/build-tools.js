@@ -202,7 +202,9 @@ function environmentAtRoot(root, base = process.env, platform = process.platform
   }
   const msys = own || path.join(root, 'msys64');
   base = withoutHostPython(base);
-  if (base.SMS_ARCH === '32' && fs.existsSync(path.join(msys, 'opt', 'bin', 'i686-w64-mingw32-g++.exe'))) {
+  const cross = base.SMS_ARCH === '32' && fs.existsSync(path.join(msys, 'opt', 'bin', 'i686-w64-mingw32-g++.exe'));
+  base = withCertificates(base, msys, base.SMS_ARCH === '32' && !cross ? 'mingw32' : 'mingw64');
+  if (cross) {
     return { ...prependWindowsPath(base, [path.join(msys, 'opt', 'i686-w64-mingw32', 'bin'), path.join(msys, 'mingw32', 'bin'),
       path.join(msys, 'mingw64', 'bin'), path.join(msys, 'usr', 'bin')]),
       MSYS2_ROOT: msys, MSYSTEM: 'MINGW64', CHERE_INVOKING: '1', SMS_WINDOWS_32_CROSS: '1',
@@ -223,6 +225,23 @@ const HOST_PYTHON = new Set(['PYTHONHOME', 'PYTHONPATH', 'PYTHONSTARTUP', 'PYTHO
 function withoutHostPython(base) {
   const result = Object.fromEntries(Object.entries(base).filter(([key]) => !HOST_PYTHON.has(key.toUpperCase())));
   return { ...result, PYTHONNOUSERSITE: '1' };
+}
+
+// The 2026-10-05 Windows tools shipped MinGW's CA bundle empty (pacman's
+// p11-kit extraction wrote nothing), so the bundled Python trusted only the
+// roots Windows had already cached and failed texture downloads with
+// CERTIFICATE_VERIFY_FAILED. Point OpenSSL at a bundle with certificates in it;
+// Python still adds the Windows store, so antivirus and company roots work too.
+// A player's own SSL_CERT_FILE wins while it names a real bundle.
+function withCertificates(base, msys, target) {
+  const nonEmpty = file => { try { return fs.statSync(file).size > 0; } catch { return false; } };
+  const key = Object.keys(base).find(name => name.toUpperCase() === 'SSL_CERT_FILE');
+  if (key && nonEmpty(base[key])) return base;
+  const bundle = [path.join(msys, target, 'etc', 'ssl', 'cert.pem'), path.join(msys, 'mingw64', 'etc', 'ssl', 'cert.pem'),
+    path.join(msys, 'usr', 'ssl', 'certs', 'ca-bundle.crt')].find(nonEmpty);
+  if (!bundle) return base;
+  const result = Object.fromEntries(Object.entries(base).filter(([name]) => name !== key));
+  return { ...result, SSL_CERT_FILE: bundle };
 }
 
 function fetchVerified(url, destination, expected, onProgress = () => {}, redirects = 0) {
