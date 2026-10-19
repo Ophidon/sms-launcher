@@ -9,6 +9,7 @@ const vm = require('node:vm');
 const { createRequire } = require('node:module');
 const { EventEmitter } = require('node:events');
 const port = require('../src/port');
+const { gcm } = require('./disc-fixture');
 
 function fixture(t, { metadata = true, textures = false, eclipse = false, discordPresence = true, autoUpdate = true, exitCode = 0, marioLook, bake } = {}) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'sms installed game-'));
@@ -28,9 +29,7 @@ function fixture(t, { metadata = true, textures = false, eclipse = false, discor
   const record = path.join(path.dirname(binary), 'launcher-build.json');
   if (metadata) fs.writeFileSync(record, JSON.stringify({ gameVersion: 'older', toolRoot }));
   const rom = path.join(directory, 'own.iso');
-  const header = Buffer.alloc(32);
-  header.write('GMSE01'); header.writeUInt32BE(0xc2339f3d, 28);
-  fs.writeFileSync(rom, header);
+  fs.writeFileSync(rom, gcm());
   if (eclipse) {
     fs.mkdirSync(path.dirname(path.join(root, port.ECLIPSE_ISO)), { recursive: true });
     fs.writeFileSync(path.join(root, port.ECLIPSE_ISO), 'already patched disc');
@@ -135,7 +134,9 @@ test('skip update cannot start a missing executable or invalid disc', async t =>
   await assert.rejects(f.play(), /Set up this version/);
   fs.writeFileSync(f.binary, 'installed executable');
   fs.writeFileSync(f.config.rom, 'bad disc');
-  await assert.rejects(f.play(), /too small/);
+  await assert.rejects(f.play(), /isn't a GameCube disc/);
+  fs.writeFileSync(f.config.rom, gcm().subarray(0, 0x3f00));
+  await assert.rejects(f.play(), /incomplete/);
   assert.equal(f.starts.length, 0);
 });
 

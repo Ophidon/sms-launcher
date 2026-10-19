@@ -1574,7 +1574,8 @@ function registerHandlers() {
     if (operation || active) throw new Error('Finish the current task before changing game files.');
     const chosen = await dialog.showOpenDialog(window, {
       title: 'Choose a file from your own Super Mario Sunshine disc',
-      properties: ['openFile'], filters: [{ name: 'Game disc files', extensions: ['iso', 'gcm', 'ciso'] }]
+      properties: ['openFile'],
+      filters: [{ name: 'Game disc files', extensions: ['iso', 'gcm', 'ciso'] }, { name: 'All files', extensions: ['*'] }]
     });
     if (chosen.canceled) return state();
     config.rom = port.validateRom(chosen.filePaths[0]);

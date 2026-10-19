@@ -188,9 +188,15 @@ function failureReason(lines) {
     if (/^(?:Call Stack|CMake |-- )/.test(line)) break;
     detail.push(line);
   }
-  const reason = detail.join(' ') || recent.findLast(line =>
-    !/^(?:ninja: build stopped|make(?:\[\d+\])?: \*\*\*|-- Configuring incomplete|\d+ errors? generated|compilation terminated)/.test(line) &&
-    /\berror\b|fatal|FAILED|failed|missing|not found|No such file|cannot|could not/i.test(line)) || recent.at(-1) || '';
+  const noise = line => /^(?:ninja: build stopped|make(?:\[\d+\])?: \*\*\*|-- Configuring incomplete|\d+ errors? generated|compilation terminated)/.test(line);
+  const explains = line => /\berror\b|fatal|FAILED|failed|missing|not found|No such file|cannot|could not/i.test(line);
+  // ninja prints FAILED: and the target, then the command, then what the command
+  // printed. That output says why it failed; the FAILED line only names the target.
+  const failed = recent.findLastIndex(line => /^FAILED: /.test(line));
+  const after = failed >= 0 ? recent.slice(failed + 1).filter(line => !noise(line)) : [];
+  const printed = after.length > 1 ? after.slice(1) : after.filter(explains);
+  const reason = detail.join(' ') || printed.findLast(explains) || printed.at(-1) ||
+    recent.findLast(line => !noise(line) && explains(line)) || recent.at(-1) || '';
   return reason.slice(0, 400).replace(/[.\s]+$/, '');
 }
 

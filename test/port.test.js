@@ -7,15 +7,9 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const port = require('../src/port');
+const { gcm, ciso } = require('./disc-fixture');
 
 function temporary() { return fs.mkdtempSync(path.join(os.tmpdir(), 'sms-launcher-test-')); }
-function header() {
-  const bytes = Buffer.alloc(0x20);
-  bytes.write('GMSE01', 0, 'ascii');
-  bytes[7] = 0;
-  bytes.writeUInt32BE(0xc2339f3d, 0x1c);
-  return bytes;
-}
 
 test('frame rate defaults to 60, migrates the old toggle, and passes all three rates to the game', () => {
   for (const platform of ['linux', 'darwin', 'win32']) {
@@ -38,18 +32,66 @@ test('requires an owned GMSE01 Rev 0 image and supports plain and CISO headers',
   const dir = temporary();
   try {
     const iso = path.join(dir, 'my disc.iso');
-    fs.writeFileSync(iso, header());
+    fs.writeFileSync(iso, gcm());
     assert.equal(port.validateRom(iso), iso);
-    const ciso = path.join(dir, 'my disc.ciso');
-    const bytes = Buffer.alloc(0x8000 + 0x20);
-    bytes.write('CISO'); bytes.writeUInt32LE(0x8000, 4); bytes[8] = 1;
-    header().copy(bytes, 0x8000);
-    fs.writeFileSync(ciso, bytes);
-    assert.equal(port.validateRom(ciso), ciso);
-    bytes.write('GMSE04', 0x8000, 'ascii');
-    fs.writeFileSync(ciso, bytes);
-    assert.throws(() => port.validateRom(ciso), /GMSE01/);
+    const compressed = path.join(dir, 'my disc.ciso');
+    fs.writeFileSync(compressed, ciso(gcm()));
+    assert.equal(port.validateRom(compressed), compressed);
+    fs.writeFileSync(compressed, ciso(gcm('GMSE04')));
+    assert.throws(() => port.validateRom(compressed), /GMSE01/);
     assert.throws(() => port.validateRom(''), /Choose your own/);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('names incomplete discs before a build reads past their end', () => {
+  const dir = temporary();
+  try {
+    const iso = path.join(dir, 'game.iso');
+    fs.writeFileSync(iso, gcm().subarray(0, 0x3f00));
+    assert.throws(() => port.validateRom(iso), /incomplete: it's 0 MB, but the game needs 0 MB/);
+    fs.writeFileSync(iso, gcm().subarray(0, 0x2000));
+    assert.throws(() => port.validateRom(iso), /incomplete or damaged/);
+    fs.writeFileSync(iso, gcm().subarray(0, 0x20));
+    assert.throws(() => port.validateRom(iso), /incomplete or damaged/);
+    const compressed = path.join(dir, 'game.ciso');
+    fs.writeFileSync(compressed, ciso(gcm()).subarray(0, -1));
+    assert.throws(() => port.validateRom(compressed), /incomplete/);
+    // A trimmed image that still holds every file is whole.
+    const trimmed = gcm();
+    trimmed.writeUInt32BE(0x400, 0x3014);
+    fs.writeFileSync(iso, trimmed.subarray(0, 0x3c00));
+    assert.equal(port.validateRom(iso), iso);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('names disc files the game cannot read, whatever they are called', () => {
+  const dir = temporary();
+  try {
+    const file = path.join(dir, 'Super Mario Sunshine.iso');
+    const reason = bytes => { fs.writeFileSync(file, bytes); try { port.validateRom(file); } catch (error) { return error.message; } };
+    const magic = (text, at = 0) => { const bytes = Buffer.alloc(0x440); bytes.write(text, at, 'latin1'); return bytes; };
+    assert.match(reason(magic('RVZ\x01')), /RVZ file.*Convert File/);
+    assert.match(reason(magic('WIA\x01')), /WIA file/);
+    const gcz = Buffer.alloc(0x440); gcz.writeUInt32LE(0xb10bc001, 0);
+    assert.match(reason(gcz), /GCZ file/);
+    const nkit = gcm(); nkit.write('NKIT', 0x200, 'latin1');
+    assert.match(reason(nkit), /NKit image.*Recover to ISO/);
+    assert.match(reason(magic('PK\x03\x04')), /ZIP archive/);
+    assert.match(reason(magic('7z\xbc\xaf\x27\x1c')), /7-Zip archive/);
+    assert.match(reason(magic('Rar!')), /RAR archive/);
+    assert.match(reason(magic('WBFS')), /Wii disc/);
+    const wii = Buffer.alloc(0x440); wii.writeUInt32BE(0x5d1c9ea3, 0x18);
+    assert.match(reason(wii), /Wii disc/);
+    assert.match(reason(Buffer.from('hello')), /isn't a GameCube disc/);
+    assert.match(reason(gcm('GMSP01')), /European release.*GMSE01/);
+    assert.match(reason(gcm('GMSJ01')), /Japanese release/);
+    assert.match(reason(gcm('GALE01', 0, 'Super Smash Bros Melee')), /"Super Smash Bros Melee" \(GALE01\), not Super Mario Sunshine/);
+    assert.match(reason(gcm('GMSE01', 1)), /revision 1/);
+    const damaged = ciso(gcm()); damaged[8] = 0;
+    assert.match(reason(damaged), /appears to be damaged/);
+    const renamed = path.join(dir, 'Super Mario Sunshine.gcm.bin');
+    fs.writeFileSync(renamed, gcm());
+    assert.equal(port.validateRom(renamed), renamed);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 

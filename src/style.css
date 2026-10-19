@@ -210,6 +210,7 @@ pre { height: 120px; margin: 0; padding: 12px; overflow: auto; border-radius: 8p
 .setup-file { display: grid; gap: 5px; margin: 18px 0 11px; padding: 10px 12px; border: 1px solid #d3f2f548; border-radius: 9px; background: #ffffff12; }
 .setup-file span { color: #c2e7ec; font-size: 10px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
 .setup-file strong { overflow: hidden; color: #fff; font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.setup-file strong.rom-error { white-space: normal; }
 .setup-step .actions { gap: 8px; }
 .setup-step .subtle { border-color: #c2e5eb70; background: #ffffff20; color: #fff; }
 .setup-step .subtle:hover:not(:disabled) { background: #ffffff35; }

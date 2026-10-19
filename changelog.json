@@ -6,6 +6,7 @@
       "A new layout: tabs along the top open Play, Multiplayer (marked Beta), Customize Mario, Saves & states, What's new and Settings, so the Play button has only Play and the Add to Steam banner beside it. The activity log moved to a button at the right of the status bar that opens it on any page, under the page, and a task's progress shows in the status bar too; the log now opens by itself only when something fails. Escape, or B on a controller, goes back to Play, and LB/RB step through the tabs.",
       "Multiplayer: your Customize Mario colours now come with you when you host or join, so the other players see Mario in your colours, and you see each of them in theirs.",
       "Messages in the corner of the launcher now have a close button, and sit below the tabs so they no longer cover Settings.",
+      "Choosing your game disc now checks the whole file: an incomplete copy, an RVZ, WIA, GCZ or NKit image, a ZIP, 7-Zip or RAR archive, a Wii disc, or another region or game each get a message saying what it is and what to do, instead of failing partway through setting up the game. When setting up does fail, the message now gives the reason instead of only the file that failed.",
       "A green number on the Multiplayer tab's icon shows how many players are in public games right now, so you can see when someone is playing online. It's hidden when nobody is."
     ],
     "game": [

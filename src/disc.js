@@ -8,19 +8,22 @@ const fs = require('node:fs');
 class Disc {
   constructor(file) {
     this.fd = fs.openSync(file, 'r');
-    const head = this.readRaw(0, 0x20);
-    this.blocks = null;
-    if (head.toString('ascii', 0, 4) === 'CISO') {
-      // CISO: a 0x8000-byte header whose map marks which blocks of the disc are stored, in order.
-      this.blockSize = head.readUInt32LE(4);
-      const map = this.readRaw(8, 0x8000 - 8);
-      this.blocks = new Int32Array(map.length).fill(-1);
-      for (let i = 0, stored = 0; i < map.length; i++) if (map[i]) this.blocks[i] = stored++;
-    }
-    const header = this.read(0, 0x440);
-    this.gameId = header.toString('ascii', 0, 6);
-    const fstOffset = header.readUInt32BE(0x424), fstSize = header.readUInt32BE(0x428);
-    this.files = parseFst(this.read(fstOffset, fstSize));
+    try {
+      const head = this.readRaw(0, 0x20);
+      this.blocks = null;
+      if (head.toString('ascii', 0, 4) === 'CISO') {
+        // CISO: a 0x8000-byte header whose map marks which blocks of the disc are stored, in order.
+        this.blockSize = head.readUInt32LE(4);
+        const map = this.readRaw(8, 0x8000 - 8);
+        this.blocks = new Int32Array(map.length).fill(-1);
+        for (let i = 0, stored = 0; i < map.length; i++) if (map[i]) this.blocks[i] = stored++;
+      }
+      const header = this.read(0, 0x440);
+      this.gameId = header.toString('ascii', 0, 6);
+      const fstOffset = header.readUInt32BE(0x424), fstSize = header.readUInt32BE(0x428);
+      if (fstSize > 0x1000000) throw new Error('The game disc\'s file table appears to be damaged.');
+      this.files = parseFst(this.read(fstOffset, fstSize));
+    } catch (error) { this.close(); throw error; }
   }
 
   readRaw(offset, length) {
@@ -50,7 +53,78 @@ class Disc {
     return this.read(entry.offset, entry.size);
   }
 
+  // The disc offset where the last data the game reads ends: the boot files
+  // and apploader, main.dol, the file system table and every file in it.
+  dataEnd() {
+    const header = this.read(0, 0x440), apploader = this.read(0x2440, 0x20);
+    let end = 0x2460 + apploader.readUInt32BE(0x14) + apploader.readUInt32BE(0x18);
+    const dolOffset = header.readUInt32BE(0x420), dol = this.read(dolOffset, 0x100);
+    for (let i = 0; i < 18; i++) end = Math.max(end, dolOffset + dol.readUInt32BE(i * 4) + dol.readUInt32BE(0x90 + i * 4));
+    end = Math.max(end, header.readUInt32BE(0x424) + header.readUInt32BE(0x428));
+    for (const { offset, size } of this.files.values()) end = Math.max(end, offset + size);
+    return end;
+  }
+
+  // How long the image file must be to hold the disc up to `end`. A CISO
+  // stores its blocks in order, so that's up to the last stored block before it.
+  storedSize(end) {
+    if (!this.blocks) return end;
+    for (let block = Math.min(Math.ceil(end / this.blockSize), this.blocks.length) - 1; block >= 0; block--)
+      if (this.blocks[block] >= 0)
+        return 0x8000 + this.blocks[block] * this.blockSize + Math.min(this.blockSize, end - block * this.blockSize);
+    return 0x8000;
+  }
+
   close() { fs.closeSync(this.fd); }
+}
+
+// Disc image and archive formats the game can't read, by their first bytes.
+const OTHER_FORMATS = [
+  ['rvz', head => head.toString('latin1', 0, 4) === 'RVZ\x01'],
+  ['wia', head => head.toString('latin1', 0, 4) === 'WIA\x01'],
+  ['gcz', head => head.length >= 4 && head.readUInt32LE(0) === 0xb10bc001],
+  ['wbfs', head => head.toString('latin1', 0, 4) === 'WBFS'],
+  ['nkit', head => head.toString('latin1', 0x200, 0x204) === 'NKIT'],
+  ['zip', head => head.toString('latin1', 0, 4) === 'PK\x03\x04'],
+  ['7z', head => head.toString('latin1', 0, 6) === '7z\xbc\xaf\x27\x1c'],
+  ['rar', head => head.toString('latin1', 0, 4) === 'Rar!']
+];
+
+// What a disc image file holds, without reading more than its headers and file
+// system table: { format } for a format the game can't read, or for a GameCube
+// image ('iso' or 'ciso') its game ID, revision and title, its size, and the
+// size it needs to hold everything the game reads (null when that can't be read).
+function describe(file) {
+  const fd = fs.openSync(file, 'r');
+  let head, size, ciso = false;
+  try {
+    size = fs.fstatSync(fd).size;
+    head = Buffer.alloc(0x440);
+    head = head.subarray(0, fs.readSync(fd, head, 0, head.length, 0));
+    if (head.toString('latin1', 0, 4) === 'CISO' && head.length >= 9) {
+      const blockSize = head.readUInt32LE(4);
+      if (blockSize < 0x20 || blockSize > 0x200000 || head[8] !== 1) return { format: 'damaged-ciso', size };
+      ciso = true;
+      head = Buffer.alloc(0x440);
+      head = head.subarray(0, fs.readSync(fd, head, 0, head.length, 0x8000));
+      if (head.length < 0x440) return { format: 'ciso', size, needed: null };
+    }
+  } finally { fs.closeSync(fd); }
+  const other = OTHER_FORMATS.find(([, matches]) => head.length >= 4 && matches(head));
+  if (other) return { format: other[0], size };
+  if (head.length >= 0x20 && head.readUInt32BE(0x18) === 0x5d1c9ea3) return { format: 'wii', size };
+  if (head.length < 0x20 || head.readUInt32BE(0x1c) !== 0xc2339f3d) return { format: 'unknown', size };
+  const nul = head.indexOf(0, 0x20);
+  const result = { format: ciso ? 'ciso' : 'iso', size,
+    gameId: head.toString('latin1', 0, 6), revision: head[7],
+    title: head.toString('latin1', 0x20, nul < 0 ? head.length : nul).trim(), needed: null };
+  let disc;
+  try {
+    disc = new Disc(file);
+    result.needed = disc.storedSize(disc.dataEnd());
+  } catch (_) { /* the file ends before its file system table, or the table is damaged */ }
+  finally { disc?.close(); }
+  return result;
 }
 
 // The disc's file system table: path (lower case, "/"-separated) -> { offset, size }.
@@ -69,4 +143,4 @@ function parseFst(fst) {
   return files;
 }
 
-module.exports = { Disc, parseFst };
+module.exports = { Disc, parseFst, describe };

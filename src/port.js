@@ -7,6 +7,7 @@ const bindings = require('./bindings');
 const prompts = require('./prompts');
 const presets = require('./presets');
 const { prependWindowsPath } = require('./windows-path');
+const { describe } = require('./disc');
 
 const PORT_URL = 'https://github.com/chasem-dev/sms-pc-port.git';
 const ECLIPSE_ISO = path.join('mods', 'eclipse', 'Super Mario Eclipse v1.1.0.iso');
@@ -23,11 +24,30 @@ function isPort(root) {
     .every(file => fs.existsSync(path.join(root, file))));
 }
 
+const OWN_DISC = 'Choose a copy of your own North American Super Mario Sunshine disc (GMSE01) as an ISO, GCM, or CISO file.';
+const CONVERT = 'In Dolphin, right-click the game, choose Convert File, set the format to ISO, and choose the .iso it makes.';
+const OTHER_FORMATS = {
+  rvz: `This is an RVZ file, a compressed format the game can't read. ${CONVERT}`,
+  wia: `This is a WIA file, a compressed format the game can't read. ${CONVERT}`,
+  gcz: `This is a GCZ file, a compressed format the game can't read. ${CONVERT}`,
+  nkit: 'This is an NKit image, which the game can\'t read. Use NKit\'s Recover to ISO to turn it back into a full .iso, and choose that.',
+  zip: 'This is a ZIP archive. Extract the disc file inside it first, and choose that.',
+  '7z': 'This is a 7-Zip archive. Extract the disc file inside it first, and choose that.',
+  rar: 'This is a RAR archive. Extract the disc file inside it first, and choose that.',
+  wbfs: `This is a Wii disc file, not a GameCube one. ${OWN_DISC}`,
+  wii: `This is a Wii disc file, not a GameCube one. ${OWN_DISC}`,
+  'damaged-ciso': 'This compressed game disc file appears to be damaged. Make a new copy of your disc, and choose that.',
+  unknown: `This isn't a GameCube disc file. ${OWN_DISC}`
+};
+const REGIONS = { GMSP01: 'European', GMSJ01: 'Japanese' };
+const megabytes = bytes => `${Math.round(bytes / 1048576).toLocaleString('en-US')} MB`;
+
+// The player's disc, identified by its contents: the original North American
+// release, holding everything the game reads. Other files get a reason that
+// names what they are and what to do instead.
 function validateRom(file) {
   if (!file || typeof file !== 'string') throw new Error('Choose your own game disc file first.');
   const absolute = path.resolve(file);
-  if (!['.iso', '.gcm', '.ciso'].includes(path.extname(absolute).toLowerCase()))
-    throw new Error('Choose an ISO, GCM, or CISO game disc file.');
   let stat;
   try { stat = fs.statSync(absolute); }
   catch (error) {
@@ -35,22 +55,19 @@ function validateRom(file) {
     throw error;
   }
   if (!stat.isFile()) throw new Error('Choose a game disc file, not a folder.');
-  const fd = fs.openSync(absolute, 'r');
-  try {
-    const first = Buffer.alloc(0x20);
-    if (fs.readSync(fd, first, 0, first.length, 0) !== first.length) throw new Error('This file is too small to be a game disc copy.');
-    let offset = 0;
-    if (first.toString('ascii', 0, 4) === 'CISO') {
-      const blockSize = first.readUInt32LE(4);
-      if (blockSize < 0x20 || blockSize > 0x200000 || first[8] !== 1)
-        throw new Error('This compressed game disc file appears to be damaged.');
-      offset = 0x8000;
-      if (fs.readSync(fd, first, 0, first.length, offset) !== first.length) throw new Error('This compressed game disc file appears to be incomplete.');
-    }
-    if (first.toString('ascii', 0, 6) !== 'GMSE01' || first[7] !== 0 || first.readUInt32BE(0x1c) !== 0xc2339f3d)
-      throw new Error('Use a copy of your own North American Super Mario Sunshine disc (GMSE01, original revision).');
-    return absolute;
-  } finally { fs.closeSync(fd); }
+  const disc = describe(absolute);
+  if (OTHER_FORMATS[disc.format]) throw new Error(OTHER_FORMATS[disc.format]);
+  if (REGIONS[disc.gameId])
+    throw new Error(`This is the ${REGIONS[disc.gameId]} release of Super Mario Sunshine (${disc.gameId}). ${OWN_DISC}`);
+  if (disc.gameId !== 'GMSE01')
+    throw new Error(`This is ${disc.title ? `"${disc.title}"` : 'another game'} (${disc.gameId}), not Super Mario Sunshine. ${OWN_DISC}`);
+  if (disc.revision !== 0)
+    throw new Error(`This is revision ${disc.revision} of Super Mario Sunshine; the game needs the original release (GMSE01, revision 0). ${OWN_DISC}`);
+  const again = 'It may not have finished copying. Copy it from your disc again, and choose the new file.';
+  if (disc.needed === null) throw new Error(`This game disc file is incomplete or damaged. ${again}`);
+  if (disc.size < disc.needed)
+    throw new Error(`This game disc file is incomplete: it's ${megabytes(disc.size)}, but the game needs ${megabytes(disc.needed)}. ${again}`);
+  return absolute;
 }
 
 // A whole-number setting within lo..hi, or the fallback when unset or unreadable.
