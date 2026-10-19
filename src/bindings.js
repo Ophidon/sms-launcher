@@ -24,7 +24,9 @@
     { id: 'QUIT', label: 'Quit the game' },
     { id: 'L_SOFT', label: 'Soft L press' }, { id: 'R_SOFT', label: 'Soft R press' },
     // The port's save states (platform/savestate in the game), not GameCube buttons.
-    { id: 'SAVE_STATE', label: 'Save a state' }, { id: 'LOAD_STATE', label: 'Load the newest state' }
+    { id: 'SAVE_STATE', label: 'Save a state' }, { id: 'LOAD_STATE', label: 'Load the newest state' },
+    // The radar's full map (src/radar.cpp in the game), with the Radar setting on.
+    { id: 'MAP', label: 'Open the map' }
   ];
   // The game's built-in defaults (kDefaultBindings in platform/pad/pad.cpp).
   const DEFAULTS = {
@@ -35,7 +37,7 @@
     HALF_TILT: ['LCTRL'], QUIT: ['ESCAPE'],
     // a light L or R press without the click (L_SOFT / R_SOFT in pad.cpp); unbound by default
     L_SOFT: [], R_SOFT: [],
-    SAVE_STATE: ['F5'], LOAD_STATE: ['F6']
+    SAVE_STATE: ['F5'], LOAD_STATE: ['F6'], MAP: ['M']
   };
   // KeyboardEvent.code to the key names the game knows (kKeys in pad.cpp).
   const CODES = {
@@ -75,7 +77,7 @@
   const PAD_DEFAULTS = {
     A: ['PAD_A'], B: ['PAD_B'], X: ['PAD_X'], Y: ['PAD_Y'], Z: ['PAD_RB'], L: ['PAD_LT'], R: ['PAD_RT'],
     START: ['PAD_START'], DPAD_UP: ['PAD_DPUP'], DPAD_DOWN: ['PAD_DPDOWN'], DPAD_LEFT: ['PAD_DPLEFT'],
-    DPAD_RIGHT: ['PAD_DPRIGHT'], SAVE_STATE: ['PAD_LB+PAD_RB']
+    DPAD_RIGHT: ['PAD_DPRIGHT'], SAVE_STATE: ['PAD_LB+PAD_RB'], MAP: ['PAD_BACK']
   };
 
   // The controller button for a standard-mapping Gamepad API button index, or null.
