@@ -390,6 +390,7 @@ $('log').addEventListener('scroll', () => {
 });
 for (const id of ['view-build-log', 'view-activity-log', 'message-view-log'])
   $(id).addEventListener('click', showActivityLog);
+$('message-close').addEventListener('click', () => setMessage(''));
 $('save-activity-log').addEventListener('click', () => window.sms.saveActivityLog().catch(showError));
 $('copy-activity-log').addEventListener('click', async () => {
   const button = $('copy-activity-log'), result = $('copy-log-result');

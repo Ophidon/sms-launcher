@@ -91,8 +91,10 @@ select { width: 100%; padding: 7px 10px; border: 1px solid #d3dedc; border-radiu
 .status-icon:disabled { cursor: default; opacity: .75; }
 .status-icon.checking svg { animation: spin .9s linear infinite; }
 .byo { margin-left: auto; }
-.message { position: fixed; z-index: 10; top: 70px; right: 26px; max-width: 430px; padding: 11px 14px; border: 1px solid #bcd8d4; border-radius: 9px; background: #e9f5f2; color: #255a5c; box-shadow: 0 8px 24px #20353618; font-size: 12px; }
+.message { position: fixed; z-index: 10; top: 116px; right: 26px; max-width: 430px; padding: 11px 36px 11px 14px; border: 1px solid #bcd8d4; border-radius: 9px; background: #e9f5f2; color: #255a5c; box-shadow: 0 8px 24px #20353618; font-size: 12px; }
 .message.error { border-color: #e8b7b0; background: #fff0ee; color: #9b433c; }
+.message-close { position: absolute; top: 6px; right: 6px; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: inherit; font-size: 18px; line-height: 1; opacity: .7; }
+.message-close:hover { opacity: 1; background: #00000012; }
 .message-log-button { display: block; margin-top: 7px; padding: 0; border: 0; background: transparent; color: inherit; font-size: 12px; text-decoration: underline; text-underline-offset: 3px; }
 .field { display: flex; align-items: center; justify-content: space-between; gap: 18px; min-height: 53px; border-top: 1px solid #e6ebea; color: #405a60; font-size: 13px; }
 .field select { max-width: 200px; }
@@ -566,6 +568,7 @@ pre { height: 120px; margin: 0; padding: 12px; overflow: auto; border-radius: 8p
 .dark .badge.eclipse { background: #33285a; color: #c9b8ff; }
 .dark .hdr-display { color: #c9dce1; }
 .dark .message { border-color: #2f6a6c; background: #12343f; color: #cdeeee; box-shadow: 0 8px 24px #00000055; }
+.dark .message-close:hover { background: #ffffff1a; }
 .dark .message.error { border-color: #7a3a35; background: #3a1c1c; color: #ffb7ad; }
 .dark :is(.range-field, .settings-group) input[type=range] { accent-color: #ffc75a; }
 .dark .settings-group .range-field output { color: #ffd98a; }
