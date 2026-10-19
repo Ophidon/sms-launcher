@@ -14,6 +14,8 @@ const { run, runMain } = require('./tool-run');
 
 // SMS_SMOKE_ARCHES: the game builds to compile, 64 (x86_64, run by Rosetta on
 // Apple Silicon; the default) and/or arm64 (the Apple Silicon build).
+// SMS_SMOKE_REQUIRE_ARM64=1: fail, rather than skip, when the game version has
+// no Apple Silicon build (publishing a toolset must build it).
 const ARCHES = (process.env.SMS_SMOKE_ARCHES || '64').split(',').map(arch => arch.trim()).filter(Boolean);
 
 async function main() {
@@ -52,6 +54,7 @@ async function main() {
     }
     for (const arch of ARCHES) {
       if (arch === 'arm64' && !fs.existsSync(path.join(root, 'tools', 'gameptr'))) {
+        if (process.env.SMS_SMOKE_REQUIRE_ARM64 === '1') throw new Error('This game version has no Apple Silicon build to compile.');
         process.stdout.write('This game version has no Apple Silicon build yet; skipping arm64.\n');
         continue;
       }
@@ -116,6 +119,11 @@ async function compile(root, arch, env, userData) {
     if (!objcopy?.startsWith(env.SMS_BUILD_TOOLS_BIN)) throw new Error(`Unexpected system LLVM tool: ${objcopy}`);
     await run('/usr/bin/arch', ['-x86_64', '/usr/bin/true'], { env }, 'Check Intel execution support');
   }
+  // A game with the Vulkan backend gets MoltenVK beside it (build.sh fetches
+  // it); without it, renderer = vulkan would quietly draw with OpenGL.
+  if (fs.existsSync(path.join(root, 'platform', 'gx', 'src', 'vk')) && env.SMS_GX_VULKAN !== 'OFF' &&
+      !fs.existsSync(path.join(path.dirname(binary), 'libMoltenVK.dylib')))
+    throw new Error('The Mac build has no MoltenVK beside it, so Vulkan could not start.');
   await run('/usr/bin/file', [binary], { env });
   const start = spawnSync(binary, [], { cwd: root, timeout: 15000, encoding: 'utf8',
     env: { ...env, SMS_HEADLESS: '1', SMS_SAVE_DIR: path.join(userData, 'test-saves'),
