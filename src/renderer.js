@@ -730,11 +730,25 @@ function refresh(data) {
     option.textContent = arch === '64' && platform.arches.length > 1 ? '64-bit (recommended)' : `${arch}-bit`;
     return option;
   }));
+  // macOS: the Apple Silicon switch picks the build (arm64, or 64 under Rosetta) in place of the list.
+  const mac = platform.id === 'macos', nativeMac = platform.arches.includes('arm64');
+  $('arch-field').hidden = mac;
+  $('appleSilicon-field').hidden = !mac;
+  // Each is offered once the game version on disk has it (Beta and a chosen game source can build an older one).
+  const features = data.features || {};
+  const gameNote = data.repoReady ? 'Update the game to use this.' : 'Available once the game is set up.';
+  $('appleSilicon').checked = config.settings.arch === 'arm64';
+  $('appleSilicon-note').textContent = !nativeMac ? 'Needs a Mac with Apple Silicon.'
+    : config.settings.eclipse ? 'Super Mario Eclipse plays through Rosetta for now.'
+    : !features.appleSilicon && config.settings.arch !== 'arm64' ? gameNote
+    : 'Builds the game for Apple Silicon instead of running it through Rosetta, which is faster. Changing this builds the game again.';
+  $('renderer-field').hidden = !(platform.renderers || []).includes('vulkan');
+  $('renderer-note').textContent = features.vulkan || config.settings.renderer === 'vulkan' ? 'Vulkan is often faster. If it can\'t start on this computer, the game uses OpenGL.' : gameNote;
   renderExclusiveResolutions(config.settings.exclusiveResolution);
   renderLanguages(data.languages);
   for (const key of ['arch', 'widescreen', 'resolution', 'volume', 'frameRate', 'language', 'vsync', 'fullscreenMode', 'exclusiveResolution',
     'display', 'cameraSpeed', 'mouseSensitivity', 'msaa', 'anisotropic', 'sharpen', 'brightness', 'aspect', 'presentFilter', 'fsrMode',
-    'textureLoading'])
+    'textureLoading', 'renderer'])
     $(key).value = String(config.settings[key]);
   renderVolume();
   renderRanges();
@@ -765,8 +779,12 @@ function refresh(data) {
   $('update-channel-field').hidden = data.portable;
   $('update-channel-note').hidden = data.portable;
   renderGameSource(data);
-  for (const key of ['arch', 'widescreen', 'resolution', 'volume', 'frameRate', 'language', 'vsync', 'skipMovies', 'skipIntro', 'pauseTracker', 'heatHaze', 'overlay', 'fullscreen', 'fullscreenMode', 'exclusiveResolution', 'display', 'invertCameraX', 'invertCameraY', 'freeCamera', 'cstickAim', 'cameraSpeed', 'mouseCamera', 'mouseSensitivity', 'msaa', 'fxaa', 'anisotropic', 'sharpen', 'brightness', 'aspect', 'presentFilter', 'hudEdges', 'textures', 'textureLoading', 'shaderWarmup', 'cutscenes', 'eclipse', 'autoUpdate', 'shareUsage', 'discordPresence', 'darkMode', 'updateChannel', 'buttonPrompts', 'promptPad', 'graphicsPreset', 'fsrMode'])
+  for (const key of ['arch', 'widescreen', 'resolution', 'volume', 'frameRate', 'language', 'vsync', 'skipMovies', 'skipIntro', 'pauseTracker', 'heatHaze', 'overlay', 'fullscreen', 'fullscreenMode', 'exclusiveResolution', 'display', 'invertCameraX', 'invertCameraY', 'freeCamera', 'cstickAim', 'cameraSpeed', 'mouseCamera', 'mouseSensitivity', 'msaa', 'fxaa', 'anisotropic', 'sharpen', 'brightness', 'aspect', 'presentFilter', 'hudEdges', 'textures', 'textureLoading', 'shaderWarmup', 'cutscenes', 'eclipse', 'autoUpdate', 'shareUsage', 'discordPresence', 'darkMode', 'updateChannel', 'buttonPrompts', 'promptPad', 'graphicsPreset', 'fsrMode', 'renderer', 'appleSilicon'])
     $(key).disabled = Boolean(data.active);
+  // Turning one off stays possible once on, whatever the game version.
+  if (!platform.arches.includes('arm64') || config.settings.eclipse || !features.appleSilicon && config.settings.arch !== 'arm64')
+    $('appleSilicon').disabled = true;
+  if (!features.vulkan && config.settings.renderer !== 'vulkan') $('renderer').disabled = true;
   // Languages need a game version with language packs. Eclipse has none and plays in English;
   // the chosen language stays for Super Mario Sunshine.
   $('language').disabled = Boolean(data.active) || config.settings.eclipse;
@@ -1054,7 +1072,7 @@ function renderDependents(busy = false) {
 
 function settingsValue() {
   return {
-    arch: $('arch').value, widescreen: $('widescreen').value, resolution: Number($('resolution').value), volume: Number($('volume').value),
+    arch: current?.platform?.id === 'macos' ? ($('appleSilicon').checked ? 'arm64' : '64') : $('arch').value, widescreen: $('widescreen').value, resolution: Number($('resolution').value), volume: Number($('volume').value),
     frameRate: Number($('frameRate').value), language: $('language').value, fullscreen: $('fullscreen').checked, fullscreenMode: $('fullscreenMode').value,
     exclusiveResolution: $('exclusiveResolution').value, display: $('display').value, vsync: $('vsync').value,
     skipMovies: $('skipMovies').checked, skipIntro: $('skipIntro').checked, pauseTracker: $('pauseTracker').checked, heatHaze: $('heatHaze').checked, overlay: $('overlay').checked,
@@ -1062,7 +1080,7 @@ function settingsValue() {
     mouseCamera: $('mouseCamera').checked, mouseSensitivity: Number($('mouseSensitivity').value),
     msaa: Number($('msaa').value), fxaa: $('fxaa').checked, anisotropic: Number($('anisotropic').value),
     sharpen: Number($('sharpen').value), brightness: Number($('brightness').value), aspect: $('aspect').value,
-    presentFilter: $('presentFilter').value, fsrMode: $('fsrMode').value,
+    presentFilter: $('presentFilter').value, fsrMode: $('fsrMode').value, renderer: $('renderer').value,
     invertCameraX: $('invertCameraX').checked, invertCameraY: $('invertCameraY').checked, hudEdges: $('hudEdges').checked, textures: $('textures').checked, cutscenes: $('cutscenes').checked,
     textureLoading: $('textureLoading').value, shaderWarmup: $('shaderWarmup').checked,
     eclipse: $('eclipse').checked, autoUpdate: $('autoUpdate').checked, shareUsage: $('shareUsage').checked, discordPresence: $('discordPresence').checked, darkMode: $('darkMode').checked, updateChannel: $('updateChannel').value,
@@ -1774,7 +1792,7 @@ $('import-save-state').addEventListener('click', async () => {
   } catch (error) { $('save-state-result').textContent = errorText(error); }
 });
 $('open-save-states').addEventListener('click', () => window.sms.openSaveStates().catch(showError));
-for (const key of ['arch', 'widescreen', 'resolution', 'volume', 'frameRate', 'language', 'vsync', 'skipMovies', 'skipIntro', 'pauseTracker', 'heatHaze', 'overlay', 'fullscreen', 'fullscreenMode', 'exclusiveResolution', 'display', 'invertCameraX', 'invertCameraY', 'freeCamera', 'cstickAim', 'cameraSpeed', 'mouseCamera', 'mouseSensitivity', 'msaa', 'fxaa', 'anisotropic', 'sharpen', 'brightness', 'aspect', 'presentFilter', 'hudEdges', 'textures', 'textureLoading', 'shaderWarmup', 'cutscenes', 'eclipse', 'autoUpdate', 'shareUsage', 'discordPresence', 'darkMode', 'updateChannel', 'buttonPrompts', 'promptPad', 'hdr', 'hdrCalibration', 'hdrPaperWhite', 'hdrPeak', 'hdrContrast', 'hdrSaturation', 'hdrHighlights', 'fsrMode'])
+for (const key of ['arch', 'widescreen', 'resolution', 'volume', 'frameRate', 'language', 'vsync', 'skipMovies', 'skipIntro', 'pauseTracker', 'heatHaze', 'overlay', 'fullscreen', 'fullscreenMode', 'exclusiveResolution', 'display', 'invertCameraX', 'invertCameraY', 'freeCamera', 'cstickAim', 'cameraSpeed', 'mouseCamera', 'mouseSensitivity', 'msaa', 'fxaa', 'anisotropic', 'sharpen', 'brightness', 'aspect', 'presentFilter', 'hudEdges', 'textures', 'textureLoading', 'shaderWarmup', 'cutscenes', 'eclipse', 'autoUpdate', 'shareUsage', 'discordPresence', 'darkMode', 'updateChannel', 'buttonPrompts', 'promptPad', 'hdr', 'hdrCalibration', 'hdrPaperWhite', 'hdrPeak', 'hdrContrast', 'hdrSaturation', 'hdrHighlights', 'fsrMode', 'renderer', 'appleSilicon'])
   $(key).addEventListener('change', saveSettings);
 $('volume').addEventListener('input', renderVolume);
 for (const key of ['cameraSpeed', 'mouseSensitivity', 'sharpen', 'brightness']) $(key).addEventListener('input', renderRanges);

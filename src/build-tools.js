@@ -15,7 +15,7 @@ let macInspection;
 let macCheck;
 let macCheckedAt = 0;
 
-async function check(userData, { platform = process.platform, env = process.env, refresh = false, archives = false } = {}) {
+async function check(userData, { platform = process.platform, env = process.env, refresh = false, archives = false, rosetta = true } = {}) {
   if (platform !== 'darwin') return status(userData, platform, env);
   if (refresh || !macInspection || Date.now() - macCheckedAt > 15000) {
     if (!macCheck) macCheck = macTools.inspect(environment(userData, env, platform)).then(result => {
@@ -24,7 +24,7 @@ async function check(userData, { platform = process.platform, env = process.env,
     }).finally(() => { macCheck = null; });
     await macCheck;
   }
-  return status(userData, platform, env, { archives });
+  return status(userData, platform, env, { archives, rosetta });
 }
 
 function toolsetFor(platform = process.platform, arch = process.arch) {
@@ -136,7 +136,7 @@ function status(userData, platform = process.platform, env = process.env, option
   if (platform === 'darwin') {
     const found = macTools.report(macInspection, { ...options, managed: true });
     const installed = privateReady(userData, platform);
-    const appleReady = found.checked && found.requirements.filter(item => ['apple', 'rosetta'].includes(item.id))
+    const appleReady = found.checked && found.requirements.filter(item => ['apple', 'rosetta'].includes(item.id) && !item.optional)
       .every(item => item.ready);
     return { ...found, ready: appleReady && installed && found.ready,
       mode: appleReady && installed && found.ready ? 'private' : 'missing',
@@ -159,7 +159,11 @@ function environmentAtRoot(root, base = process.env, platform = process.platform
     const available = Boolean(bin && fs.existsSync(bin));
     const result = macTools.environment(available ? { ...base, SMS_BUILD_TOOLS_BIN: bin } : base);
     if (available) {
-      result.SMS_LLVM_BIN = bin;
+      // The Apple Silicon game compiles with LLVM's clang in env/llvm/bin (the
+      // arm64 toolset's), beside the llvm-config its pass plugin builds with;
+      // the x86_64 game with Apple's, through the wrappers in env/bin.
+      const llvm = path.join(root, 'env', 'llvm', 'bin');
+      result.SMS_LLVM_BIN = base.SMS_ARCH === 'arm64' && fs.existsSync(path.join(llvm, 'llvm-config')) ? llvm : bin;
       // GNU Make's recursive command cannot quote its own executable path.
       // Application Support always contains a space, so use Ninja on Mac.
       result.CMAKE_GENERATOR = 'Ninja';
@@ -343,12 +347,12 @@ function unpackNative(tarPath, args, progress, { stallMs = 5 * 60 * 1000 } = {})
 }
 
 async function prepare(userData, { platform = process.platform, run, progress = () => {},
-  forcePrivate = false, source = null, archiveFile = null, archives = false } = {}) {
+  forcePrivate = false, source = null, archiveFile = null, archives = false, rosetta = true } = {}) {
   if (!['linux', 'win32', 'darwin'].includes(platform)) throw new Error('This operating system is not supported.');
   if (platform === 'darwin' ? !['x64', 'arm64'].includes(process.arch) : process.arch !== 'x64')
     throw new Error('Setup tools require a supported 64-bit computer.');
   if (platform === 'darwin') {
-    const found = await check(userData, { platform, refresh: true, archives });
+    const found = await check(userData, { platform, refresh: true, archives, rosetta });
     if (!found.appleReady) throw new Error(found.message);
   }
   if (!forcePrivate && privateReady(userData, platform)) return status(userData, platform);

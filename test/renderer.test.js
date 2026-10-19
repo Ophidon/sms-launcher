@@ -10,7 +10,7 @@ const port = require('../src/port');
 function state() {
   return {
     config: { repo: '/installed/port', settings: port.normalizeSettings({ autoUpdate: true }), completedSetup: true },
-    platform: port.platformInfo(), tools: { ready: true, appleReady: true },
+    platform: port.platformInfo(), tools: { ready: true, appleReady: true }, features: { vulkan: true, appleSilicon: true },
     repoReady: true, romReady: true, binaryReady: true, hdVisualsReady: true,
     game: { needsUpdate: true, installedVersion: 'older', availableVersion: 'newer', launcherVersion: '0.1.39' },
     appUpdate: { message: '' }, backups: [], logs: [], active: null
@@ -584,4 +584,72 @@ test('the Multiplayer tab shows how many play in public games, and nothing when 
   ui.listeners.publicOnline({ players: 2, games: 1 });
   ui.listeners.publicOnline(null);
   assert.equal(badge.hidden, true);
+});
+
+test('the Apple Silicon switch shows on macOS only, and builds the arm64 game when turned on', async () => {
+  const mac = state();
+  mac.platform = port.platformInfo('darwin', 'arm64');
+  mac.config.settings = port.normalizeSettings({}, 'darwin', 'arm64');
+  const ui = await renderer(mac);
+  assert.equal(ui.elements.get('appleSilicon-field').hidden, false);
+  assert.equal(ui.elements.get('arch-field').hidden, true);
+  assert.equal(ui.elements.get('appleSilicon').checked, false);
+  assert.equal(ui.elements.get('appleSilicon').disabled, false);
+  ui.elements.get('appleSilicon').checked = true;
+  ui.elements.get('appleSilicon').dispatch('change');
+  await new Promise(setImmediate);
+  assert.equal(ui.calls.at(-1)[1].arch, 'arm64');
+
+  const intel = state();
+  intel.platform = port.platformInfo('darwin', 'x64');
+  intel.config.settings = port.normalizeSettings({}, 'darwin', 'x64');
+  const intelUi = await renderer(intel);
+  assert.equal(intelUi.elements.get('appleSilicon-field').hidden, false);
+  assert.equal(intelUi.elements.get('appleSilicon').disabled, true);
+
+  const windows = state();
+  windows.platform = port.platformInfo('win32');
+  windows.config.settings = port.normalizeSettings({}, 'win32');
+  const windowsUi = await renderer(windows);
+  assert.equal(windowsUi.elements.get('appleSilicon-field').hidden, true);
+  assert.equal(windowsUi.elements.get('arch-field').hidden, false);
+});
+
+test('the Renderer list is saved with the others, and hidden where only OpenGL is offered', async () => {
+  const data = state();
+  data.platform = port.platformInfo('linux');
+  data.config.settings = port.normalizeSettings({}, 'linux');
+  const ui = await renderer(data);
+  assert.equal(ui.elements.get('renderer-field').hidden, false);
+  assert.equal(ui.elements.get('renderer').value, 'opengl');
+  ui.elements.get('renderer').value = 'vulkan';
+  ui.elements.get('renderer').dispatch('change');
+  await new Promise(setImmediate);
+  assert.equal(ui.calls.at(-1)[1].renderer, 'vulkan');
+
+  const windows = state();
+  windows.platform = port.platformInfo('win32');
+  windows.config.settings = port.normalizeSettings({}, 'win32');
+  assert.equal((await renderer(windows)).elements.get('renderer-field').hidden, true);
+});
+
+test('the Apple Silicon switch and the Renderer list wait for a game version that has them', async () => {
+  const data = state();
+  data.platform = port.platformInfo('darwin', 'arm64');
+  data.config.settings = port.normalizeSettings({}, 'darwin', 'arm64');
+  data.features = { vulkan: false, appleSilicon: false };
+  const ui = await renderer(data);
+  assert.equal(ui.elements.get('appleSilicon').disabled, true);
+  assert.equal(ui.elements.get('appleSilicon-note').textContent, 'Update the game to use this.');
+  assert.equal(ui.elements.get('renderer').disabled, true);
+  assert.equal(ui.elements.get('renderer-note').textContent, 'Update the game to use this.');
+
+  // already on: it can still be turned off
+  const on = state();
+  on.platform = port.platformInfo('darwin', 'arm64');
+  on.config.settings = port.normalizeSettings({ arch: 'arm64', renderer: 'vulkan' }, 'darwin', 'arm64');
+  on.features = { vulkan: false, appleSilicon: false };
+  const onUi = await renderer(on);
+  assert.equal(onUi.elements.get('appleSilicon').disabled, false);
+  assert.equal(onUi.elements.get('renderer').disabled, false);
 });

@@ -578,7 +578,8 @@ function toolEnv(base = process.env) {
 }
 
 function toolOptions() {
-  return { archives: Boolean(config.settings.textures || config.settings.eclipse) };
+  // The Apple Silicon build runs without Rosetta.
+  return { archives: Boolean(config.settings.textures || config.settings.eclipse), rosetta: config.settings.arch !== 'arm64' };
 }
 
 function toolsStatus() {
@@ -688,6 +689,7 @@ async function prepareBuildTools() {
   broadcast('activity', { label: active.label, detail: active.detail, percent: null, startedAt });
   try {
     await buildTools.prepare(userData, {
+      ...toolOptions(),
       forcePrivate,
       progress(percent, detail) {
         if (!active || active.child) return;
@@ -831,6 +833,8 @@ async function build(forceFresh = false) {
       throw new Error('The update folder has changed. Choose another setup location in Settings and try again.');
     game.carryUserFiles(original, root);
   }
+  if (settings.arch === 'arm64' && !port.gameFeatures(root).appleSilicon)
+    throw new Error('This game version has no Apple Silicon build. Turn off Apple Silicon build under Manage game, Files, or update the game.');
   // A fresh build's folder is longer than the one ensureBuildTools checked.
   requireShortPaths(root, settings);
   if (!port.hdVisualsInstalled(root, settings)) await installTextures(root);
@@ -886,7 +890,7 @@ async function setupGame() {
 const PLAYER_SETTINGS = [
   'volume', 'invertCameraX', 'invertCameraY', 'keyBindings', 'padBindings', 'softTrigger', 'rumbleStrength', 'freeCamera', 'cstickAim', 'cameraSpeed', 'mouseCamera',
   'mouseSensitivity', 'skipMovies', 'skipIntro', 'language', 'heatHaze', 'pauseTracker', 'buttonPrompts', 'promptPad', 'hdr', 'hdrCalibration', 'hdrPaperWhite', 'hdrPeak', 'hdrContrast', 'hdrSaturation', 'hdrHighlights', 'overlay', 'fullscreenMode', 'exclusiveResolution', 'display', 'vsync',
-  'msaa', 'fxaa', 'anisotropic', 'sharpen', 'fsrMode', 'brightness', 'aspect', 'presentFilter'
+  'msaa', 'fxaa', 'anisotropic', 'sharpen', 'fsrMode', 'brightness', 'aspect', 'presentFilter', 'renderer'
 ];
 function promptDirectory() { return path.join(app.getPath('userData'), 'prompts'); }
 
@@ -1337,6 +1341,7 @@ function state() {
   const installedBuild = ready ? game.installed(config.repo, config.settings) : null;
   return {
     config, platform: info, repoReady, portable: Boolean(portableRoot), pathProblem: blockedPath || pathProblem(),
+    features: port.gameFeatures(repoReady ? config.repo : null),
     romReady: Boolean(config.rom) && !romError, romError,
     eclipseInstalled: repoReady && fs.existsSync(path.join(config.repo, port.ECLIPSE_ISO)),
     hdVisualsReady: repoReady && port.hdVisualsInstalled(config.repo, config.settings),

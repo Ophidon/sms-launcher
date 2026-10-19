@@ -18,6 +18,38 @@ const MAC_MAMBA = {
 const MAC_PACKAGES = ['python=3.12', 'git=2.55', 'cmake=4.4.3', 'ninja', 'make', 'patch',
   'llvm-tools-21=21.1.8', '7zip=26.03', 'bash', 'coreutils',
   'grep', 'sed', 'gawk', 'findutils', 'curl'];
+// The Apple Silicon game (SMS_ARCH=arm64) compiles with LLVM's own clang,
+// which loads the game's pass plugin (tools/gameptr), built with llvm-config
+// and LLVM's headers from the same release as llvm-tools-21.
+const MAC_ARM64_PACKAGES = ['clang-21=21.1.8', 'llvmdev=21.1.8'];
+// env/llvm/bin: that clang as clang/clang++, beside llvm-config and
+// llvm-objcopy (the game looks for llvm-config beside its compiler). Scripts,
+// not links: packaging copies links, and these binaries are large.
+const MAC_LLVM_TOOLS = { clang: 'clang-21', 'clang++': 'clang-21 --driver-mode=g++', 'llvm-config': 'llvm-config',
+  'llvm-objcopy': 'llvm-objcopy-21' };
+// conda-forge's clang passes Apple's linker -lto_library <prefix>/lib/
+// libLTO.21.1.dylib, and newer linkers (ld-1167 on: Xcode 16.4, current
+// Command Line Tools) refuse any name but libLTO.dylib. So the compilers
+// link through env/llvm/bin/ld, which names a copy of it libLTO.dylib.
+const MAC_LD = `#!/bin/sh
+# Apple's linker, with -lto_library naming this toolset's libLTO.dylib.
+lib="$(cd "$(dirname "$0")/../../lib" && pwd)/libLTO.dylib"
+next=
+for arg in "$@"; do
+  shift
+  if [ "$next" = lto ]; then set -- "$@" "$lib"; next=; continue; fi
+  [ "$arg" = -lto_library ] && next=lto
+  set -- "$@" "$arg"
+done
+exec /usr/bin/ld "$@"
+`;
+// A compiler wrapper: clang through env/bin/<tool>, linking through ./ld
+// (only when it links, so compiling alone has no unused-argument warning).
+function macCompiler(tool, args) {
+  const clang = `"$(dirname "$0")/../../bin/${tool}"${args.map(arg => ` ${arg}`).join('')}`;
+  return `#!/bin/sh\nfor arg in "$@"; do case "$arg" in -c|-S|-E|-fsyntax-only) exec ${clang} "$@";; esac; done\n` +
+    `exec ${clang} --ld-path="$(dirname "$0")/ld" "$@"\n`;
+}
 const MSYS2 = {
   url: 'https://github.com/msys2/msys2-installer/releases/download/2026-09-27/msys2-base-x86_64-20260927.sfx.exe',
   sha256: 'ad336cccfda47758b5e15cda993fbba421115cb0b126697daef1ee4dfe37209f'
@@ -58,7 +90,8 @@ async function prepareFromUpstream(userData, { platform = process.platform, run,
     const prefix = path.join(root, 'env');
     fs.rmSync(prefix, { recursive: true, force: true });
     await run(binary, ['create', '--yes', '--prefix', prefix, '--channel', 'conda-forge',
-      '--override-channels', ...(platform === 'darwin' ? MAC_PACKAGES : LINUX_PACKAGES)], {
+      '--override-channels', ...(platform === 'darwin' ? [...MAC_PACKAGES, ...(process.arch === 'arm64' ? MAC_ARM64_PACKAGES : [])]
+        : LINUX_PACKAGES)], {
       env: { ...process.env, MAMBA_ROOT_PREFIX: path.join(root, 'cache') }
     }, 'Prepare build tools');
     const bin = path.join(prefix, 'bin');
@@ -68,6 +101,25 @@ async function prepareFromUpstream(userData, { platform = process.platform, run,
       for (const name of ['clang', 'clang++']) {
         fs.rmSync(path.join(bin, name), { force: true });
         fs.writeFileSync(path.join(bin, name), `#!/bin/sh\nexec /usr/bin/${name} "$@"\n`, { mode: 0o755 });
+      }
+      if (process.arch === 'arm64') {
+        const llvm = path.join(prefix, 'llvm', 'bin');
+        fs.mkdirSync(llvm, { recursive: true });
+        for (const [name, command] of Object.entries(MAC_LLVM_TOOLS)) {
+          const [tool, ...args] = command.split(' ');
+          if (!fs.existsSync(path.join(bin, tool))) throw new Error(`Mac tool ${tool} is missing.`);
+          fs.writeFileSync(path.join(llvm, name), name.startsWith('clang') ? macCompiler(tool, args)
+            : `#!/bin/sh\nexec "$(dirname "$0")/../../bin/${tool}"${args.map(arg => ` ${arg}`).join('')} "$@"\n`, { mode: 0o755 });
+        }
+        fs.writeFileSync(path.join(llvm, 'ld'), MAC_LD, { mode: 0o755 });
+        // The library itself under that name (a link would be resolved to
+        // the versioned name, which the linker refuses).
+        const lto = path.join(prefix, 'lib', 'libLTO.dylib');
+        if (fs.lstatSync(lto).isSymbolicLink()) {
+          const target = fs.realpathSync(lto);
+          fs.rmSync(lto);
+          fs.copyFileSync(target, lto);
+        }
       }
     }
     if (platform === 'linux') {
@@ -91,7 +143,8 @@ async function prepareFromUpstream(userData, { platform = process.platform, run,
       fs.rmSync(link, { force: true });
       fs.symlinkSync(target, link);
     }
-    const required = platform === 'darwin' ? ['git', 'cmake', 'ninja', 'make', 'patch', 'python3', 'llvm-objcopy', 'clang++', '7z', 'bash']
+    const required = platform === 'darwin' ? ['git', 'cmake', 'ninja', 'make', 'patch', 'python3', 'llvm-objcopy', 'clang++', '7z', 'bash',
+      ...(process.arch === 'arm64' ? [...Object.keys(MAC_LLVM_TOOLS), 'ld'].map(name => path.join('..', 'llvm', 'bin', name)) : [])]
       : ['git', 'cmake', 'make', 'patch', 'python3', 'objcopy', 'g++', 'clang', 'clang++', '7z', 'bash'];
     for (const name of required)
       if (!fs.existsSync(path.join(bin, name))) throw new Error(`Build tool ${name} is missing after download.`);

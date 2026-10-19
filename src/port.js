@@ -12,10 +12,14 @@ const { describe } = require('./disc');
 const PORT_URL = 'https://github.com/chasem-dev/sms-pc-port.git';
 const ECLIPSE_ISO = path.join('mods', 'eclipse', 'Super Mario Eclipse v1.1.0.iso');
 
-function platformInfo(platform = process.platform) {
-  if (platform === 'linux') return { name: 'Linux', id: 'linux', arches: ['64', '32'], defaultArch: '64' };
-  if (platform === 'darwin') return { name: 'macOS', id: 'macos', arches: ['64'], defaultArch: '64' };
-  if (platform === 'win32') return { name: 'Windows', id: 'windows', arches: ['64', '32'], defaultArch: '64' };
+// renderers: the game's graphics APIs the launcher offers (Vulkan is not
+// tried on Windows yet). On a Mac with Apple Silicon, arm64 is the native
+// build (the Apple Silicon setting); 64 is the x86_64 build Rosetta runs.
+function platformInfo(platform = process.platform, hostArch = process.arch) {
+  if (platform === 'linux') return { name: 'Linux', id: 'linux', arches: ['64', '32'], defaultArch: '64', renderers: ['opengl', 'vulkan'] };
+  if (platform === 'darwin') return { name: 'macOS', id: 'macos', arches: hostArch === 'arm64' ? ['64', 'arm64'] : ['64'], defaultArch: '64',
+    renderers: ['opengl', 'vulkan'] };
+  if (platform === 'win32') return { name: 'Windows', id: 'windows', arches: ['64', '32'], defaultArch: '64', renderers: ['opengl'] };
   throw new Error(`This port does not support ${platform}.`);
 }
 
@@ -79,9 +83,11 @@ function choiceSetting(value, choices, fallback) { return choices.includes(value
 // The game's SMS_RUMBLE_STRENGTH (100 is the console's, up to 200) for the launcher's slider (50 is the console's).
 function rumbleGameStrength(slider) { return numberSetting(slider, 50, 0, 100) * 2; }
 
-function normalizeSettings(input = {}, platform = process.platform) {
-  const info = platformInfo(platform);
-  const arch = info.arches.includes(String(input.arch)) ? String(input.arch) : info.defaultArch;
+function normalizeSettings(input = {}, platform = process.platform, hostArch = process.arch) {
+  const info = platformInfo(platform, hostArch);
+  // Eclipse builds for x86_64 only on macOS.
+  const arch = info.arches.includes(String(input.arch)) && !(String(input.arch) === 'arm64' && input.eclipse)
+    ? String(input.arch) : info.defaultArch;
   const widescreen = ['off', '16:9', '16:10', '21:9'].includes(input.widescreen) ? input.widescreen : '16:9';
   const resolution = [1, 2, 3, 4].includes(Number(input.resolution)) ? Number(input.resolution) : 4;
   // Migrate the previous 60 fps toggle without changing a saved preference.
@@ -156,6 +162,7 @@ function normalizeSettings(input = {}, platform = process.platform) {
     // HD cutscenes are a separate 5 GB download, off unless chosen.
     cutscenes: Boolean(input.cutscenes),
     eclipse: Boolean(input.eclipse),
+    renderer: choiceSetting(input.renderer, info.renderers, 'opengl'),
     autoUpdate: input.autoUpdate !== false,
     // Anonymous usage heartbeats (versions and OS only); see README Privacy.
     shareUsage: input.shareUsage !== false,
@@ -313,6 +320,14 @@ function wantsCutscenes(settings) { return Boolean(settings.cutscenes && setting
 
 // Every HD download the settings ask for is in place. Older playable
 // installations (without the movie pack's files) keep playing until updated.
+// What this game version supports: the Vulkan renderer (glvk), and the
+// Apple Silicon build (its pass plugin). The launcher offers each only then,
+// since Beta and a chosen game source may build an older or newer game.
+function gameFeatures(root) {
+  const has = file => Boolean(root) && fs.existsSync(path.join(root, file));
+  return { vulkan: has(path.join('platform', 'gx', 'src', 'vk')), appleSilicon: has(path.join('tools', 'gameptr')) };
+}
+
 function hdVisualsInstalled(root, settings) {
   return (!settings.textures || texturePackInstalled(root)) &&
     (!wantsCutscenes(settings) || !cutscenePackSupported(root) || cutscenePackInstalled(root));
@@ -341,6 +356,9 @@ function buildEnvironment(settings, disc, root) {
     ...process.env,
     SMS_ARCH: settings.arch,
     SMS_ECLIPSE: settings.eclipse ? '1' : '0',
+    SMS_GX_BACKEND: settings.renderer === 'vulkan' ? 'vulkan' : 'opengl',
+    // Older game versions build the Vulkan backend on Linux only by default.
+    ...(process.platform === 'darwin' ? { SMS_GX_VULKAN: 'ON' } : {}),
     SMS_DISC_IMAGE: disc,
     // The launcher runs sms with the disc, so skip build.sh's 1.1 GiB sms-standalone copy.
     SMS_STANDALONE: '0',
@@ -553,7 +571,7 @@ function gameRuntimeFolders(settings, environment = process.env) {
 
 function eclipseRunCommand(...args) { return gameRunCommand(...args); }
 
-module.exports = { PORT_URL, ECLIPSE_ISO, platformInfo, isPort, validateRom, normalizeSettings, savedSettings,
+module.exports = { PORT_URL, ECLIPSE_ISO, platformInfo, isPort, validateRom, normalizeSettings, savedSettings, gameFeatures,
   texturePackDirectory, texturePackInstalled, textureExtrasDirectory, textureExtrasSupported, textureExtrasInstalled, textureExtrasWanted,
   LANGUAGES, LANGUAGE_PACKS, gameLanguage, languagePackDirectory, languagePacksSupported, languageAvailable, languageChoices,
   languagePackInstalled, languagePackWanted,
