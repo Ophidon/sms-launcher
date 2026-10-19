@@ -833,6 +833,8 @@ async function build(forceFresh = false) {
       throw new Error('The update folder has changed. Choose another setup location in Settings and try again.');
     game.carryUserFiles(original, root);
   }
+  if (settings.arch === 'arm64' && !port.gameFeatures(root).appleSilicon)
+    throw new Error('This game version has no Apple Silicon build. Turn off Apple Silicon build under Manage game, Files, or update the game.');
   // A fresh build's folder is longer than the one ensureBuildTools checked.
   requireShortPaths(root, settings);
   if (!port.hdVisualsInstalled(root, settings)) await installTextures(root);
@@ -1339,6 +1341,7 @@ function state() {
   const installedBuild = ready ? game.installed(config.repo, config.settings) : null;
   return {
     config, platform: info, repoReady, portable: Boolean(portableRoot), pathProblem: blockedPath || pathProblem(),
+    features: port.gameFeatures(repoReady ? config.repo : null),
     romReady: Boolean(config.rom) && !romError, romError,
     eclipseInstalled: repoReady && fs.existsSync(path.join(config.repo, port.ECLIPSE_ISO)),
     hdVisualsReady: repoReady && port.hdVisualsInstalled(config.repo, config.settings),

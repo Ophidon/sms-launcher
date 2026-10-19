@@ -320,6 +320,14 @@ function wantsCutscenes(settings) { return Boolean(settings.cutscenes && setting
 
 // Every HD download the settings ask for is in place. Older playable
 // installations (without the movie pack's files) keep playing until updated.
+// What this game version supports: the Vulkan renderer (glvk), and the
+// Apple Silicon build (its pass plugin). The launcher offers each only then,
+// since Beta and a chosen game source may build an older or newer game.
+function gameFeatures(root) {
+  const has = file => Boolean(root) && fs.existsSync(path.join(root, file));
+  return { vulkan: has(path.join('platform', 'gx', 'src', 'vk')), appleSilicon: has(path.join('tools', 'gameptr')) };
+}
+
 function hdVisualsInstalled(root, settings) {
   return (!settings.textures || texturePackInstalled(root)) &&
     (!wantsCutscenes(settings) || !cutscenePackSupported(root) || cutscenePackInstalled(root));
@@ -563,7 +571,7 @@ function gameRuntimeFolders(settings, environment = process.env) {
 
 function eclipseRunCommand(...args) { return gameRunCommand(...args); }
 
-module.exports = { PORT_URL, ECLIPSE_ISO, platformInfo, isPort, validateRom, normalizeSettings, savedSettings,
+module.exports = { PORT_URL, ECLIPSE_ISO, platformInfo, isPort, validateRom, normalizeSettings, savedSettings, gameFeatures,
   texturePackDirectory, texturePackInstalled, textureExtrasDirectory, textureExtrasSupported, textureExtrasInstalled, textureExtrasWanted,
   LANGUAGES, LANGUAGE_PACKS, gameLanguage, languagePackDirectory, languagePacksSupported, languageAvailable, languageChoices,
   languagePackInstalled, languagePackWanted,

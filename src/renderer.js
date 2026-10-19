@@ -734,11 +734,16 @@ function refresh(data) {
   const mac = platform.id === 'macos', nativeMac = platform.arches.includes('arm64');
   $('arch-field').hidden = mac;
   $('appleSilicon-field').hidden = !mac;
+  // Each is offered once the game version on disk has it (Beta and a chosen game source can build an older one).
+  const features = data.features || {};
+  const gameNote = data.repoReady ? 'Update the game to use this.' : 'Available once the game is set up.';
   $('appleSilicon').checked = config.settings.arch === 'arm64';
   $('appleSilicon-note').textContent = !nativeMac ? 'Needs a Mac with Apple Silicon.'
     : config.settings.eclipse ? 'Super Mario Eclipse plays through Rosetta for now.'
+    : !features.appleSilicon && config.settings.arch !== 'arm64' ? gameNote
     : 'Builds the game for Apple Silicon instead of running it through Rosetta, which is faster. Changing this builds the game again.';
   $('renderer-field').hidden = !(platform.renderers || []).includes('vulkan');
+  $('renderer-note').textContent = features.vulkan || config.settings.renderer === 'vulkan' ? 'Vulkan is often faster. If it can\'t start on this computer, the game uses OpenGL.' : gameNote;
   renderExclusiveResolutions(config.settings.exclusiveResolution);
   renderLanguages(data.languages);
   for (const key of ['arch', 'widescreen', 'resolution', 'volume', 'frameRate', 'language', 'vsync', 'fullscreenMode', 'exclusiveResolution',
@@ -776,7 +781,10 @@ function refresh(data) {
   renderGameSource(data);
   for (const key of ['arch', 'widescreen', 'resolution', 'volume', 'frameRate', 'language', 'vsync', 'skipMovies', 'skipIntro', 'pauseTracker', 'heatHaze', 'overlay', 'fullscreen', 'fullscreenMode', 'exclusiveResolution', 'display', 'invertCameraX', 'invertCameraY', 'freeCamera', 'cstickAim', 'cameraSpeed', 'mouseCamera', 'mouseSensitivity', 'msaa', 'fxaa', 'anisotropic', 'sharpen', 'brightness', 'aspect', 'presentFilter', 'hudEdges', 'textures', 'textureLoading', 'shaderWarmup', 'cutscenes', 'eclipse', 'autoUpdate', 'shareUsage', 'discordPresence', 'darkMode', 'updateChannel', 'buttonPrompts', 'promptPad', 'graphicsPreset', 'fsrMode', 'renderer', 'appleSilicon'])
     $(key).disabled = Boolean(data.active);
-  if (!platform.arches.includes('arm64') || config.settings.eclipse) $('appleSilicon').disabled = true;
+  // Turning one off stays possible once on, whatever the game version.
+  if (!platform.arches.includes('arm64') || config.settings.eclipse || !features.appleSilicon && config.settings.arch !== 'arm64')
+    $('appleSilicon').disabled = true;
+  if (!features.vulkan && config.settings.renderer !== 'vulkan') $('renderer').disabled = true;
   // Languages need a game version with language packs. Eclipse has none and plays in English;
   // the chosen language stays for Super Mario Sunshine.
   $('language').disabled = Boolean(data.active) || config.settings.eclipse;

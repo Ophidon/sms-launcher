@@ -684,3 +684,15 @@ test('the renderer is OpenGL or Vulkan where Vulkan is offered, and OpenGL on Wi
   assert.equal(port.buildEnvironment(vulkan, '/my/disc.iso', '/port').SMS_GX_BACKEND, 'vulkan');
   assert.equal(port.buildEnvironment(port.normalizeSettings({}, 'linux'), '/my/disc.iso', '/port').SMS_GX_BACKEND, 'opengl');
 });
+
+test('game features come from the game version on disk', () => {
+  const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sms-features-'));
+  try {
+    assert.deepEqual(port.gameFeatures(root), { vulkan: false, appleSilicon: false });
+    assert.deepEqual(port.gameFeatures(null), { vulkan: false, appleSilicon: false });
+    fs.mkdirSync(path.join(root, 'platform', 'gx', 'src', 'vk'), { recursive: true });
+    fs.mkdirSync(path.join(root, 'tools', 'gameptr'), { recursive: true });
+    assert.deepEqual(port.gameFeatures(root), { vulkan: true, appleSilicon: true });
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});

@@ -10,7 +10,7 @@ const port = require('../src/port');
 function state() {
   return {
     config: { repo: '/installed/port', settings: port.normalizeSettings({ autoUpdate: true }), completedSetup: true },
-    platform: port.platformInfo(), tools: { ready: true, appleReady: true },
+    platform: port.platformInfo(), tools: { ready: true, appleReady: true }, features: { vulkan: true, appleSilicon: true },
     repoReady: true, romReady: true, binaryReady: true, hdVisualsReady: true,
     game: { needsUpdate: true, installedVersion: 'older', availableVersion: 'newer', launcherVersion: '0.1.39' },
     appUpdate: { message: '' }, backups: [], logs: [], active: null
@@ -631,4 +631,25 @@ test('the Renderer list is saved with the others, and hidden where only OpenGL i
   windows.platform = port.platformInfo('win32');
   windows.config.settings = port.normalizeSettings({}, 'win32');
   assert.equal((await renderer(windows)).elements.get('renderer-field').hidden, true);
+});
+
+test('the Apple Silicon switch and the Renderer list wait for a game version that has them', async () => {
+  const data = state();
+  data.platform = port.platformInfo('darwin', 'arm64');
+  data.config.settings = port.normalizeSettings({}, 'darwin', 'arm64');
+  data.features = { vulkan: false, appleSilicon: false };
+  const ui = await renderer(data);
+  assert.equal(ui.elements.get('appleSilicon').disabled, true);
+  assert.equal(ui.elements.get('appleSilicon-note').textContent, 'Update the game to use this.');
+  assert.equal(ui.elements.get('renderer').disabled, true);
+  assert.equal(ui.elements.get('renderer-note').textContent, 'Update the game to use this.');
+
+  // already on: it can still be turned off
+  const on = state();
+  on.platform = port.platformInfo('darwin', 'arm64');
+  on.config.settings = port.normalizeSettings({ arch: 'arm64', renderer: 'vulkan' }, 'darwin', 'arm64');
+  on.features = { vulkan: false, appleSilicon: false };
+  const onUi = await renderer(on);
+  assert.equal(onUi.elements.get('appleSilicon').disabled, false);
+  assert.equal(onUi.elements.get('renderer').disabled, false);
 });
