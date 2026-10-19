@@ -109,10 +109,12 @@ async function main() {
     : path.join(toolRoot, 'env', 'bin', 'git');
   if (!fs.existsSync(git)) throw new Error(`Private Git is missing: ${git}`);
   if (process.platform === 'win32') {
-    // An empty bundle fails every texture and cutscene download.
-    const certificates = path.join(checkoutEnv.MSYS2_ROOT, 'mingw64', 'etc', 'ssl', 'cert.pem');
-    if (!fs.existsSync(certificates) || !fs.statSync(certificates).size)
-      throw new Error(`The bundled Python has no CA certificates: ${certificates}`);
+    // Without CA certificates every texture and cutscene download fails. Leave
+    // out the Windows store, which differs between computers.
+    await run(path.join(checkoutEnv.MSYS2_ROOT, 'mingw64', 'bin', 'python.exe'), ['-I', '-c',
+      'import ssl; c = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT); c.set_default_verify_paths(); ' +
+      'n = c.cert_store_stats()["x509_ca"]; print(n, "CA certificates"); assert n > 50, "no CA certificates"'],
+    { env: checkoutEnv }, 'Check the bundled Python\'s CA certificates');
   }
   const root = path.join(os.tmpdir(), process.platform === 'win32'
     ? 'SMS Port Private Tools CI' : 'sms-port-private-tools-ci');
