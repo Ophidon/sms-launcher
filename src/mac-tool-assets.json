@@ -17,7 +17,7 @@
       "size": 224532456,
       "sources": "https://github.com/chasem-dev/sms-launcher/releases/download/mac-build-tools-2026-09-27.1/sms-build-tools-macos-arm64-2026-09-27.1-sources.tar.gz",
       "notices": "https://github.com/chasem-dev/sms-launcher/releases/download/mac-build-tools-2026-09-27.1/sms-build-tools-macos-arm64-2026-09-27.1-NOTICES.md",
-      "toolset": "2026-09-27.1"
+      "toolset": "2026-10-19.1"
     }
   }
 }
