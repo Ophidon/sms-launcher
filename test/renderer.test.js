@@ -64,6 +64,7 @@ async function renderer(data = state(), copyError = null, notes = { releases: []
     checkNat: async () => ({ label: 'Open', type: 'open', text: 'You can host and join.' }), publicGames: async () => [],
     copyText: async text => { calls.push(['copyText', text]); },
     steamStatus: async () => ({ ...steam }), steamOffered: async prompt => { calls.push(`steamOffered:${prompt}`); },
+    appleSiliconOffered: async () => { calls.push('appleSiliconOffered'); },
     addToSteam: async options => { calls.push(['addToSteam', options]); steam = { ...steam, inSteam: true, needsFix: false, offer: false, offerFix: false };
       return { added: true, play: options.play, name: 'Super Mario Sunshine', artwork: 5, total: 5 }; }
   };
@@ -72,7 +73,7 @@ async function renderer(data = state(), copyError = null, notes = { releases: []
       addEventListener() {} }, document: {
     getElementById(id) { assert.ok(elements.has(id), `Missing HTML element ${id}`); return elements.get(id); },
     querySelectorAll(selector) {
-      const modals = ['steam-add', 'mac-tools-help'].map(id => elements.get(id));
+      const modals = ['steam-add', 'mac-tools-help', 'apple-silicon-offer'].map(id => elements.get(id));
       return selector === '.launcher-modal' ? modals : selector === '.launcher-modal[open]' ? modals.filter(modal => modal.open) : [];
     }, createElement: () => element()
   } });
@@ -589,7 +590,7 @@ test('the Multiplayer tab shows how many play in public games, and nothing when 
 test('the Apple Silicon switch shows on macOS only, and builds the arm64 game when turned on', async () => {
   const mac = state();
   mac.platform = port.platformInfo('darwin', 'arm64');
-  mac.config.settings = port.normalizeSettings({}, 'darwin', 'arm64');
+  mac.config.settings = port.normalizeSettings({ arch: '64' }, 'darwin', 'arm64');
   const ui = await renderer(mac);
   assert.equal(ui.elements.get('appleSilicon-field').hidden, false);
   assert.equal(ui.elements.get('arch-field').hidden, true);
@@ -615,6 +616,28 @@ test('the Apple Silicon switch shows on macOS only, and builds the arm64 game wh
   assert.equal(windowsUi.elements.get('arch-field').hidden, false);
 });
 
+test('a Mac playing through Rosetta is offered the Apple Silicon build once, which Use Apple Silicon saves', async () => {
+  const data = state();
+  data.platform = port.platformInfo('darwin', 'arm64');
+  data.config.settings = port.normalizeSettings({ arch: '64' }, 'darwin', 'arm64');
+  data.offerAppleSilicon = true;
+  const ui = await renderer(data);
+  assert.equal(ui.elements.get('apple-silicon-offer').open, true);
+  assert.ok(ui.calls.includes('appleSiliconOffered'));
+  await ui.click('apple-silicon-offer-confirm');
+  assert.equal(ui.elements.get('apple-silicon-offer').open, false);
+  assert.equal(ui.calls.find(call => call[0] === 'saveSettings')[1].arch, 'arm64');
+  assert.equal(ui.elements.get('message-text').textContent, 'The game builds for Apple Silicon the next time you play.');
+
+  // Not again in the same session after Not now, and never while a task runs.
+  const declined = await renderer({ ...data, config: { ...data.config } });
+  declined.elements.get('apple-silicon-offer').close();
+  await declined.refresh();
+  assert.equal(declined.elements.get('apple-silicon-offer').open, false);
+  const busy = await renderer({ ...data, active: { label: 'Build game' } });
+  assert.equal(busy.elements.get('apple-silicon-offer').open, false);
+});
+
 test('the Renderer list is saved with the others, and hidden where only OpenGL is offered', async () => {
   const data = state();
   data.platform = port.platformInfo('linux');
@@ -638,7 +661,7 @@ test('the Renderer list is saved with the others, and hidden where only OpenGL i
 test('the Apple Silicon switch and the Renderer list wait for a game version that has them', async () => {
   const data = state();
   data.platform = port.platformInfo('darwin', 'arm64');
-  data.config.settings = port.normalizeSettings({}, 'darwin', 'arm64');
+  data.config.settings = port.normalizeSettings({ arch: '64' }, 'darwin', 'arm64');
   data.features = { vulkan: false, appleSilicon: false };
   const ui = await renderer(data);
   assert.equal(ui.elements.get('appleSilicon').disabled, true);

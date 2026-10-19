@@ -803,6 +803,7 @@ function refresh(data) {
   renderDependents(Boolean(data.active));
   renderHdr(Boolean(data.active));
   changing = false;
+  offerAppleSilicon();
 }
 
 let updateChannels = [{ id: 'stable', label: 'Stable' }];
@@ -1710,6 +1711,23 @@ $('steam-add-confirm').addEventListener('click', async () => {
   }
 });
 refreshSteamBanner().then(offerSteamFix);
+// Apple Silicon, offered once to a Mac playing through Rosetta when its game
+// has the native build: on Play over nothing else, after What's new at start or
+// once a game update brings it.
+let appleSiliconOfferReady = false;
+function offerAppleSilicon() {
+  if (!appleSiliconOfferReady || !current?.offerAppleSilicon || current.active || page !== 'play' ||
+    [...document.querySelectorAll('.launcher-modal')].some(dialog => dialog.open)) return;
+  current.offerAppleSilicon = false;
+  window.sms.appleSiliconOffered().catch(() => {});
+  $('apple-silicon-offer').showModal();
+}
+$('apple-silicon-offer-confirm').addEventListener('click', async () => {
+  $('apple-silicon-offer').close();
+  $('appleSilicon').checked = true;
+  await saveSettings();
+  if (current?.config.settings.arch === 'arm64') setMessage('The game builds for Apple Silicon the next time you play.');
+});
 const dolphinDrop = $('dolphin-save-drop');
 for (const type of ['dragenter', 'dragover']) dolphinDrop.addEventListener(type, event => {
   event.preventDefault();
@@ -1919,4 +1937,5 @@ window.smsGamepadNav.start({
 });
 window.sms.windowState().then(renderWindowState).catch(showError);
 setInterval(() => { if (current?.active) renderActivity(current.active); }, 1000);
-sync().then(() => { for (const line of current.logs) appendLog(line); if (!showPathProblem()) showWhatsNew(); }).catch(showError);
+sync().then(() => { for (const line of current.logs) appendLog(line); if (!showPathProblem()) return showWhatsNew(); })
+  .then(() => { appleSiliconOfferReady = true; offerAppleSilicon(); }).catch(showError);

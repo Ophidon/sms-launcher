@@ -13,11 +13,12 @@ const PORT_URL = 'https://github.com/chasem-dev/sms-pc-port.git';
 const ECLIPSE_ISO = path.join('mods', 'eclipse', 'Super Mario Eclipse v1.1.0.iso');
 
 // renderers: the game's graphics APIs the launcher offers. On a Mac with
-// Apple Silicon, arm64 is the native build (the Apple Silicon setting); 64 is
-// the x86_64 build Rosetta runs.
+// Apple Silicon, arm64 is the native build (the Apple Silicon setting) and the
+// default for a new setup; 64 is the x86_64 build Rosetta runs.
 function platformInfo(platform = process.platform, hostArch = process.arch) {
   if (platform === 'linux') return { name: 'Linux', id: 'linux', arches: ['64', '32'], defaultArch: '64', renderers: ['opengl', 'vulkan'] };
-  if (platform === 'darwin') return { name: 'macOS', id: 'macos', arches: hostArch === 'arm64' ? ['64', 'arm64'] : ['64'], defaultArch: '64',
+  if (platform === 'darwin') return { name: 'macOS', id: 'macos', arches: hostArch === 'arm64' ? ['64', 'arm64'] : ['64'],
+    defaultArch: hostArch === 'arm64' ? 'arm64' : '64',
     renderers: ['opengl', 'vulkan'] };
   if (platform === 'win32') return { name: 'Windows', id: 'windows', arches: ['64', '32'], defaultArch: '64', renderers: ['opengl', 'vulkan'] };
   throw new Error(`This port does not support ${platform}.`);
@@ -86,8 +87,9 @@ function rumbleGameStrength(slider) { return numberSetting(slider, 50, 0, 100) *
 function normalizeSettings(input = {}, platform = process.platform, hostArch = process.arch, features = null) {
   const info = platformInfo(platform, hostArch);
   // Older game versions build Eclipse for x86_64 only on macOS (gameFeatures).
-  const rosettaEclipse = String(input.arch) === 'arm64' && input.eclipse && features && !features.eclipseAppleSilicon;
-  const arch = info.arches.includes(String(input.arch)) && !rosettaEclipse ? String(input.arch) : info.defaultArch;
+  const chosen = info.arches.includes(String(input.arch)) ? String(input.arch) : info.defaultArch;
+  const rosettaEclipse = chosen === 'arm64' && input.eclipse && features && !features.eclipseAppleSilicon;
+  const arch = rosettaEclipse ? '64' : chosen;
   const widescreen = ['off', '16:9', '16:10', '21:9'].includes(input.widescreen) ? input.widescreen : '16:9';
   const resolution = [1, 2, 3, 4].includes(Number(input.resolution)) ? Number(input.resolution) : 4;
   // Migrate the previous 60 fps toggle without changing a saved preference.
@@ -309,6 +311,8 @@ function cutscenePackSupported(root) {
 // textures brought them: players who already have the movie pack keep it.
 function savedSettings(saved, repo) {
   if (!saved) return { textures: true };
+  // Settings saved without an arch built the x86_64 game, before Apple Silicon was the default.
+  if (!('arch' in saved)) saved = { ...saved, arch: '64' };
   if ('cutscenes' in saved) return saved;
   return { ...saved, cutscenes: Boolean(saved.textures && repo && cutscenePackInstalled(repo)) };
 }
