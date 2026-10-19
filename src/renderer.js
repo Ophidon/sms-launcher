@@ -642,6 +642,7 @@ function refresh(data) {
   $('update-port').disabled = !data.repoReady || Boolean(data.active);
   $('rom-path').textContent = data.romError || config.rom || 'No file selected';
   $('rom-path').title = data.romError || config.rom;
+  $('rom-path').classList.toggle('rom-error', Boolean(data.romError));
   $('settings-rom-path').textContent = data.romError || config.rom || 'No disc file selected';
   $('settings-rom-path').title = data.romError || config.rom;
   showCustomizeMario();

@@ -101,6 +101,15 @@ test('failed tasks report the line that explains them', () => {
     '1 error generated.',
     'ninja: build stopped: subcommand failed.'
   ]), "b.cpp:3:1: error: unknown type name 'foo'");
+  assert.equal(failureReason([
+    '[3/900] Extracting sms.exe icon',
+    'FAILED: [code=1] sms.ico C:/SMS/build/windows-64/sms.ico',
+    'C:\\WINDOWS\\system32\\cmd.exe /C "python.exe tools/extract_icon.py --disc game.iso --ico sms.ico"',
+    'disc image is truncated (read 0x56a98600+0x1fcaa)',
+    'ninja: build stopped: subcommand failed.'
+  ]), 'disc image is truncated (read 0x56a98600+0x1fcaa)');
+  assert.equal(failureReason(['[1/2] Linking sms', 'FAILED: sms', 'c++ -o sms a.o', 'ninja: build stopped: subcommand failed.']),
+    'FAILED: sms');
   assert.equal(failureReason(['Eclipse needs clang and clang++. Update the launcher, then try again.']),
     'Eclipse needs clang and clang++. Update the launcher, then try again');
   assert.equal(failureReason([]), '');
