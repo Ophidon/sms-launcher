@@ -178,9 +178,12 @@ test('chosen settings reach the game as its environment variables', () => {
   assert.deepEqual([env.SMS_SKIP_MOVIES, env.SMS_OVERLAY], ['1', '1']);
   assert.deepEqual([env.SMS_MSAA, env.SMS_FXAA, env.SMS_ANISO, env.SMS_SHARPEN, env.SMS_GAMMA, env.SMS_ASPECT, env.SMS_PRESENT_FILTER],
     ['4', '1', '16', '40', '1.15', 'integer', 'sharp']);
-  // borderless keeps today's value, and windowed never sends a display mode
-  assert.equal(port.buildEnvironment(port.normalizeSettings({ fullscreen: true }), '/d', '/port').SMS_FULLSCREEN, '1');
-  assert.equal(port.buildEnvironment(port.normalizeSettings({ fullscreenMode: 'exclusive', exclusiveResolution: '1920x1080' }), '/d', '/port').SMS_FULLSCREEN_MODE, undefined);
+  // borderless keeps today's value; a game started in a window still gets the fullscreen type and size,
+  // for F11 and its settings menu
+  const borderless = port.buildEnvironment(port.normalizeSettings({ fullscreen: true }), '/d', '/port');
+  assert.deepEqual([borderless.SMS_FULLSCREEN, borderless.SMS_FULLSCREEN_TYPE], ['1', 'desktop']);
+  const windowed = port.buildEnvironment(port.normalizeSettings({ fullscreenMode: 'exclusive', exclusiveResolution: '1920x1080' }), '/d', '/port');
+  assert.deepEqual([windowed.SMS_FULLSCREEN, windowed.SMS_FULLSCREEN_TYPE, windowed.SMS_FULLSCREEN_MODE], ['0', 'exclusive', '1920x1080']);
 });
 
 test('saved values outside what the game accepts fall back or are clamped', () => {
@@ -201,8 +204,10 @@ test('FSR 1 is a scaling choice and reaches the game as SMS_PRESENT_FILTER=fsr',
   const performance = port.buildEnvironment(port.normalizeSettings({ presentFilter: 'fsr', fsrMode: 'performance' }), '/d', '/port');
   assert.equal(performance.SMS_FSR_MODE, 'performance');
   assert.equal(port.normalizeSettings({ fsrMode: 'turbo' }).fsrMode, 'quality');
-  // without FSR 1 the game keeps Picture sharpness
-  assert.equal(port.buildEnvironment(port.normalizeSettings({ fsrMode: 'performance' }), '/d', '/port').SMS_FSR_MODE, undefined);
+  // without FSR 1 the game keeps Picture sharpness (it reads the mode only with fsr or nis, as when its settings menu
+  // turns one on)
+  const bilinear = port.buildEnvironment(port.normalizeSettings({ fsrMode: 'performance', resolution: 3 }), '/d', '/port');
+  assert.deepEqual([bilinear.SMS_PRESENT_FILTER, bilinear.SMS_GX_SCALE, bilinear.SMS_FSR_MODE], ['bilinear', '3', 'performance']);
 });
 
 test('NIS is a scaling choice that takes the same upscaling quality', () => {
@@ -218,7 +223,8 @@ test('HDR is off unless chosen; on, it follows Windows calibration or the chosen
     [false, true, 200, 1000, 100, 100, 40]);
   const offEnv = port.buildEnvironment(off, '/d', '/port');
   assert.equal(offEnv.SMS_HDR, '0');
-  assert.equal(offEnv.SMS_HDR_PEAK, undefined);
+  // the look goes with HDR off too, for the game's settings menu to turn HDR on with
+  assert.deepEqual([offEnv.SMS_HDR_PAPER_WHITE, offEnv.SMS_HDR_PEAK, offEnv.SMS_HDR_HIGHLIGHTS], ['auto', 'auto', '40']);
   const calibrated = port.buildEnvironment(port.normalizeSettings({ hdr: true, hdrContrast: 110 }), '/d', '/port');
   assert.deepEqual([calibrated.SMS_HDR, calibrated.SMS_HDR_PAPER_WHITE, calibrated.SMS_HDR_PEAK, calibrated.SMS_HDR_CONTRAST,
     calibrated.SMS_HDR_SATURATION, calibrated.SMS_HDR_HIGHLIGHTS], ['1', 'auto', 'auto', '110', '100', '40']);
@@ -765,4 +771,19 @@ test('game features come from the game version on disk', () => {
     fs.appendFileSync(path.join(mods, 'CMakeLists.txt'), 'if(SMS_GAMEPTR_PLUGIN)\nendif()\n');
     assert.deepEqual(port.gameFeatures(root), { vulkan: true, appleSilicon: true, eclipseAppleSilicon: true });
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test('music and sound effects volume default to full and reach the game', () => {
+  const s = port.normalizeSettings({});
+  assert.deepEqual([s.musicVolume, s.sfxVolume], [100, 100]);
+  const chosen = port.normalizeSettings({ musicVolume: 35, sfxVolume: '150' });
+  assert.deepEqual([chosen.musicVolume, chosen.sfxVolume], [35, 100]);
+  const env = port.buildEnvironment(chosen, '/d', '/port');
+  assert.deepEqual([env.SMS_MUSIC_VOLUME, env.SMS_SFX_VOLUME], ['35', '100']);
+});
+
+test('a monitor chosen in the game is kept and reaches it as SMS_DISPLAY', () => {
+  assert.equal(port.normalizeSettings({ display: 'monitor3' }).display, 'monitor3');
+  assert.equal(port.buildEnvironment(port.normalizeSettings({ display: 'monitor3' }), '/d', '/port').SMS_DISPLAY, '2');
+  for (const display of ['monitor1', 'monitor17', 'monitor', 'Monitor2']) assert.equal(port.normalizeSettings({ display }).display, 'launcher', display);
 });

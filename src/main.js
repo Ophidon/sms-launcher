@@ -18,6 +18,7 @@ const appImageUpdate = require('./appimage-update');
 const bindings = require('./bindings');
 const savestates = require('./savestates');
 const prompts = require('./prompts');
+const gameSettings = require('./game-settings');
 const gameSource = require('./game-source');
 const portable = require('./portable');
 const telemetry = require('./telemetry');
@@ -262,6 +263,7 @@ function loadConfig() {
       }
   config.completedSetup ||= fs.existsSync(port.binaryPath(config.repo, config.settings));
   if (portableRoot) settleMovedPortableFolder();
+  keepGameSettings();
 }
 
 // A portable folder copied to another drive or computer plays from where it is
@@ -914,11 +916,30 @@ async function setupGame() {
 }
 
 const PLAYER_SETTINGS = [
-  'volume', 'invertCameraX', 'invertCameraY', 'keyBindings', 'padBindings', 'softTrigger', 'rumbleStrength', 'freeCamera', 'cstickAim', 'cameraSpeed', 'mouseCamera',
+  'volume', 'musicVolume', 'sfxVolume', 'invertCameraX', 'invertCameraY', 'keyBindings', 'padBindings', 'softTrigger', 'rumbleStrength', 'freeCamera', 'cstickAim', 'cameraSpeed', 'mouseCamera',
   'mouseSensitivity', 'skipMovies', 'skipIntro', 'language', 'heatHaze', 'pauseTracker', 'radar', 'autoSave', 'buttonPrompts', 'promptPad', 'hdr', 'hdrCalibration', 'hdrPaperWhite', 'hdrPeak', 'hdrContrast', 'hdrSaturation', 'hdrHighlights', 'overlay', 'fullscreenMode', 'exclusiveResolution', 'display', 'vsync',
   'msaa', 'fxaa', 'anisotropic', 'sharpen', 'fsrMode', 'brightness', 'aspect', 'presentFilter', 'renderer'
 ];
 function promptDirectory() { return path.join(app.getPath('userData'), 'prompts'); }
+
+// Settings the player changed in the game's own settings menu (game-settings.js) become the launcher's,
+// after the game closes (and at start, should the launcher have closed while the game ran). The file
+// stays until they are saved, so a failed save is tried again.
+function keepGameSettings() {
+  const file = gameSettings.file(app.getPath('userData'));
+  if (!fs.existsSync(file)) return;
+  try {
+    const settings = port.normalizeSettings(gameSettings.merge(config.settings, gameSettings.read(file)),
+      process.platform, process.arch, port.gameFeatures(port.isPort(config.repo) ? config.repo : null));
+    const changed = gameSettings.changedKeys(config.settings, settings);
+    if (changed.length) {
+      config.settings = settings;
+      saveConfig();
+      log(`Kept ${changed.length === 1 ? 'the setting' : `${changed.length} settings`} you changed in the game (${changed.join(', ')}).`);
+    }
+    gameSettings.remove(file);
+  } catch (error) { log(`Could not keep the settings you changed in the game: ${error.message}`); }
+}
 
 function playerSettings(settings) { return Object.fromEntries(PLAYER_SETTINGS.map(key => [key, settings[key]])); }
 
@@ -943,6 +964,7 @@ async function displayInfo() {
 
 // `session`: a multiplayer game to host or join ({ mode: 'host' or 'join', env }: hostGame, joinGame), or null to play alone.
 async function play(installation = null, session = null) {
+  keepGameSettings();
   const root = installation?.repo || requireRepo();
   // Controls, sound, display and picture choices are the player's, not the build's: an earlier install plays with them too.
   const settings = installation ? { ...installation.settings, ...playerSettings(config.settings) } : config.settings;
@@ -969,6 +991,8 @@ async function play(installation = null, session = null) {
   // The prompt images the Controls page drew from these bindings (save-prompts).
   // Every style's images, Original prompts included: the pause menu's save state hint draws the buttons from them.
   env.SMS_BUTTON_PROMPT_DIR = promptDirectory();
+  // What the player changes in the game's settings menu comes back to the launcher (keepGameSettings).
+  env.SMS_SETTINGS_SAVE = gameSettings.file(app.getPath('userData'));
   if (config.settings.discordPresence) env.SMS_PRESENCE = '1';
   const look = marioLookPack(rom, disc, root, settings);
   if (look) env.SMS_MARIO_LOOK = look;
@@ -993,6 +1017,7 @@ async function play(installation = null, session = null) {
     throw error;
   } finally {
     stopPresence(startedAt);
+    keepGameSettings();
     try { makeSaveBackup('after-play'); }
     catch (error) { log(`Save backup failed: ${error.message}`); }
   }

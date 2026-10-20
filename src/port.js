@@ -105,8 +105,10 @@ function normalizeSettings(input = {}, platform = process.platform, hostArch = p
     // Borderless (desktop) fullscreen, or exclusive, which switches the display to exclusiveResolution.
     fullscreenMode: choiceSetting(input.fullscreenMode, ['desktop', 'exclusive'], 'desktop'),
     exclusiveResolution: /^\d{3,5}x\d{3,5}$/.test(String(input.exclusiveResolution)) ? String(input.exclusiveResolution) : 'desktop',
-    // The monitor under the mouse (usually the launcher's), or the primary one.
-    display: choiceSetting(input.display, ['launcher', 'primary'], 'launcher'),
+    // The monitor under the mouse (usually the launcher's), the primary one, or another chosen in the
+    // game's settings menu (monitor2 is the game's Monitor 2, and so on).
+    display: /^monitor([2-9]|1[0-6])$/.test(String(input.display)) ? String(input.display)
+      : choiceSetting(input.display, ['launcher', 'primary'], 'launcher'),
     vsync: choiceSetting(input.vsync, ['off', 'on', 'adaptive'], 'off'),
     // Straight to the title screen, and the game's frame-time overlay at start.
     skipMovies: Boolean(input.skipMovies),
@@ -156,8 +158,11 @@ function normalizeSettings(input = {}, platform = process.platform, hostArch = p
     presentFilter: choiceSetting(input.presentFilter, ['bilinear', 'sharp', 'nearest', 'fsr', 'nis'], 'bilinear'),
     // With FSR 1: how far below the picture's size on screen the game renders (it sets the internal resolution).
     fsrMode: choiceSetting(input.fsrMode, ['native', 'quality', 'balanced', 'performance', 'ultraperformance'], 'quality'),
-    // Master volume in percent; 100 leaves the game's sound as it is.
+    // Master volume in percent; 100 leaves the game's sound as it is. Music and sound effects
+    // (everything else the game plays) have their own volume under it.
     volume,
+    musicVolume: numberSetting(input.musicVolume, 100, 0, 100),
+    sfxVolume: numberSetting(input.sfxVolume, 100, 0, 100),
     textures: input.textures !== false,
     // When HD textures load: while each level loads (stage), the whole pack over the first loading
     // screens and kept (all, for graphics cards with plenty of memory), or each when first drawn (play).
@@ -395,13 +400,12 @@ function buildEnvironment(settings, disc, root) {
     SMS_BUTTON_PROMPTS: prompts.normalizeStyle(settings.buttonPrompts),
     SMS_BUTTON_PROMPT_PAD: prompts.normalizePad(settings.promptPad),
     SMS_HDR: settings.hdr ? '1' : '0',
-    ...(settings.hdr ? {
-      SMS_HDR_PAPER_WHITE: settings.hdrCalibration === false ? String(settings.hdrPaperWhite ?? 200) : 'auto',
-      SMS_HDR_PEAK: settings.hdrCalibration === false ? String(settings.hdrPeak ?? 1000) : 'auto',
-      SMS_HDR_CONTRAST: String(settings.hdrContrast ?? 100),
-      SMS_HDR_SATURATION: String(settings.hdrSaturation ?? 100),
-      SMS_HDR_HIGHLIGHTS: String(settings.hdrHighlights ?? 40)
-    } : {}),
+    // The look also with HDR off: the game's settings menu can turn HDR on.
+    SMS_HDR_PAPER_WHITE: settings.hdrCalibration === false ? String(settings.hdrPaperWhite ?? 200) : 'auto',
+    SMS_HDR_PEAK: settings.hdrCalibration === false ? String(settings.hdrPeak ?? 1000) : 'auto',
+    SMS_HDR_CONTRAST: String(settings.hdrContrast ?? 100),
+    SMS_HDR_SATURATION: String(settings.hdrSaturation ?? 100),
+    SMS_HDR_HIGHLIGHTS: String(settings.hdrHighlights ?? 40),
     SMS_OVERLAY: settings.overlay ? '1' : '0',
     SMS_CAMERA_INVERT_X: settings.invertCameraX ? '1' : '0',
     SMS_CAMERA_INVERT_Y: settings.invertCameraY ? '1' : '0',
@@ -417,9 +421,12 @@ function buildEnvironment(settings, disc, root) {
     SMS_GAMMA: ((settings.brightness ?? 100) / 100).toFixed(2),
     SMS_ASPECT: settings.aspect || 'keep',
     SMS_PRESENT_FILTER: settings.presentFilter || 'bilinear',
-    // the upscaling quality, for FSR 1 or NIS (NVIDIA Image Scaling)
-    ...(['fsr', 'nis'].includes(settings.presentFilter) ? { SMS_FSR_MODE: settings.fsrMode || 'quality' } : {}),
+    // the upscaling quality, for FSR 1 or NIS (NVIDIA Image Scaling); the game uses it only with one of them, and
+    // has it for when its settings menu turns one on
+    SMS_FSR_MODE: settings.fsrMode || 'quality',
     SMS_VOLUME: String(settings.volume ?? 100),
+    SMS_MUSIC_VOLUME: String(settings.musicVolume ?? 100),
+    SMS_SFX_VOLUME: String(settings.sfxVolume ?? 100),
     SMS_GX_SCALE: String(settings.resolution),
     SMS_TEXTURE_PACKS: settings.textures ? texturePackDirectory(root) : '0',
     SMS_TEXTURE_PACK_PRELOAD: { all: 'all', play: '0' }[settings.textureLoading] || '1',
@@ -427,9 +434,11 @@ function buildEnvironment(settings, disc, root) {
     SMS_MOD: 'none',
     SMS_HD_CUTSCENES: wantsCutscenes(settings) ? cutscenePackDirectory(root) : '0'
   };
-  if (settings.fullscreen && settings.fullscreenMode === 'exclusive' && /^\d+x\d+$/.test(settings.exclusiveResolution || ''))
-    env.SMS_FULLSCREEN_MODE = settings.exclusiveResolution;
+  // The fullscreen type and size also when the game starts in a window: F11 and the game's settings menu use them.
+  env.SMS_FULLSCREEN_TYPE = settings.fullscreenMode === 'exclusive' ? 'exclusive' : 'desktop';
+  if (/^\d+x\d+$/.test(settings.exclusiveResolution || '')) env.SMS_FULLSCREEN_MODE = settings.exclusiveResolution;
   if (settings.display === 'primary') env.SMS_DISPLAY = '0';
+  else if (/^monitor\d+$/.test(settings.display || '')) env.SMS_DISPLAY = String(Number(settings.display.slice(7)) - 1);
   return env;
 }
 
