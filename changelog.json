@@ -41,7 +41,7 @@
       "Fixed a nozzle from a nozzle box disappearing for other players in multiplayer when someone else took theirs: everyone now gets their own.",
       "Fixed coins and switches no longer being shared for a player who had gone back into the same level many times in multiplayer.",
       "Fixed being left stranded in multiplayer when another player rode away on a mud boat in Noki Bay or Corona Mountain, or a leaf boat in Bianco Hills: everyone now has their own, and you see the others riding theirs.",
-      "Multiplayer: when the host goes back to the title screen, everyone else is told and plays on, and goes along again once the host is playing.",
+      "Multiplayer: when the host closes the game or quits to the title screen, everyone else is told why and goes back to their own title screen, instead of staying behind in the host's level or trying to reconnect for about two minutes. When the host stops answering, the game tries for a few more seconds, then does the same.",
       "Fixed a Turbo nozzle door broken down by one player staying shut for everyone else in multiplayer.",
       "Fixed a joining player's game being able to crash when Phantamanta appears or splits in multiplayer.",
       "Fixed Gooper Blooper getting stuck flinching in multiplayer, with torn-off tentacles flailing and coming off again and again, so his face couldn't be pulled.",
@@ -57,7 +57,15 @@
       "Fixed GameCube adapters that set up their own driver on Windows, such as the Lossless Adapter in its Switch/Dolphin mode, not being picked up by the game while Dolphin could use them.",
       "Super Mario Eclipse now runs natively on Apple Silicon Macs with the Apple Silicon build, instead of only through Rosetta.",
       "Fixed Super Mario Eclipse crashing on a Mac when you quit the game.",
-      "Fixed the Apple Silicon build crashing as soon as it starts on some Macs, such as a MacBook Air with M5 on macOS 27."
+      "Fixed the Apple Silicon build crashing as soon as it starts on some Macs, such as a MacBook Air with M5 on macOS 27.",
+      "Fixed Petey Piranha's head swing not hurting joining players in multiplayer.",
+      "Fixed players coming back from watching in the wrong place in multiplayer, such as arriving in Delfino Plaza still watching, or invisible and stuck, or out of the world and straight into a game over: they now start where the new stage starts them.",
+      "Fixed your game freezing in multiplayer when another player got a Shine while you were losing a life or out of lives.",
+      "Multiplayer: you now see the fruit other players carry, where they aim FLUDD, the effects they make, such as a slide's spray or a landing's dust, and their coaster car in the fight with Mecha-Bowser.",
+      "Multiplayer: graffiti is shared. Another player's water cleans it in your game too, graffiti erased in anyone's game is gone in everyone's, as is graffiti whose blue coin someone already took, and players who join later find it as it is now.",
+      "Fixed another player's Shine camera showing no Shine in multiplayer: the Shine now comes out with it.",
+      "Fixed 50 coins sometimes giving no extra life, or two, in multiplayer: every 50 coins the group collects now gives exactly one, with the 1-up sound for everyone.",
+      "Multiplayer: messages and the player list now use the names players joined with, instead of Mario, Luigi or Wario."
     ]
   },
   "releases": [
