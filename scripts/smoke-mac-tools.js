@@ -28,7 +28,11 @@ async function main() {
   delete finder.HOMEBREW_PREFIX;
   delete finder.CC;
   delete finder.CXX;
-  const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'sms Mac tools ci-'));
+  // The same folder every run: the game's compiles name their paths, so in a new
+  // folder the compiler cache CI keeps between runs could never hit.
+  const userData = path.join(os.tmpdir(), 'sms Mac tools ci');
+  fs.rmSync(userData, { recursive: true, force: true });
+  fs.mkdirSync(userData);
   try {
     const manifestFile = process.env.SMS_TOOL_ASSET_MANIFEST;
     const generated = manifestFile ? JSON.parse(fs.readFileSync(manifestFile, 'utf8')) : null;

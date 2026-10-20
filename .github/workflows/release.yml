@@ -38,12 +38,13 @@ jobs:
             git push origin "$TAG"
           fi
           gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --draft --title "$TAG" --generate-notes
+  # The release gate: the game this release pins must build everywhere first.
   verify-game:
     needs: prepare
     if: needs.prepare.outputs.release == 'true'
-    uses: ./.github/workflows/build-tools-smoke.yml
+    uses: ./.github/workflows/game-build.yml
     with:
-      ref: ${{ needs.prepare.outputs.tag }}
+      launcher-ref: ${{ needs.prepare.outputs.tag }}
     permissions:
       contents: read
   publish:

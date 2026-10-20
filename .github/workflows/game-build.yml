@@ -1,0 +1,314 @@
+name: Game build
+# Builds the game the way the launcher does for players, with its private
+# toolsets: 64- and 32-bit on Linux and Windows, Intel and Apple Silicon Macs
+# (x86_64 and arm64), and Super Mario Eclipse on all three. Each build starts
+# the game far enough to reach its disc check. No disc image is used and no
+# game binary is published. It runs:
+#   - for pull requests here that change what the build uses
+#     (scripts/game-build-files.js); for any other the check passes at once;
+#   - before every release (release.yml) and Beta (build.yml), and for every
+#     sms-pc-port pull request and commit to main ("Launcher build" there), which
+#     call it with the launcher and game commits to build;
+#   - weekly, so a change to GitHub's runners or the toolsets shows up.
+on:
+  pull_request:
+  schedule:
+    - cron: '17 8 * * 1'
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      launcher-ref:
+        description: Launcher branch, tag or commit whose build tools build the game
+        type: string
+        default: ''
+      game-repository:
+        description: Game repository to build from instead of src/game-release.json's
+        type: string
+        default: ''
+      game-commit:
+        description: Game commit to build instead of src/game-release.json's
+        type: string
+        default: ''
+      game-decomp:
+        description: The decomp commit game-commit uses
+        type: string
+        default: ''
+      game-version:
+        type: string
+        default: ci
+permissions:
+  contents: read
+# A new push to a pull request cancels its older run. A caller's runs get
+# groups of their own (github.workflow is the caller's name), and so does
+# every run that is not for a pull request.
+concurrency:
+  group: game-build-${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+# Compiler caches: one archive per job, restored from the newest one on main
+# and saved by every run that is not for a pull request (so pull requests
+# cannot fill the repository's 10 GB). sccache's own Actions cache backend
+# stores each object file as an entry of its own, which filled it.
+jobs:
+  changes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      build: ${{ steps.changes.outputs.build }}
+    env:
+      # Only this repository's own pull requests are filtered: a caller's run
+      # (github.workflow_ref names the caller's workflow) always builds.
+      FILTER: ${{ github.event_name == 'pull_request' && contains(github.workflow_ref, '/.github/workflows/game-build.yml@') }}
+    steps:
+      - uses: actions/checkout@v4
+        if: env.FILTER == 'true'
+        with:
+          fetch-depth: 2
+      - id: changes
+        run: |
+          if [ "$FILTER" != true ]; then echo build=true >> "$GITHUB_OUTPUT"; exit 0; fi
+          # The pull request's merge commit against its base: what merging it changes.
+          git diff --name-only HEAD^1 HEAD | node scripts/game-build-files.js
+  compile-port:
+    needs: changes
+    if: needs.changes.outputs.build == 'true'
+    name: compile-port (${{ matrix.target }})
+    strategy:
+      fail-fast: false
+      matrix:
+        # Each Windows architecture gets its own runner so the two builds run at the same time.
+        include:
+          - os: ubuntu-24.04
+            target: ubuntu-24.04
+            arches: '64,32'
+            cache: linux
+            cache-size: 1G
+          - os: windows-2025
+            target: windows-2025, 64-bit
+            arches: '64'
+            cache: win64
+            cache-size: 500M
+          - os: windows-2025
+            target: windows-2025, 32-bit
+            arches: '32'
+            cache: win32
+            cache-size: 500M
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: chasem-dev/sms-launcher
+          ref: ${{ inputs.launcher-ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Point the launcher at the game commit to build
+        if: inputs.game-commit != ''
+        shell: bash
+        env:
+          REPOSITORY: ${{ inputs.game-repository }}
+          COMMIT: ${{ inputs.game-commit }}
+          DECOMP: ${{ inputs.game-decomp }}
+          VERSION: ${{ inputs.game-version }}
+        run: node scripts/pin-game.js
+      - name: Install compiler cache
+        uses: Mozilla-Actions/sccache-action@9e7fa8a12102821edf02ca5dbea1acd0f89a2696 # v0.0.10
+        with:
+          version: v0.18.0
+      # Game revisions that predate SMS_COMPILER_CACHE ignore it and compile uncached.
+      - name: Enable compiler cache
+        shell: pwsh
+        run: |
+          "SMS_COMPILER_CACHE=$((Get-Command sccache).Source.Replace('\', '/'))" >> $env:GITHUB_ENV
+          "SCCACHE_DIR=${{ runner.temp }}/sccache" >> $env:GITHUB_ENV
+          "SCCACHE_CACHE_SIZE=${{ matrix.cache-size }}" >> $env:GITHUB_ENV
+      - name: Restore compiler cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/sccache
+          key: sccache-game-${{ matrix.cache }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: sccache-game-${{ matrix.cache }}-
+      - run: node scripts/smoke-build-tools.js
+        env:
+          SMS_SMOKE_ARCHES: ${{ matrix.arches }}
+          # Older same-named DLLs in System32, as some players have.
+          SMS_SMOKE_SYSTEM32_DECOYS: ${{ runner.os == 'Windows' && '1' || '' }}
+      - name: Verify a warm compiler cache hit
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          SMS_SMOKE_ARCHES: ${{ matrix.arches }}
+        run: |
+          @'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const os = require('node:os');
+          const { spawnSync } = require('node:child_process');
+          const tools = require('./src/build-tools');
+          const root = path.join(os.tmpdir(), 'SMS Port Private Tools CI');
+          const check = path.join(root, 'tools', 'tests', 'check_compiler_cache.py');
+          if (!fs.existsSync(check)) {
+            console.log('This game revision has no compiler cache check; skipping.');
+            process.exit(0);
+          }
+          const userData = path.join(os.tmpdir(), 'SMS Launcher Private Tools CI');
+          const env = tools.environment(userData, { ...process.env, SMS_ARCH: process.env.SMS_SMOKE_ARCHES });
+          const python = path.join(env.MSYS2_ROOT, 'mingw64', 'bin', 'python.exe');
+          const result = spawnSync(python, [check], { cwd: root, env, stdio: 'inherit' });
+          if (result.error) throw result.error;
+          process.exit(result.status ?? 1);
+          '@ | node
+      - name: Save compiler cache
+        if: (success() || failure()) && github.event_name != 'pull_request'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/sccache
+          key: sccache-game-${{ matrix.cache }}-${{ github.run_id }}-${{ github.run_attempt }}
+  compile-mac-port:
+    needs: changes
+    if: needs.changes.outputs.build == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The Apple Silicon runner builds both games: x86_64 (Rosetta) and arm64.
+          - os: macos-15
+            arches: '64,arm64'
+            cache: mac-arm
+            cache-size: 1G
+          - os: macos-15-intel
+            arches: '64'
+            cache: mac-intel
+            cache-size: 500M
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: chasem-dev/sms-launcher
+          ref: ${{ inputs.launcher-ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Point the launcher at the game commit to build
+        if: inputs.game-commit != ''
+        env:
+          REPOSITORY: ${{ inputs.game-repository }}
+          COMMIT: ${{ inputs.game-commit }}
+          DECOMP: ${{ inputs.game-decomp }}
+          VERSION: ${{ inputs.game-version }}
+        run: node scripts/pin-game.js
+      - name: Install compiler cache
+        uses: Mozilla-Actions/sccache-action@9e7fa8a12102821edf02ca5dbea1acd0f89a2696 # v0.0.10
+        with:
+          version: v0.18.0
+      - name: Enable compiler cache
+        shell: pwsh
+        run: |
+          "SMS_COMPILER_CACHE=$((Get-Command sccache).Source.Replace('\', '/'))" >> $env:GITHUB_ENV
+          "SCCACHE_DIR=${{ runner.temp }}/sccache" >> $env:GITHUB_ENV
+          "SCCACHE_CACHE_SIZE=${{ matrix.cache-size }}" >> $env:GITHUB_ENV
+      - name: Restore compiler cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/sccache
+          key: sccache-game-${{ matrix.cache }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: sccache-game-${{ matrix.cache }}-
+      - name: Enable Intel execution on the Apple Silicon CI runner
+        run: |
+          if [[ "$(sysctl -n hw.optional.arm64)" == 1 ]]; then
+            sudo softwareupdate --install-rosetta --agree-to-license
+          fi
+      - name: Verify Finder tool detection and compile Sunshine without a ROM
+        run: node scripts/smoke-mac-tools.js
+        env:
+          SMS_SMOKE_ARCHES: ${{ matrix.arches }}
+      - name: Save compiler cache
+        if: (success() || failure()) && github.event_name != 'pull_request'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/sccache
+          key: sccache-game-${{ matrix.cache }}-${{ github.run_id }}-${{ github.run_attempt }}
+  compile-eclipse:
+    needs: changes
+    if: needs.changes.outputs.build == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            cache: eclipse-linux
+          - os: windows-2025
+            cache: eclipse-win
+          - os: macos-15
+            cache: eclipse-mac
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: chasem-dev/sms-launcher
+          ref: ${{ inputs.launcher-ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Point the launcher at the game commit to build
+        if: inputs.game-commit != ''
+        shell: bash
+        env:
+          REPOSITORY: ${{ inputs.game-repository }}
+          COMMIT: ${{ inputs.game-commit }}
+          DECOMP: ${{ inputs.game-decomp }}
+          VERSION: ${{ inputs.game-version }}
+        run: node scripts/pin-game.js
+      - name: Install compiler cache
+        uses: Mozilla-Actions/sccache-action@9e7fa8a12102821edf02ca5dbea1acd0f89a2696 # v0.0.10
+        with:
+          version: v0.18.0
+      - name: Enable compiler cache
+        shell: pwsh
+        run: |
+          "SMS_COMPILER_CACHE=$((Get-Command sccache).Source.Replace('\', '/'))" >> $env:GITHUB_ENV
+          "SCCACHE_DIR=${{ runner.temp }}/sccache" >> $env:GITHUB_ENV
+          "SCCACHE_CACHE_SIZE=500M" >> $env:GITHUB_ENV
+      - name: Restore compiler cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/sccache
+          key: sccache-game-${{ matrix.cache }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: sccache-game-${{ matrix.cache }}-
+      - name: Enable Intel execution on the Apple Silicon CI runner
+        if: runner.os == 'macOS'
+        run: sudo softwareupdate --install-rosetta --agree-to-license
+      - name: Compile Eclipse without a ROM
+        run: node scripts/smoke-eclipse.js
+      - name: Save compiler cache
+        if: (success() || failure()) && github.event_name != 'pull_request'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/sccache
+          key: sccache-game-${{ matrix.cache }}-${{ github.run_id }}-${{ github.run_attempt }}
+  # One check name to require, whatever the matrix. Skipped compiles (a pull
+  # request that changes nothing the build uses) pass.
+  game-build:
+    name: Game build
+    needs: [changes, compile-port, compile-mac-port, compile-eclipse]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - env:
+          CHANGES: ${{ needs.changes.result }}
+          BUILD: ${{ needs.changes.outputs.build }}
+          RESULTS: ${{ needs.compile-port.result }} ${{ needs.compile-mac-port.result }} ${{ needs.compile-eclipse.result }}
+        run: |
+          echo "changes: $CHANGES (build: $BUILD); compiles: $RESULTS"
+          [ "$CHANGES" = success ] || exit 1
+          for result in $RESULTS; do
+            [ "$result" = success ] || { [ "$BUILD" != true ] && [ "$result" = skipped ]; } || exit 1
+          done
