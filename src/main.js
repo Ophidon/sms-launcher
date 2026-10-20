@@ -841,6 +841,8 @@ async function build(forceFresh = false) {
   }
   if (settings.arch === 'arm64' && !port.gameFeatures(root).appleSilicon)
     throw new Error('This game version has no Apple Silicon build. Turn off Apple Silicon build under Manage game, Files, or update the game.');
+  if (settings.arch === 'arm64' && settings.eclipse && !port.gameFeatures(root).eclipseAppleSilicon)
+    throw new Error('This game version plays Super Mario Eclipse through Rosetta only. Turn off Apple Silicon build under Manage game, Files, or update the game.');
   // A fresh build's folder is longer than the one ensureBuildTools checked.
   requireShortPaths(root, settings);
   if (!port.hdVisualsInstalled(root, settings)) await installTextures(root);
@@ -1566,7 +1568,7 @@ function registerHandlers() {
   });
   ipcMain.handle('save-settings', (_event, input) => {
     if (operation || active) throw new Error('Finish the current task before changing settings.');
-    const settings = port.normalizeSettings(input);
+    const settings = port.normalizeSettings(input, process.platform, process.arch, port.gameFeatures(port.isPort(config.repo) ? config.repo : null));
     if (settings.arch !== config.settings.arch || settings.eclipse !== config.settings.eclipse)
       config.previousInstall = port.playableInstall({ ...config, saveDirectory: currentSaveDirectory() }) || config.previousInstall;
     const channelChanged = settings.updateChannel !== config.settings.updateChannel;

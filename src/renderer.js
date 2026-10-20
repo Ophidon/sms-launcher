@@ -738,9 +738,11 @@ function refresh(data) {
   const features = data.features || {};
   const gameNote = data.repoReady ? 'Update the game to use this.' : 'Available once the game is set up.';
   $('appleSilicon').checked = config.settings.arch === 'arm64';
+  // Older game versions build Super Mario Eclipse for Rosetta only.
+  const rosettaEclipse = config.settings.eclipse && !features.eclipseAppleSilicon && config.settings.arch !== 'arm64';
   $('appleSilicon-note').textContent = !nativeMac ? 'Needs a Mac with Apple Silicon.'
-    : config.settings.eclipse ? 'Super Mario Eclipse plays through Rosetta for now.'
     : !features.appleSilicon && config.settings.arch !== 'arm64' ? gameNote
+    : rosettaEclipse ? 'Update the game to play Super Mario Eclipse on Apple Silicon.'
     : 'Builds the game for Apple Silicon instead of running it through Rosetta, which is faster. Changing this builds the game again.';
   $('renderer-field').hidden = !(platform.renderers || []).includes('vulkan');
   $('renderer-note').textContent = features.vulkan || config.settings.renderer === 'vulkan'
@@ -785,7 +787,7 @@ function refresh(data) {
   for (const key of ['arch', 'widescreen', 'resolution', 'volume', 'frameRate', 'language', 'vsync', 'skipMovies', 'skipIntro', 'pauseTracker', 'heatHaze', 'overlay', 'fullscreen', 'fullscreenMode', 'exclusiveResolution', 'display', 'invertCameraX', 'invertCameraY', 'freeCamera', 'cstickAim', 'cameraSpeed', 'mouseCamera', 'mouseSensitivity', 'msaa', 'fxaa', 'anisotropic', 'sharpen', 'brightness', 'aspect', 'presentFilter', 'hudEdges', 'textures', 'textureLoading', 'shaderWarmup', 'cutscenes', 'eclipse', 'autoUpdate', 'shareUsage', 'discordPresence', 'darkMode', 'updateChannel', 'buttonPrompts', 'promptPad', 'graphicsPreset', 'fsrMode', 'renderer', 'appleSilicon'])
     $(key).disabled = Boolean(data.active);
   // Turning one off stays possible once on, whatever the game version.
-  if (!platform.arches.includes('arm64') || config.settings.eclipse || !features.appleSilicon && config.settings.arch !== 'arm64')
+  if (!platform.arches.includes('arm64') || rosettaEclipse || !features.appleSilicon && config.settings.arch !== 'arm64')
     $('appleSilicon').disabled = true;
   if (!features.vulkan && config.settings.renderer !== 'vulkan') $('renderer').disabled = true;
   // Languages need a game version with language packs. Eclipse has none and plays in English;

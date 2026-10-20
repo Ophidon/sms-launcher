@@ -662,11 +662,16 @@ test('build tools too deep in a portable folder for their own headers are explai
   assert.equal(port.longPathProblem(root, sunshine, { platform: 'win32', portable: true, folder, msys: 'C:\\msys64' }), null);
 });
 
-test('the Apple Silicon build is offered on Apple Silicon Macs only, and not for Eclipse', () => {
+test('the Apple Silicon build is offered on Apple Silicon Macs only, and for Eclipse once the game has it', () => {
   assert.equal(port.normalizeSettings({ arch: 'arm64' }, 'darwin', 'arm64').arch, 'arm64');
   assert.equal(port.normalizeSettings({ arch: 'arm64' }, 'darwin', 'x64').arch, '64');
   assert.equal(port.normalizeSettings({}, 'darwin', 'arm64').arch, '64');
-  assert.equal(port.normalizeSettings({ arch: 'arm64', eclipse: true }, 'darwin', 'arm64').arch, '64');
+  const older = { appleSilicon: true, eclipseAppleSilicon: false }, newer = { appleSilicon: true, eclipseAppleSilicon: true };
+  assert.equal(port.normalizeSettings({ arch: 'arm64', eclipse: true }, 'darwin', 'arm64', older).arch, '64');
+  assert.equal(port.normalizeSettings({ arch: 'arm64', eclipse: true }, 'darwin', 'arm64', newer).arch, 'arm64');
+  assert.equal(port.normalizeSettings({ arch: 'arm64' }, 'darwin', 'arm64', older).arch, 'arm64');
+  // Saved settings are kept as they are: the build checks the game version it builds.
+  assert.equal(port.normalizeSettings({ arch: 'arm64', eclipse: true }, 'darwin', 'arm64').arch, 'arm64');
   assert.equal(port.normalizeSettings({ arch: 'arm64' }, 'linux', 'arm64').arch, '64');
   const native = port.normalizeSettings({ arch: 'arm64' }, 'darwin', 'arm64');
   assert.match(port.binaryPath('/port', native, 'darwin'), /macos-arm64[\\/]sms$/);
@@ -701,10 +706,16 @@ test('game features come from the game version on disk', () => {
   const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sms-features-'));
   try {
-    assert.deepEqual(port.gameFeatures(root), { vulkan: false, appleSilicon: false });
-    assert.deepEqual(port.gameFeatures(null), { vulkan: false, appleSilicon: false });
+    const none = { vulkan: false, appleSilicon: false, eclipseAppleSilicon: false };
+    assert.deepEqual(port.gameFeatures(root), none);
+    assert.deepEqual(port.gameFeatures(null), none);
     fs.mkdirSync(path.join(root, 'platform', 'gx', 'src', 'vk'), { recursive: true });
     fs.mkdirSync(path.join(root, 'tools', 'gameptr'), { recursive: true });
-    assert.deepEqual(port.gameFeatures(root), { vulkan: true, appleSilicon: true });
+    const mods = path.join(root, 'platform', 'mods', 'eclipse', 'lib');
+    fs.mkdirSync(mods, { recursive: true });
+    fs.writeFileSync(path.join(mods, 'CMakeLists.txt'), 'project(sms_eclipse C CXX)\n');
+    assert.deepEqual(port.gameFeatures(root), { vulkan: true, appleSilicon: true, eclipseAppleSilicon: false });
+    fs.appendFileSync(path.join(mods, 'CMakeLists.txt'), 'if(SMS_GAMEPTR_PLUGIN)\nendif()\n');
+    assert.deepEqual(port.gameFeatures(root), { vulkan: true, appleSilicon: true, eclipseAppleSilicon: true });
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
