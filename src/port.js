@@ -83,11 +83,11 @@ function choiceSetting(value, choices, fallback) { return choices.includes(value
 // The game's SMS_RUMBLE_STRENGTH (100 is the console's, up to 200) for the launcher's slider (50 is the console's).
 function rumbleGameStrength(slider) { return numberSetting(slider, 50, 0, 100) * 2; }
 
-function normalizeSettings(input = {}, platform = process.platform, hostArch = process.arch) {
+function normalizeSettings(input = {}, platform = process.platform, hostArch = process.arch, features = null) {
   const info = platformInfo(platform, hostArch);
-  // Eclipse builds for x86_64 only on macOS.
-  const arch = info.arches.includes(String(input.arch)) && !(String(input.arch) === 'arm64' && input.eclipse)
-    ? String(input.arch) : info.defaultArch;
+  // Older game versions build Eclipse for x86_64 only on macOS (gameFeatures).
+  const rosettaEclipse = String(input.arch) === 'arm64' && input.eclipse && features && !features.eclipseAppleSilicon;
+  const arch = info.arches.includes(String(input.arch)) && !rosettaEclipse ? String(input.arch) : info.defaultArch;
   const widescreen = ['off', '16:9', '16:10', '21:9'].includes(input.widescreen) ? input.widescreen : '16:9';
   const resolution = [1, 2, 3, 4].includes(Number(input.resolution)) ? Number(input.resolution) : 4;
   // Migrate the previous 60 fps toggle without changing a saved preference.
@@ -320,12 +320,17 @@ function wantsCutscenes(settings) { return Boolean(settings.cutscenes && setting
 
 // Every HD download the settings ask for is in place. Older playable
 // installations (without the movie pack's files) keep playing until updated.
-// What this game version supports: the Vulkan renderer (glvk), and the
-// Apple Silicon build (its pass plugin). The launcher offers each only then,
-// since Beta and a chosen game source may build an older or newer game.
+// What this game version supports: the Vulkan renderer (glvk), the Apple
+// Silicon build (its pass plugin), and Eclipse in that build (its mods built
+// with the plugin). The launcher offers each only then, since Beta and a
+// chosen game source may build an older or newer game.
 function gameFeatures(root) {
   const has = file => Boolean(root) && fs.existsSync(path.join(root, file));
-  return { vulkan: has(path.join('platform', 'gx', 'src', 'vk')), appleSilicon: has(path.join('tools', 'gameptr')) };
+  const mentions = (file, text) => {
+    try { return Boolean(root) && fs.readFileSync(path.join(root, file), 'utf8').includes(text); } catch { return false; }
+  };
+  return { vulkan: has(path.join('platform', 'gx', 'src', 'vk')), appleSilicon: has(path.join('tools', 'gameptr')),
+    eclipseAppleSilicon: mentions(path.join('platform', 'mods', 'eclipse', 'lib', 'CMakeLists.txt'), 'SMS_GAMEPTR_PLUGIN') };
 }
 
 function hdVisualsInstalled(root, settings) {
