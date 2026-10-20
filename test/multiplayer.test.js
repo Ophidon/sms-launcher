@@ -183,6 +183,22 @@ test('a host that lets versions drift takes other builds, down to the versions i
   assert.equal(multiplayer.joinProblem({ ...host, minLauncher: '0.1.61' }, mine), null);
 });
 
+test('a host the room server says nothing about may take another build of its protocol: its game decides', () => {
+  const room = { players: 1, maxPlayers: 8, open: true, build: 'aaaaaaaaaaaa', protocol: multiplayer.PROTOCOL,
+    version: '2026.10.20-beta.aaaaaaa' };
+  const mine = { build: 'bbbbbbbbbbbb', version: '2026.10.20-beta.bbbbbbb', launcher: '0.1.63' };
+  assert.equal(multiplayer.hostDecides(room, mine), true);
+  // the room server's word stands when it says
+  assert.equal(multiplayer.hostDecides({ ...room, versions: 'exact' }, mine), false);
+  assert.equal(multiplayer.hostDecides({ ...room, versions: 'drift' }, mine), false); // nothing to decide: it can be joined
+  // never across protocols or Eclipse settings, a minimum the room server named, a full game or the same build
+  assert.equal(multiplayer.hostDecides({ ...room, protocol: multiplayer.PROTOCOL + 1 }, mine), false);
+  assert.equal(multiplayer.hostDecides(room, { ...mine, build: 'bbbbbbbbbbbb-eclipse' }), false);
+  assert.equal(multiplayer.hostDecides({ ...room, minVersion: '2026.10.21' }, mine), false);
+  assert.equal(multiplayer.hostDecides({ ...room, players: 8 }, mine), false);
+  assert.equal(multiplayer.hostDecides({ ...room, build: 'bbbbbbbbbbbb' }, mine), false);
+});
+
 test('the game is told to host or join through its environment', () => {
   const versions = { version: '2026.10.20.1', launcher: '0.1.62' };
   assert.deepEqual(multiplayer.environment('join', { host: '203.0.113.7', port: 24002, name: 'Bob', versions }),

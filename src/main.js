@@ -1258,14 +1258,14 @@ async function hostGame(input) {
 }
 
 // The public list, for the Multiplayer window: each game with why it can't be joined from here (another version, or
-// full), or null.
+// full), or null. A game whose host may take this build (the room server didn't say) can be tried: its game decides.
 async function publicGames() {
   const list = await rooms.listPublic();
   setPublicOnline(list);
   const mine = localVersions();
   return list.map(room => ({ code: rooms.formatRoomCode(room.code), name: multiplayer.playerName(room.name, 'Host'),
     status: String(room.status || '').slice(0, 63), players: room.players, maxPlayers: room.maxPlayers, minutes: room.minutes,
-    problem: multiplayer.joinProblem(room, mine) }));
+    problem: multiplayer.hostDecides(room, mine) ? null : multiplayer.joinProblem(room, mine) }));
 }
 
 // Players in public games right now, shown on the Multiplayer tab (hidden at 0) as a sign someone is playing. The
@@ -1327,7 +1327,9 @@ async function joinRoom(code, settings) {
   const shown = rooms.formatRoomCode(code);
   const check = async mine => {
     const info = await rooms.lookup(code);
-    const problem = multiplayer.joinProblem({ ...info, open: true, players: 0, maxPlayers: multiplayer.MAX_PLAYERS }, mine);
+    const room = { ...info, open: true, players: 0, maxPlayers: multiplayer.MAX_PLAYERS };
+    // another build the host may take (the room server didn't say): its game's answer, once connected, decides
+    const problem = multiplayer.hostDecides(room, mine) ? null : multiplayer.joinProblem(room, mine);
     if (problem) throw new Error(problem);
     return info;
   };

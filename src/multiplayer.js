@@ -292,6 +292,15 @@ function joinProblem(info, local = null) {
   return null;
 }
 
+// Whether only the host's own game can say if `mine` may join: the room server didn't say whom the host takes (an
+// older room server, or one of someone's own) and the host runs another build of the same protocol, which a dedicated
+// server that lets versions drift takes. Joining then connects and asks the game, whose answer decides, as joining
+// with an address always does.
+function hostDecides(info, mine) {
+  return info.versions === undefined && info.protocol === PROTOCOL && joinProblem(info, mine) !== null
+    && joinProblem({ ...info, versions: 'drift' }, mine) === null;
+}
+
 function versionProblem(host, mine) {
   const plain = build => String(build || '').replace(/-eclipse$/, '');
   // the same game, with Eclipse on one side only
@@ -324,4 +333,4 @@ function environment(mode, { host, port, name, maxPlayers = DEFAULT_MAX_PLAYERS,
 
 module.exports = { DEFAULT_PORT, MIN_PLAYERS, MAX_PLAYERS, DEFAULT_MAX_PLAYERS, PROTOCOL, parseAddress, parsePort,
   parseMaxPlayers, playerName, probePacket, readInfo, probe, describeVersion, formatPing,
-  compareVersions, joinProblem, environment, inviteCode, parseInvite, maskAddress, lanAddresses, rememberHost, RECENT_HOSTS };
+  compareVersions, joinProblem, hostDecides, environment, inviteCode, parseInvite, maskAddress, lanAddresses, rememberHost, RECENT_HOSTS };
