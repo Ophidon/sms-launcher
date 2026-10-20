@@ -279,6 +279,13 @@ test('the radar stays off unless turned on, and reaches the game as SMS_RADAR', 
   assert.equal(port.buildEnvironment(port.normalizeSettings({ radar: true }), '/my/disc.iso', '/port').SMS_RADAR, '1');
 });
 
+test('auto save stays on unless turned off, and reaches the game as SMS_AUTO_SAVE', () => {
+  assert.equal(port.normalizeSettings({}).autoSave, true);
+  assert.equal(port.normalizeSettings({ autoSave: false }).autoSave, false);
+  assert.equal(port.buildEnvironment(port.normalizeSettings({}), '/my/disc.iso', '/port').SMS_AUTO_SAVE, '1');
+  assert.equal(port.buildEnvironment(port.normalizeSettings({ autoSave: false }), '/my/disc.iso', '/port').SMS_AUTO_SAVE, '0');
+});
+
 test('Windows upgrade keeps the existing 32-bit game available with its original settings and tools', t => {
   const root = temporary();
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
