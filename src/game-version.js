@@ -56,9 +56,13 @@ function installed(root, settings) {
   catch (_) { return null; }
 }
 
+function cmakeCache(root, settings) {
+  return fs.readFileSync(path.join(path.dirname(port.binaryPath(root, settings)), 'CMakeCache.txt'), 'utf8');
+}
+
 function compilerToolRoot(root, settings) {
   try {
-    const cache = fs.readFileSync(path.join(path.dirname(port.binaryPath(root, settings)), 'CMakeCache.txt'), 'utf8');
+    const cache = cmakeCache(root, settings);
     const compiler = cache.match(/^CMAKE_CXX_COMPILER:[^=]*=(.+)$/m)?.[1].trim().replaceAll('\\', '/');
     return compiler?.match(/^(.*)\/(?:env\/bin|env\/targets\/linux32\/bin|msys64\/(?:mingw(?:32|64)|opt)\/bin)\/[^/]+$/)?.[1] || null;
   } catch (_) { return null; }
@@ -72,6 +76,15 @@ function toolRoot(root, settings, base = portable.root()) {
   return recorded ? portable.relocated(recorded, base) : null;
 }
 
+// Windows builds the Vulkan backend in only for a player who picks Vulkan
+// (port.buildEnvironment), so a build from before that is made again. A build
+// whose backend could not be had keeps SMS_GX_VULKAN on in its cache and isn't.
+function needsVulkanBuild(root, settings, platform = process.platform) {
+  if (platform !== 'win32' || settings.renderer !== 'vulkan' || !fs.existsSync(port.binaryPath(root, settings))) return false;
+  try { return !/^SMS_GX_VULKAN:BOOL=(ON|TRUE|1)$/mi.test(cmakeCache(root, settings)); }
+  catch (_) { return true; }
+}
+
 function matchesSource(root, source = release) {
   return gitRevision(root) === source.commit && gitRevision(path.join(root, 'decomp')) === source.decomp;
 }
@@ -80,7 +93,7 @@ function isCurrent(root, settings, source = release, base = portable.root()) {
   if (!fs.existsSync(port.binaryPath(root, settings))) return false;
   const record = installed(root, settings);
   const expected = identity(settings, undefined, undefined, source);
-  return Boolean(record && Object.keys(expected).every(key => record[key] === expected[key]) &&
+  return Boolean(record && Object.keys(expected).every(key => record[key] === expected[key]) && !needsVulkanBuild(root, settings) &&
     (!record.toolRoot || fs.existsSync(portable.relocated(record.toolRoot, base))) && matchesSource(root, source));
 }
 
@@ -287,4 +300,4 @@ function recoverBuild(root, settings) {
   return true;
 }
 
-module.exports = { release, gitRevision, matchesSource, identity, installed, compilerToolRoot, toolRoot, isCurrent, snapshotPath, checkout, carryUserFiles, relinkUserFolders, pruneSnapshots, buildSafely, recoverBuild };
+module.exports = { release, gitRevision, matchesSource, identity, installed, compilerToolRoot, toolRoot, needsVulkanBuild, isCurrent, snapshotPath, checkout, carryUserFiles, relinkUserFolders, pruneSnapshots, buildSafely, recoverBuild };

@@ -12,7 +12,7 @@ button:focus-visible, select:focus-visible, .switch input:focus-visible + i { ou
 .brand strong { font-weight: 800; }
 .brand-copy { display: grid; gap: 3px; }
 .version-summary { color: #d2eaf0; font-size: 11px; font-weight: 500; letter-spacing: 0; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.brand-mark { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: #ffc75a; color: #173d51; font-size: 20px; }
+.brand-mark { display: block; width: 32px; height: 32px; object-fit: contain; filter: drop-shadow(0 1px 2px #0000004d); }
 .tabs { align-self: stretch; display: flex; gap: 4px; }
 .tab { border: 0; border-bottom: 2px solid transparent; border-radius: 0; padding: 0 14px; background: transparent; color: #61727a; }
 .tab:hover { color: #1e4c54; background: #f3f7f6; }
@@ -136,7 +136,6 @@ pre { height: 120px; margin: 0; padding: 12px; overflow: auto; border-radius: 8p
     url('assets/launcher-bg-eclipse.png') 40% center / cover no-repeat;
 }
 .topbar { flex-basis: 58px; gap: 16px; background: #092e45bb; border-bottom: 1px solid #ffffff2a; color: #fff; backdrop-filter: blur(16px); -webkit-app-region: drag; user-select: none; }
-.brand-mark { background: #ffc75a; }
 .platform-pill, .online-pill { color: #c9e6ec; }
 .window-controls { display: flex; align-items: center; gap: 4px; -webkit-app-region: no-drag; }
 .window-control { display: grid; place-items: center; width: 37px; height: 32px; padding: 0; border: 1px solid #ffffff2f; border-radius: 7px; background: #ffffff12; color: #e5f6f9; -webkit-app-region: no-drag; }

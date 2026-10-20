@@ -814,6 +814,12 @@ function binaryReady(root = config.repo, settings = config.settings) {
   return port.isPort(root) && fs.existsSync(port.binaryPath(root, settings));
 }
 
+// Playable as the settings are, without an update: a Windows game picked to
+// draw with Vulkan needs a build with the Vulkan backend in.
+function buildReady() {
+  return binaryReady() && !game.needsVulkanBuild(config.repo, config.settings);
+}
+
 async function build(forceFresh = false) {
   const original = requireRepo();
   const settings = { ...config.settings };
@@ -1055,7 +1061,7 @@ function stopPresence(startedAt) {
 async function launchGame(session = null, update = config.settings.autoUpdate) {
   requireRepo();
   port.validateRom(config.rom);
-  if (!binaryReady() || (update && !game.isCurrent(config.repo, config.settings, currentSource()))) await build();
+  if (!buildReady() || (update && !game.isCurrent(config.repo, config.settings, currentSource()))) await build();
   if (!port.hdVisualsInstalled(config.repo, config.settings)) await installTextures();
   else await updateTextureExtras(config.repo, config.settings);
   await updateLanguagePack(config.repo, config.settings);
@@ -1226,7 +1232,7 @@ async function joinRoom(code, settings) {
     return info;
   };
   log(`Looking for room ${shown}…`);
-  const updateDue = !binaryReady() || (config.settings.autoUpdate && !game.isCurrent(config.repo, config.settings, currentSource()));
+  const updateDue = !buildReady() || (config.settings.autoUpdate && !game.isCurrent(config.repo, config.settings, currentSource()));
   const info = await check(localVersions(!updateDue));
   log(`Found ${info.name || 'the host'}'s room. ${updateDue ? 'Updating the game first, then joining it.' : 'Connecting…'}`);
   const name = multiplayer.playerName(settings.name);
@@ -1274,7 +1280,7 @@ async function joinGame(input) {
     if (problem) throw new Error(problem);
     return info;
   };
-  const updateDue = !binaryReady() || (config.settings.autoUpdate && !game.isCurrent(config.repo, config.settings, currentSource()));
+  const updateDue = !buildReady() || (config.settings.autoUpdate && !game.isCurrent(config.repo, config.settings, currentSource()));
   const info = await find(localVersions(!updateDue));
   config.multiplayer.recent = multiplayer.rememberHost(config.multiplayer.recent, { ...target, name: info.name });
   saveConfig();
@@ -1288,6 +1294,7 @@ async function joinGame(input) {
 function directPlayBlocker() {
   if (!port.isPort(config.repo) || !binaryReady()) return 'the game is not set up yet.';
   try { port.validateRom(config.rom); } catch (error) { return error.message; }
+  if (!buildReady()) return 'the game needs building again to draw with Vulkan.';
   if (config.settings.autoUpdate && !game.isCurrent(config.repo, config.settings, currentSource()))
     return 'a game update is ready.';
   if (!port.hdVisualsInstalled(config.repo, config.settings)) return 'HD visuals need to be set up.';

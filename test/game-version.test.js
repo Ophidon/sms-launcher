@@ -36,6 +36,18 @@ test('legacy builds require one verified update; display settings and launcher v
   assert.equal(game.isCurrent(root, settings), false);
 });
 
+test('a Windows game picked to draw with Vulkan is built again once with the Vulkan backend', t => {
+  const { root, directory } = fixture(t);
+  const vulkan = { ...settings, renderer: 'vulkan' };
+  assert.equal(game.needsVulkanBuild(root, vulkan, 'win32'), true);
+  assert.equal(game.needsVulkanBuild(root, settings, 'win32'), false);
+  assert.equal(game.needsVulkanBuild(root, vulkan, 'linux'), false);
+  fs.writeFileSync(path.join(directory, 'CMakeCache.txt'), 'SMS_GX_VULKAN:BOOL=OFF\n');
+  assert.equal(game.needsVulkanBuild(root, vulkan, 'win32'), true);
+  fs.writeFileSync(path.join(directory, 'CMakeCache.txt'), 'SMS_GX_VULKAN:BOOL=ON\n');
+  assert.equal(game.needsVulkanBuild(root, vulkan, 'win32'), false);
+});
+
 test('changed source and decomp revisions invalidate a build independently', t => {
   const { root, directory } = fixture(t);
   fs.writeFileSync(path.join(directory, 'launcher-build.json'), JSON.stringify(game.identity(settings)));
