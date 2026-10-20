@@ -465,6 +465,27 @@ test('Eclipse builder uses its own CMake tree without bundling the patched disc'
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('Eclipse builder on macOS hands both architectures to the game build.sh, without the disc', () => {
+  if (process.platform !== 'darwin') return;
+  const dir = temporary();
+  try {
+    const repo = path.join(dir, 'port');
+    fs.mkdirSync(path.join(repo, 'cmake'), { recursive: true });
+    fs.writeFileSync(path.join(repo, 'cmake', 'eclipse.cmake'), '');
+    const callLog = path.join(dir, 'calls.txt');
+    fs.writeFileSync(path.join(repo, 'build.sh'),
+      '#!/bin/sh\n# eclipse=${SMS_ECLIPSE:-0}\nprintf "%s|%s|%s|%s\\n" "$SMS_ARCH" "$SMS_ECLIPSE" "$SMS_DISC_IMAGE" "$#" >> "$CALL_LOG"\n');
+    fs.chmodSync(path.join(repo, 'build.sh'), 0o755);
+    for (const arch of ['arm64', '64']) {
+      const result = spawnSync(path.join(__dirname, '..', 'scripts', 'build-eclipse.sh'), [repo, arch], {
+        env: { ...process.env, CALL_LOG: callLog, SMS_DISC_IMAGE: '/discs/Super Mario Eclipse.iso' }, encoding: 'utf8'
+      });
+      assert.equal(result.status, 0, result.stderr);
+    }
+    assert.deepEqual(fs.readFileSync(callLog, 'utf8').trim().split('\n'), ['arm64|1||0', '64|1||0']);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('Eclipse builder explains a missing clang before configuring', () => {
   if (process.platform !== 'linux') return;
   const dir = temporary();
