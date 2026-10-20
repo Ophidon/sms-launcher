@@ -70,6 +70,7 @@ async function renderer(data = state(), copyError = null, notes = { releases: []
     copyText: async text => { calls.push(['copyText', text]); },
     steamStatus: async () => ({ ...steam }), steamOffered: async prompt => { calls.push(`steamOffered:${prompt}`); },
     appleSiliconOffered: async () => { calls.push('appleSiliconOffered'); },
+    eclipseAppleSiliconSwitched: async () => { calls.push('eclipseAppleSiliconSwitched'); },
     addToSteam: async options => { calls.push(['addToSteam', options]); steam = { ...steam, inSteam: true, needsFix: false, offer: false, offerFix: false };
       return { added: true, play: options.play, name: 'Super Mario Sunshine', artwork: 5, total: 5 }; }
   };
@@ -641,6 +642,28 @@ test('a Mac playing through Rosetta is offered the Apple Silicon build once, whi
   assert.equal(declined.elements.get('apple-silicon-offer').open, false);
   const busy = await renderer({ ...data, active: { label: 'Build game' } });
   assert.equal(busy.elements.get('apple-silicon-offer').open, false);
+});
+
+test('Eclipse on Rosetta switches to the Apple Silicon build once its game has it, and says so', async () => {
+  const data = state();
+  data.platform = port.platformInfo('darwin', 'arm64');
+  data.config.settings = port.normalizeSettings({ arch: '64', eclipse: true }, 'darwin', 'arm64');
+  data.features = { vulkan: true, appleSilicon: true, eclipseAppleSilicon: true };
+  data.switchEclipseAppleSilicon = true;
+  const ui = await renderer(data);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(ui.elements.get('apple-silicon-offer').open, false);
+  const saved = ui.calls.find(call => call[0] === 'saveSettings')[1];
+  assert.equal(saved.arch, 'arm64');
+  assert.equal(saved.eclipse, true);
+  assert.ok(ui.calls.includes('eclipseAppleSiliconSwitched'));
+  assert.match(ui.elements.get('message-text').textContent, /^Super Mario Eclipse now runs on Apple Silicon/);
+
+  // Not while a task runs: saving settings would be refused.
+  const busy = await renderer({ ...data, active: { label: 'Build game' } });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(busy.calls.some(call => call[0] === 'saveSettings'), false);
+  assert.equal(busy.calls.includes('eclipseAppleSiliconSwitched'), false);
 });
 
 test('the Renderer list is saved with the others, and hidden where only OpenGL is offered', async () => {
