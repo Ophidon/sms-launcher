@@ -743,7 +743,10 @@ function refresh(data) {
     : !features.appleSilicon && config.settings.arch !== 'arm64' ? gameNote
     : 'Builds the game for Apple Silicon instead of running it through Rosetta, which is faster. Changing this builds the game again.';
   $('renderer-field').hidden = !(platform.renderers || []).includes('vulkan');
-  $('renderer-note').textContent = features.vulkan || config.settings.renderer === 'vulkan' ? 'Vulkan is often faster. If it can\'t start on this computer, the game uses OpenGL.' : gameNote;
+  $('renderer-note').textContent = features.vulkan || config.settings.renderer === 'vulkan'
+    ? 'Vulkan is often faster. If it can\'t start on this computer, the game uses OpenGL.'
+      + (platform.id === 'windows' ? ' Choosing it builds the game again the first time.' : '')
+    : gameNote;
   renderExclusiveResolutions(config.settings.exclusiveResolution);
   renderLanguages(data.languages);
   for (const key of ['arch', 'widescreen', 'resolution', 'volume', 'frameRate', 'language', 'vsync', 'fullscreenMode', 'exclusiveResolution',

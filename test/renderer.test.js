@@ -630,7 +630,9 @@ test('the Renderer list is saved with the others, and hidden where only OpenGL i
   const windows = state();
   windows.platform = port.platformInfo('win32');
   windows.config.settings = port.normalizeSettings({}, 'win32');
-  assert.equal((await renderer(windows)).elements.get('renderer-field').hidden, true);
+  const windowsUi = await renderer(windows);
+  assert.equal(windowsUi.elements.get('renderer-field').hidden, false);
+  assert.match(windowsUi.elements.get('renderer-note').textContent, /builds the game again/);
 });
 
 test('the Apple Silicon switch and the Renderer list wait for a game version that has them', async () => {

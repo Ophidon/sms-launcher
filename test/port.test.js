@@ -673,16 +673,28 @@ test('the Apple Silicon build is offered on Apple Silicon Macs only, and not for
   assert.equal(port.buildEnvironment(native, '/my/disc.iso', '/port').SMS_ARCH, 'arm64');
 });
 
-test('the renderer is OpenGL or Vulkan where Vulkan is offered, and OpenGL on Windows', () => {
+test('the renderer is OpenGL or Vulkan', () => {
   assert.equal(port.normalizeSettings({}, 'linux').renderer, 'opengl');
   assert.equal(port.normalizeSettings({ renderer: 'vulkan' }, 'linux').renderer, 'vulkan');
   assert.equal(port.normalizeSettings({ renderer: 'vulkan' }, 'darwin').renderer, 'vulkan');
-  assert.equal(port.normalizeSettings({ renderer: 'vulkan' }, 'win32').renderer, 'opengl');
+  assert.equal(port.normalizeSettings({ renderer: 'vulkan' }, 'win32').renderer, 'vulkan');
   assert.equal(port.normalizeSettings({ renderer: 'metal' }, 'linux').renderer, 'opengl');
-  assert.deepEqual(port.platformInfo('win32').renderers, ['opengl']);
+  assert.deepEqual(port.platformInfo('win32').renderers, ['opengl', 'vulkan']);
   const vulkan = port.normalizeSettings({ renderer: 'vulkan' }, 'linux');
   assert.equal(port.buildEnvironment(vulkan, '/my/disc.iso', '/port').SMS_GX_BACKEND, 'vulkan');
   assert.equal(port.buildEnvironment(port.normalizeSettings({}, 'linux'), '/my/disc.iso', '/port').SMS_GX_BACKEND, 'opengl');
+});
+
+test('Windows builds the Vulkan backend in only for a player who picks Vulkan', () => {
+  const platform = Object.getOwnPropertyDescriptor(process, 'platform');
+  Object.defineProperty(process, 'platform', { value: 'win32' });
+  try {
+    const env = renderer => port.buildEnvironment(port.normalizeSettings({ renderer }, 'win32'), '/my/disc.iso', '/port').SMS_GX_VULKAN;
+    assert.equal(env('vulkan'), 'ON');
+    assert.equal(env('opengl'), undefined);
+  } finally {
+    Object.defineProperty(process, 'platform', platform);
+  }
 });
 
 test('game features come from the game version on disk', () => {
