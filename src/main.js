@@ -228,6 +228,10 @@ function loadConfig() {
     steamOffered: Boolean(saved.steamOffered),
     // Whether the launcher has offered to fix a Steam shortcut without --no-sandbox.
     steamFixOffered: Boolean(saved.steamFixOffered),
+    // Whether the launcher has moved a Mac playing through Rosetta to the Apple Silicon build, once
+    // for the game and once more for Super Mario Eclipse, whose game versions gained it later.
+    appleSiliconSwitched: Boolean(saved.appleSiliconSwitched),
+    eclipseAppleSiliconSwitched: Boolean(saved.eclipseAppleSiliconSwitched),
     // Customize Mario: the colours the player chose and the Shine shirt.
     marioLook: marioColors.normalizeLook(saved.marioLook),
     // The Multiplayer window's fields, as last used.
@@ -1348,9 +1352,14 @@ function state() {
   const repoReady = port.isPort(config.repo);
   const ready = repoReady && binaryReady();
   const installedBuild = ready ? game.installed(config.repo, config.settings) : null;
+  const features = port.gameFeatures(repoReady ? config.repo : null);
   return {
     config, platform: info, repoReady, portable: Boolean(portableRoot), pathProblem: blockedPath || pathProblem(),
-    features: port.gameFeatures(repoReady ? config.repo : null),
+    features,
+    // A Mac with Apple Silicon playing through Rosetta moves to the native build, as a new setup has it,
+    // once its game has that build (for Eclipse, once it builds Eclipse too).
+    switchAppleSilicon: info.arches.includes('arm64') && config.completedSetup && config.settings.arch === '64' && features.appleSilicon &&
+      (config.settings.eclipse ? !config.eclipseAppleSiliconSwitched && features.eclipseAppleSilicon : !config.appleSiliconSwitched),
     romReady: Boolean(config.rom) && !romError, romError,
     eclipseInstalled: repoReady && fs.existsSync(path.join(config.repo, port.ECLIPSE_ISO)),
     hdVisualsReady: repoReady && port.hdVisualsInstalled(config.repo, config.settings),
@@ -1673,6 +1682,12 @@ function registerHandlers() {
   ipcMain.handle('gc-adapter-allow', () => allowGcAdapter());
   ipcMain.handle('gc-adapter-copy-command', () => clipboard.writeText(gcAdapter.terminalCommand()));
   ipcMain.handle('steam-offered', (_event, prompt) => markSteamOffered(prompt));
+  // Keeping Rosetta keeps it for Eclipse too.
+  ipcMain.handle('apple-silicon-switched', (_event, keptRosetta) => {
+    config.appleSiliconSwitched = true;
+    if (config.settings.eclipse || keptRosetta) config.eclipseAppleSiliconSwitched = true;
+    saveConfig();
+  });
   ipcMain.handle('add-to-steam', (_event, options) => exclusive('Add to Steam', () => addToSteam(options)));
   // Takes one or more .gci files: a player's Dolphin card often has both the
   // Sunshine (01-GMSE) and the Eclipse (04-GMSE) save, and either may be empty.

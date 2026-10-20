@@ -17,6 +17,11 @@ function state() {
   };
 }
 
+// The platform and processor a state's platformInfo describes, so saving settings in a test does not depend on the computer running it.
+function host(platform) {
+  return [{ linux: 'linux', macos: 'darwin', windows: 'win32' }[platform.id], platform.arches.includes('arm64') ? 'arm64' : 'x64'];
+}
+
 async function renderer(data = state(), copyError = null, notes = { releases: [], unseen: [], current: '0.1.39' }, steam = {}) {
   const importResult = { imported: [{ name: 'GMSE04_super_mario_sunshine', game: 'eclipse', title: 'Super Mario Eclipse',
     shines: [3, null, 1], file: '04-GMSE-super_mario_sunshine.gci' }],
@@ -56,7 +61,7 @@ async function renderer(data = state(), copyError = null, notes = { releases: []
     onLogReset(callback) { resetCallback = callback; },
     saveActivityLog: async () => { calls.push('saveActivityLog'); },
     copyActivityLog: async () => { calls.push('copyActivityLog'); if (copyError) throw copyError; },
-    saveSettings: async value => { calls.push(['saveSettings', value]); return { ...data, config: { ...data.config, settings: port.normalizeSettings(value) } }; },
+    saveSettings: async value => { calls.push(['saveSettings', value]); return { ...data, config: { ...data.config, settings: port.normalizeSettings(value, ...host(data.platform)) } }; },
     changelog: async () => notes, markChangelogSeen: async () => { changelogSeen.push(true); },
     play: async () => { calls.push('play'); }, launchGame: async () => { calls.push('launchGame'); },
     updateAndPlay: async () => { calls.push('updateAndPlay'); },
@@ -64,6 +69,7 @@ async function renderer(data = state(), copyError = null, notes = { releases: []
     checkNat: async () => ({ label: 'Open', type: 'open', text: 'You can host and join.' }), publicGames: async () => [],
     copyText: async text => { calls.push(['copyText', text]); },
     steamStatus: async () => ({ ...steam }), steamOffered: async prompt => { calls.push(`steamOffered:${prompt}`); },
+    appleSiliconSwitched: async keptRosetta => { calls.push(['appleSiliconSwitched', keptRosetta]); },
     addToSteam: async options => { calls.push(['addToSteam', options]); steam = { ...steam, inSteam: true, needsFix: false, offer: false, offerFix: false };
       return { added: true, play: options.play, name: 'Super Mario Sunshine', artwork: 5, total: 5 }; }
   };
@@ -72,7 +78,7 @@ async function renderer(data = state(), copyError = null, notes = { releases: []
       addEventListener() {} }, document: {
     getElementById(id) { assert.ok(elements.has(id), `Missing HTML element ${id}`); return elements.get(id); },
     querySelectorAll(selector) {
-      const modals = ['steam-add', 'mac-tools-help'].map(id => elements.get(id));
+      const modals = ['steam-add', 'mac-tools-help', 'apple-silicon-switched'].map(id => elements.get(id));
       return selector === '.launcher-modal' ? modals : selector === '.launcher-modal[open]' ? modals.filter(modal => modal.open) : [];
     }, createElement: () => element()
   } });
@@ -589,7 +595,7 @@ test('the Multiplayer tab shows how many play in public games, and nothing when 
 test('the Apple Silicon switch shows on macOS only, and builds the arm64 game when turned on', async () => {
   const mac = state();
   mac.platform = port.platformInfo('darwin', 'arm64');
-  mac.config.settings = port.normalizeSettings({}, 'darwin', 'arm64');
+  mac.config.settings = port.normalizeSettings({ arch: '64' }, 'darwin', 'arm64');
   const ui = await renderer(mac);
   assert.equal(ui.elements.get('appleSilicon-field').hidden, false);
   assert.equal(ui.elements.get('arch-field').hidden, true);
@@ -615,6 +621,41 @@ test('the Apple Silicon switch shows on macOS only, and builds the arm64 game wh
   assert.equal(windowsUi.elements.get('arch-field').hidden, false);
 });
 
+test('a Mac playing through Rosetta switches to the Apple Silicon build, and the dialog saying so can keep Rosetta', async () => {
+  const data = state();
+  data.platform = port.platformInfo('darwin', 'arm64');
+  data.config.settings = port.normalizeSettings({ arch: '64' }, 'darwin', 'arm64');
+  data.switchAppleSilicon = true;
+  const settle = () => new Promise(resolve => setImmediate(resolve));
+  const ui = await renderer(data);
+  await settle();
+  assert.equal(ui.calls.find(call => call[0] === 'saveSettings')[1].arch, 'arm64');
+  assert.deepEqual(ui.calls.find(call => call[0] === 'appleSiliconSwitched'), ['appleSiliconSwitched', false]);
+  assert.equal(ui.elements.get('apple-silicon-switched').open, true);
+  assert.equal(ui.elements.get('apple-silicon-switched-game').textContent, 'Your game');
+  await ui.click('apple-silicon-keep-rosetta');
+  assert.equal(ui.elements.get('apple-silicon-switched').open, false);
+  assert.deepEqual(ui.calls.filter(call => call[0] === 'appleSiliconSwitched').at(-1), ['appleSiliconSwitched', true]);
+  assert.equal(ui.calls.filter(call => call[0] === 'saveSettings').at(-1)[1].arch, '64');
+  assert.equal(ui.elements.get('message-text').textContent, 'Your game keeps playing through Rosetta.');
+
+  // Super Mario Eclipse switches the same way, and the dialog names it.
+  const eclipse = { ...data, switchAppleSilicon: true, config: { ...data.config, settings: port.normalizeSettings({ arch: '64', eclipse: true }, 'darwin', 'arm64') },
+    features: { vulkan: true, appleSilicon: true, eclipseAppleSilicon: true } };
+  const eclipseUi = await renderer(eclipse);
+  await settle();
+  const saved = eclipseUi.calls.find(call => call[0] === 'saveSettings')[1];
+  assert.equal(saved.arch, 'arm64');
+  assert.equal(saved.eclipse, true);
+  assert.equal(eclipseUi.elements.get('apple-silicon-switched-game').textContent, 'Super Mario Eclipse');
+
+  // Never while a task runs, since saving settings would be refused.
+  const busy = await renderer({ ...data, switchAppleSilicon: true, active: { label: 'Build game' } });
+  await settle();
+  assert.equal(busy.calls.some(call => call[0] === 'saveSettings'), false);
+  assert.equal(busy.elements.get('apple-silicon-switched').open, false);
+});
+
 test('the Renderer list is saved with the others, and hidden where only OpenGL is offered', async () => {
   const data = state();
   data.platform = port.platformInfo('linux');
@@ -638,7 +679,7 @@ test('the Renderer list is saved with the others, and hidden where only OpenGL i
 test('the Apple Silicon switch and the Renderer list wait for a game version that has them', async () => {
   const data = state();
   data.platform = port.platformInfo('darwin', 'arm64');
-  data.config.settings = port.normalizeSettings({}, 'darwin', 'arm64');
+  data.config.settings = port.normalizeSettings({ arch: '64' }, 'darwin', 'arm64');
   data.features = { vulkan: false, appleSilicon: false };
   const ui = await renderer(data);
   assert.equal(ui.elements.get('appleSilicon').disabled, true);

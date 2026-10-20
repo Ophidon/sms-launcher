@@ -339,6 +339,15 @@
       </div>
     </dialog>
 
+    <dialog id="apple-silicon-switched" class="launcher-modal path-modal" aria-labelledby="apple-silicon-switched-title">
+      <div class="modal-head"><div><p class="eyebrow">APPLE SILICON</p><h1 id="apple-silicon-switched-title">Now playing natively on this Mac</h1><p>Your game ran through Rosetta until now.</p></div><button class="modal-close" data-close-modal aria-label="Close">×</button></div>
+      <div class="modal-body">
+        <p class="path-summary"><span id="apple-silicon-switched-game">Your game</span> now builds for Apple Silicon, which runs faster without Rosetta. It builds again the next time you play, and your saved games and settings stay as they are.</p>
+        <p class="path-why">Rather play through Rosetta? Choose Keep Rosetta, or turn off Apple Silicon build under Manage game, Files any time.</p>
+        <div class="actions path-actions"><button id="apple-silicon-keep-rosetta" class="subtle">Keep Rosetta</button><button class="solid" data-close-modal>OK</button></div>
+      </div>
+    </dialog>
+
     <dialog id="path-too-long" class="launcher-modal path-modal" aria-labelledby="path-too-long-title">
       <div class="modal-head"><div><p class="eyebrow">CAN'T BUILD HERE</p><h1 id="path-too-long-title">Move the launcher to a shorter folder</h1><p>Windows can't build the game this deep in your folders.</p></div><button class="modal-close" data-close-modal aria-label="Close">×</button></div>
       <div class="modal-body">

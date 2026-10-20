@@ -9,7 +9,7 @@
       "Choosing your game disc now checks the whole file: an incomplete copy, an RVZ, WIA, GCZ or NKit image, a ZIP, 7-Zip or RAR archive, a Wii disc, or another region or game each get a message saying what it is and what to do, instead of failing partway through setting up the game. When setting up does fail, the message now gives the reason instead of only the file that failed.",
       "A green number on the Multiplayer tab's icon shows how many players are in public games right now, so you can see when someone is playing online. It's hidden when nobody is.",
       "Renderer: choose OpenGL or Vulkan under Graphics, on Windows, Linux and Mac. Vulkan is experimental: it is often faster, and if it can't start on your computer the game uses OpenGL. On Windows, choosing Vulkan builds the game again the first time.",
-      "Apple Silicon build: on a Mac, turn it on under Manage game, Files to build the game for Apple Silicon instead of running it through Rosetta, which is faster. It is off by default, and works for Super Mario Eclipse too.",
+      "Apple Silicon build: on a Mac with Apple Silicon, the game and Super Mario Eclipse now build for it instead of running through Rosetta, which is faster. If yours plays through Rosetta, it switches by itself once your game version can build it, and a message says so with a Keep Rosetta button. Apple Silicon build under Manage game, Files changes it any time.",
       "Customize Mario now paints FLUDD too: under FLUDD, pick colours for its body, metal, straps and trim, or try a FLUDD preset like Gold or Midnight. FLUDD wears them in the game and in Super Mario Eclipse, and other players see your FLUDD in your colours in multiplayer. Mario's presets leave FLUDD's colours alone.",
       "The launcher has a new logo: a golden sun at the top left.",
       "Fixed HD texture, HD cutscene and language pack downloads failing on some Windows computers with a CERTIFICATE_VERIFY_FAILED error."
@@ -41,7 +41,7 @@
       "Fixed a nozzle from a nozzle box disappearing for other players in multiplayer when someone else took theirs: everyone now gets their own.",
       "Fixed coins and switches no longer being shared for a player who had gone back into the same level many times in multiplayer.",
       "Fixed being left stranded in multiplayer when another player rode away on a mud boat in Noki Bay or Corona Mountain, or a leaf boat in Bianco Hills: everyone now has their own, and you see the others riding theirs.",
-      "Multiplayer: when the host goes back to the title screen, everyone else is told and plays on, and goes along again once the host is playing.",
+      "Multiplayer: when the host closes the game or quits to the title screen, everyone else is told why and goes back to their own title screen, instead of staying behind in the host's level or trying to reconnect for about two minutes. When the host stops answering, the game tries for a few more seconds, then does the same.",
       "Fixed a Turbo nozzle door broken down by one player staying shut for everyone else in multiplayer.",
       "Fixed a joining player's game being able to crash when Phantamanta appears or splits in multiplayer.",
       "Fixed Gooper Blooper getting stuck flinching in multiplayer, with torn-off tentacles flailing and coming off again and again, so his face couldn't be pulled.",
@@ -56,7 +56,16 @@
       "Multiplayer: each player's FLUDD now wears their own Customize Mario FLUDD colours in everyone's game, and FLUDD keeps its usual colours for players who haven't picked any.",
       "Fixed GameCube adapters that set up their own driver on Windows, such as the Lossless Adapter in its Switch/Dolphin mode, not being picked up by the game while Dolphin could use them.",
       "Super Mario Eclipse now runs natively on Apple Silicon Macs with the Apple Silicon build, instead of only through Rosetta.",
-      "Fixed Super Mario Eclipse crashing on a Mac when you quit the game."
+      "Fixed Super Mario Eclipse crashing on a Mac when you quit the game.",
+      "Fixed the Apple Silicon build crashing as soon as it starts on some Macs, such as a MacBook Air with M5 on macOS 27.",
+      "Fixed Petey Piranha's head swing not hurting joining players in multiplayer.",
+      "Fixed players coming back from watching in the wrong place in multiplayer, such as arriving in Delfino Plaza still watching, or invisible and stuck, or out of the world and straight into a game over: they now start where the new stage starts them.",
+      "Fixed your game freezing in multiplayer when another player got a Shine while you were losing a life or out of lives.",
+      "Multiplayer: you now see the fruit other players carry, where they aim FLUDD, the effects they make, such as a slide's spray or a landing's dust, and their coaster car in the fight with Mecha-Bowser.",
+      "Multiplayer: graffiti is shared. Another player's water cleans it in your game too, graffiti erased in anyone's game is gone in everyone's, as is graffiti whose blue coin someone already took, and players who join later find it as it is now.",
+      "Fixed another player's Shine camera showing no Shine in multiplayer: the Shine now comes out with it.",
+      "Fixed 50 coins sometimes giving no extra life, or two, in multiplayer: every 50 coins the group collects now gives exactly one, with the 1-up sound for everyone.",
+      "Multiplayer: messages and the player list now use the names players joined with, instead of Mario, Luigi or Wario."
     ]
   },
   "releases": [

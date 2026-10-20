@@ -292,7 +292,7 @@ test('Windows upgrade keeps the existing 32-bit game available with its original
   assert.equal(cmd.command, binary);
   assert.ok(cmd.env.PATH.startsWith(path.join(msys, 'mingw32', 'bin')));
   assert.equal(port.playableInstall({ ...saved, settings: { arch: '64' } }, 'win32'), null);
-  assert.equal(port.normalizeSettings({ arch: '32' }, 'darwin').arch, '64');
+  assert.equal(port.normalizeSettings({ arch: '32' }, 'darwin', 'x64').arch, '64');
   assert.equal(port.normalizeSettings({}, 'win32').arch, '64');
   const x64 = port.binaryPath(root, { arch: '64' }, 'win32');
   fs.mkdirSync(path.dirname(x64), { recursive: true });
@@ -665,7 +665,7 @@ test('build tools too deep in a portable folder for their own headers are explai
 test('the Apple Silicon build is offered on Apple Silicon Macs only, and for Eclipse once the game has it', () => {
   assert.equal(port.normalizeSettings({ arch: 'arm64' }, 'darwin', 'arm64').arch, 'arm64');
   assert.equal(port.normalizeSettings({ arch: 'arm64' }, 'darwin', 'x64').arch, '64');
-  assert.equal(port.normalizeSettings({}, 'darwin', 'arm64').arch, '64');
+  assert.equal(port.normalizeSettings({}, 'darwin', 'x64').arch, '64');
   const older = { appleSilicon: true, eclipseAppleSilicon: false }, newer = { appleSilicon: true, eclipseAppleSilicon: true };
   assert.equal(port.normalizeSettings({ arch: 'arm64', eclipse: true }, 'darwin', 'arm64', older).arch, '64');
   assert.equal(port.normalizeSettings({ arch: 'arm64', eclipse: true }, 'darwin', 'arm64', newer).arch, 'arm64');
@@ -676,6 +676,18 @@ test('the Apple Silicon build is offered on Apple Silicon Macs only, and for Ecl
   const native = port.normalizeSettings({ arch: 'arm64' }, 'darwin', 'arm64');
   assert.match(port.binaryPath('/port', native, 'darwin'), /macos-arm64[\\/]sms$/);
   assert.equal(port.buildEnvironment(native, '/my/disc.iso', '/port').SMS_ARCH, 'arm64');
+});
+
+test('a new setup on Apple Silicon defaults to the native build, and saved settings keep theirs', () => {
+  assert.equal(port.platformInfo('darwin', 'arm64').defaultArch, 'arm64');
+  assert.equal(port.normalizeSettings({}, 'darwin', 'arm64').arch, 'arm64');
+  assert.equal(port.normalizeSettings(port.savedSettings(undefined), 'darwin', 'arm64').arch, 'arm64');
+  // Eclipse plays through Rosetta on game versions that build it for x86_64 only.
+  assert.equal(port.normalizeSettings({ eclipse: true }, 'darwin', 'arm64', { appleSilicon: true, eclipseAppleSilicon: false }).arch, '64');
+  assert.equal(port.normalizeSettings({ eclipse: true }, 'darwin', 'arm64', { appleSilicon: true, eclipseAppleSilicon: true }).arch, 'arm64');
+  // A player who set up the x86_64 game keeps it.
+  assert.equal(port.normalizeSettings(port.savedSettings({ arch: '64', cutscenes: false }), 'darwin', 'arm64').arch, '64');
+  assert.equal(port.normalizeSettings(port.savedSettings({ textures: true, cutscenes: false }), 'darwin', 'arm64').arch, '64');
 });
 
 test('the renderer is OpenGL or Vulkan', () => {
