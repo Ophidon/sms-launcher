@@ -36,6 +36,7 @@ contextBridge.exposeInMainWorld('sms', {
   forgetMultiplayerHost: value => ipcRenderer.invoke('forget-multiplayer-host', value),
   copyText: text => ipcRenderer.invoke('copy-text', text),
   joinGame: value => ipcRenderer.invoke('join-game', value),
+  takeDiscordJoin: () => ipcRenderer.invoke('take-discord-join'),
   cleanPreview: () => ipcRenderer.invoke('clean-preview'),
   clean: () => ipcRenderer.invoke('clean'),
   backupSaves: () => ipcRenderer.invoke('backup-saves'),
@@ -79,5 +80,6 @@ contextBridge.exposeInMainWorld('sms', {
   onActivity: callback => ipcRenderer.on('activity', (_event, value) => callback(value)),
   onAppUpdate: callback => ipcRenderer.on('app-update', (_event, value) => callback(value)),
   onOnline: callback => ipcRenderer.on('online', (_event, value) => callback(value)),
-  onPublicOnline: callback => ipcRenderer.on('public-online', (_event, value) => callback(value))
+  onPublicOnline: callback => ipcRenderer.on('public-online', (_event, value) => callback(value)),
+  onDiscordJoin: callback => ipcRenderer.on('discord-join', () => callback())
 });

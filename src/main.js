@@ -1,6 +1,6 @@
 'use strict';
 
-const { app, BrowserWindow, ipcMain, dialog, shell, clipboard, net, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, clipboard, net, screen, Notification } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 const { spawn, execFile } = require('node:child_process');
@@ -71,17 +71,31 @@ let online = null;
 let discordPresence = null;
 // The running game's handler for its `[presence]` lines (src/presence.js).
 let onPresence = null;
+// Discord started this launcher to join a friend's game (their invite, accepted while it was closed).
+let launchedByDiscord = process.argv.some(arg => discord.isLaunchUrl(arg));
 // `--play` (for a Steam shortcut's launch options) starts the game without the
 // launcher's window and quits when the game closes.
 const playOnStart = process.argv.includes('--play');
 const ownsInstance = app.requestSingleInstanceLock();
 if (!ownsInstance) app.quit();
-app.on('second-instance', () => {
-  if (!window) return;
+app.on('second-instance', (_event, argv) => {
+  if (argv.some(arg => discord.isLaunchUrl(arg))) startedByDiscord();
+  showWindow();
+});
+// macOS hands the discord-<id>:// link Discord opened to the running launcher (or the one starting).
+app.on('open-url', (event, url) => {
+  if (!discord.isLaunchUrl(url)) return;
+  event.preventDefault();
+  startedByDiscord();
+  showWindow();
+});
+
+function showWindow() {
+  if (!window || window.isDestroyed()) return;
   if (window.isMinimized()) window.restore();
   window.show();
   window.focus();
-});
+}
 
 function broadcast(channel, data) {
   if (window && !window.isDestroyed()) window.webContents.send(channel, data);
@@ -1045,19 +1059,34 @@ function playtime() {
   } catch (_) { return 0; }
 }
 
-// Discord shows the game only while it runs, and only with the setting on.
+// Discord shows the game only while it runs, and only with the setting on. In a room game (hosted or joined) it is
+// one friends can be invited to from Discord: `discordParty`, { code, players, maxPlayers, public }.
+let presenceShown = null, discordParty = null;
+function showPresence() {
+  if (!presenceShown || !discordPresence) return;
+  const { game, startedAt, eclipse, before } = presenceShown;
+  discordPresence.set(presence.activity(game, { startedAt, eclipse, playtime: before + Date.now() - startedAt, party: discordParty }));
+}
+
+function setDiscordParty(party) {
+  discordParty = party;
+  showPresence();
+}
+
 function startPresence(startedAt, eclipse) {
   if (!config.settings.discordPresence) return;
-  discordPresence ||= discord.createPresence({ log });
-  const before = playtime();
-  const show = game => discordPresence.set(presence.activity(game,
-    { startedAt, eclipse, playtime: before + Date.now() - startedAt }));
-  onPresence = line => { const game = presence.parseLine(line); if (game) show(game); };
-  show(null);
+  discordClient();
+  presenceShown = { game: null, startedAt, eclipse, before: playtime() };
+  onPresence = line => {
+    const game = presence.parseLine(line);
+    if (game && presenceShown) { presenceShown.game = game; showPresence(); }
+  };
+  showPresence();
 }
 
 function stopPresence(startedAt) {
   onPresence = null;
+  presenceShown = null;
   discordPresence?.stop();
   try { fs.writeFileSync(playtimeFile(), JSON.stringify({ ms: playtime() + Date.now() - startedAt })); }
   catch (error) { log(`Could not save play time: ${error.message}`); }
@@ -1132,6 +1161,68 @@ function checkNat(input) {
   return natCheck;
 }
 
+// Discord game invites. The launcher stays connected to Discord while it is open (with the Discord setting on), so a
+// friend's invite accepted in Discord joins their room here; with the launcher closed, Discord starts it first.
+function discordClient() {
+  return discordPresence ||= discord.createPresence({ log, onJoin: joinFromDiscord, onJoinRequest: discordJoinRequest });
+}
+
+function syncDiscord() {
+  if (config.settings.discordPresence) registerDiscordLaunch();
+  if (config.settings.discordPresence || launchedByDiscord) discordClient().listen(true);
+  else discordPresence?.listen(false);
+}
+
+function startedByDiscord() {
+  launchedByDiscord = true;
+  if (app.isReady() && config) syncDiscord();
+}
+
+// What Discord runs to start the launcher: the installed launcher, the portable .exe or the AppImage (Linux, like
+// Steam's shortcut, with --no-sandbox). Not in development, where it would start Electron.
+let discordLaunchRegistered = false;
+function registerDiscordLaunch() {
+  if (discordLaunchRegistered || !app.isPackaged) return;
+  discordLaunchRegistered = true;
+  const { execPath } = relaunchOptions({ argv: [], env: process.env, packaged: true, platform: process.platform, execPath: process.execPath });
+  try {
+    discord.registerLaunch({ execPath, args: process.platform === 'linux' ? ['--no-sandbox'] : [],
+      setProtocolClient: (scheme, file, args) => app.setAsDefaultProtocolClient(scheme, file, args) });
+  } catch (error) { log(`Discord can't start the launcher from a game invite: ${error.message}`); }
+}
+
+// An accepted invite: the Multiplayer page joins the room (the renderer takes it, now or once it has loaded).
+let discordJoin = null;
+function joinFromDiscord(secret) {
+  const code = rooms.parseRoomCode(presence.secretRoom(secret));
+  if (!code) return log("Discord sent a game invite this launcher can't read: is the launcher up to date?");
+  discordJoin = rooms.formatRoomCode(code);
+  log(`Joining room ${discordJoin} from a Discord invite.`);
+  showWindow();
+  broadcast('discord-join');
+}
+
+// A friend's "Ask to Join" on Discord: let in at once to a public game (anyone can join it from the list), otherwise
+// when the player clicks the notification. Notifications are kept until they close, so their click still arrives.
+const joinNotifications = new Set();
+function discordJoinRequest(user) {
+  const who = multiplayer.playerName(user.global_name || user.username, 'A friend');
+  if (!discordParty) return discordPresence.reply(user.id, false);
+  if (discordParty.public) {
+    log(`${who} asked on Discord to join your public game: invited.`);
+    return discordPresence.reply(user.id, true);
+  }
+  log(`${who} asked on Discord to join your game.`);
+  if (!Notification.isSupported()) return;
+  const note = new Notification({ title: `${who} asks to join your game`, body: 'Click to invite them through Discord.' });
+  joinNotifications.add(note);
+  note.on('click', () => {
+    if (discordParty && discordPresence?.reply(user.id, true)) log(`Invited ${who} through Discord.`);
+  });
+  note.on('close', () => joinNotifications.delete(note));
+  note.show();
+}
+
 // Host Game: plays like Play, with the game listening for players on this computer and the launcher passing their
 // packets on from the chosen port (src/rooms.js), so friends can join with a room code and no port forwarding.
 async function hostGame(input) {
@@ -1140,6 +1231,7 @@ async function hostGame(input) {
   let room = null;
   const showRoom = (code, changed) => {
     hostedRoom = rooms.formatRoomCode(code);
+    setDiscordParty({ code, players: discordParty?.players || 1, maxPlayers: settings.maxPlayers, public: settings.public });
     clipboard.writeText(hostedRoom);
     log(changed ? `Your room code changed to ${hostedRoom} (copied). Give friends the new one.`
       : `Room code ${hostedRoom} (copied): friends join with it from their Multiplayer window.`);
@@ -1150,7 +1242,8 @@ async function hostGame(input) {
       await natCheck?.catch(() => {});
       const { build, version, launcher } = localVersions();
       room = await rooms.host({ port: settings.hostPort, name, build, version, launcher, isPublic: settings.public, log,
-        onRoom: showRoom });
+        onRoom: showRoom, onStatus: config.settings.discordPresence ? info => discordParty
+          && setDiscordParty({ ...discordParty, players: info.players, maxPlayers: info.maxPlayers }) : null });
       Object.assign(session.env, { SMS_MULTIPLAYER_PORT: String(room.gamePort), SMS_MULTIPLAYER_LOCAL: '1',
         SMS_MULTIPLAYER_ROOM: room.code ? rooms.formatRoomCode(room.code) : '' });
     } };
@@ -1159,6 +1252,7 @@ async function hostGame(input) {
   finally {
     room?.close();
     hostedRoom = null;
+    setDiscordParty(null);
     broadcast('activity', activityState());
   }
 }
@@ -1258,9 +1352,11 @@ async function joinRoom(code, settings) {
       if (problem) throw new Error(problem);
       log(`${hostedLine(hosted)}. Starting the game to join it.`);
       session.env = multiplayer.environment('join', { host: '127.0.0.1', port: link.localPort, name, versions: localVersions() });
+      // friends can be invited from Discord too (the count is the one at joining)
+      setDiscordParty({ code, players: hosted.players + 1, maxPlayers: hosted.maxPlayers, public: false });
     } };
   try { return await launchGame(session); }
-  finally { link?.close(); }
+  finally { link?.close(); setDiscordParty(null); }
 }
 
 // Join: finds the host's game first, so a wrong address or a full game is reported before anything else happens.
@@ -1582,9 +1678,11 @@ function registerHandlers() {
       config.previousInstall = port.playableInstall({ ...config, saveDirectory: currentSaveDirectory() }) || config.previousInstall;
     const channelChanged = settings.updateChannel !== config.settings.updateChannel;
     const sharingChanged = settings.shareUsage !== config.settings.shareUsage;
+    const discordChanged = settings.discordPresence !== config.settings.discordPresence;
     config.settings = settings;
     saveConfig();
     if (sharingChanged) reporter?.tick();
+    if (discordChanged) syncDiscord();
     if (channelChanged) {
       applyUpdateChannel();
       log(`Launcher updates now follow ${updateChannel.channelLabel(settings.updateChannel)}.`);
@@ -1673,6 +1771,8 @@ function registerHandlers() {
   ipcMain.handle('check-nat', (_event, input) => checkNat(input));
   ipcMain.handle('public-games', () => publicGames());
   ipcMain.handle('ping-game', (_event, input) => pingGame(input));
+  // the room of a Discord invite accepted since the last ask, once
+  ipcMain.handle('take-discord-join', () => { const code = discordJoin; discordJoin = null; return code; });
   ipcMain.handle('host-game', (_event, input) => exclusive('Host multiplayer game', () => hostGame(input), true));
   ipcMain.handle('join-game', (_event, input) => exclusive('Join multiplayer game', () => joinGame(input), true));
   ipcMain.handle('clean-preview', () => exclusive('Preview cleanup', () => clean(true)));
@@ -1829,6 +1929,7 @@ if (ownsInstance) app.whenReady().then(async () => {
   if (playOnStart && await playDirectly()) return app.quit();
   createWindow();
   watchPublicOnline();
+  syncDiscord();
   // Only with the window: a launcher update installs on quit, which `--play` does as the game closes.
   setupAppUpdater();
   exclusive('Remove old game versions', removeOldVersions).catch(() => {});

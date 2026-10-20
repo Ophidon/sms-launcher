@@ -1541,6 +1541,17 @@ $('mp-nat-check').addEventListener('click', checkNat);
 $('mp-host-port').addEventListener('change', checkNat);
 $('mp-host').addEventListener('click', () => startMultiplayer('host'));
 $('mp-join').addEventListener('click', () => startMultiplayer('join'));
+// A game invite accepted in Discord: its room joins from here, as if typed in. Taken once the launcher knows the game.
+async function joinFromDiscord() {
+  if (!current) return;
+  const code = await window.sms.takeDiscordJoin();
+  if (!code) return;
+  showPage('multiplayer');
+  $('mp-address').value = code;
+  renderMultiplayer();
+  await startMultiplayer('join');
+}
+window.sms.onDiscordJoin(() => joinFromDiscord().catch(showError));
 $('mp-ping').addEventListener('click', pingTypedGame);
 
 $('changelog-show-all').addEventListener('click', () => renderChangelog(changelogShown, false));
@@ -1943,5 +1954,5 @@ window.smsGamepadNav.start({
 });
 window.sms.windowState().then(renderWindowState).catch(showError);
 setInterval(() => { if (current?.active) renderActivity(current.active); }, 1000);
-sync().then(() => { for (const line of current.logs) appendLog(line); if (!showPathProblem()) return showWhatsNew(); })
+sync().then(() => { for (const line of current.logs) appendLog(line); joinFromDiscord().catch(showError); if (!showPathProblem()) return showWhatsNew(); })
   .then(() => { appleSiliconSwitchReady = true; return switchAppleSilicon(); }).catch(showError);

@@ -328,6 +328,24 @@ test('a public host says so, and reports its game for the list once the game ans
   } finally { host.close(); }
 });
 
+test('a private host still hears its game\'s players for Discord, without the list hearing them', async () => {
+  const server = roomServer();
+  const heard = [];
+  const host = await rooms.host({ ...quiet, port: await freePort(), name: 'Chase', build: 'b', url: 'http://rooms.test',
+    WebSocketImpl: server.WebSocket, lan: [], onStatus: info => heard.push(info) });
+  const game = await fakeGame(host.gamePort);
+  try {
+    host.statusAt = 0;
+    for (let i = 0; i < 40 && !heard.length; i++) await new Promise(resolve => setTimeout(resolve, 50));
+    assert.equal(heard[0].players, 1);
+    assert.equal(heard[0].maxPlayers, 4);
+    assert.equal(server.statuses, undefined);
+  } finally {
+    game.close();
+    host.close();
+  }
+});
+
 test('a private host is never reported for the list', async () => {
   const server = roomServer();
   const host = await rooms.host({ ...quiet, port: await freePort(), name: 'Chase', build: 'b', url: 'http://rooms.test',

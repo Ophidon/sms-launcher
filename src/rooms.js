@@ -257,8 +257,8 @@ class Peer {
 
 class HostRoom {
   constructor({ port, name, build, version = '', launcher = '', isPublic = false, url = serverUrl(),
-    WebSocketImpl = globalThis.WebSocket, log = () => {}, onRoom = () => {}, servers, lan }) {
-    Object.assign(this, { port, name, build, version, launcher, isPublic, url, WebSocketImpl, log, onRoom, servers, lan });
+    WebSocketImpl = globalThis.WebSocket, log = () => {}, onRoom = () => {}, onStatus = null, servers, lan }) {
+    Object.assign(this, { port, name, build, version, launcher, isPublic, url, WebSocketImpl, log, onRoom, onStatus, servers, lan });
     this.statusAt = 0;
     this.code = null;
     this.roomKey = null;
@@ -422,16 +422,19 @@ class HostRoom {
       if (!join.peer && age > 10 * 60 * 1000) this.joins.delete(join.id);
     }
     for (const peer of this.peers) if (now - Math.max(peer.heard, peer.sent) > PEER_IDLE) this.dropPeer(peer);
-    // a public room's line in the list: the game's own answer to a probe
-    if (this.isPublic && this.ws && !this.reporting && now >= this.statusAt) {
+    // a public room's line in the list, and the players for onStatus (Discord's party size): the game's own answer
+    // to a probe
+    if ((this.isPublic || this.onStatus) && this.ws && !this.reporting && now >= this.statusAt) {
       this.reporting = true;
       multiplayer.probe('127.0.0.1', this.gamePort, { timeout: 1500, attempts: 3 }).then(info => {
+        this.statusAt = Date.now() + STATUS_EVERY;
+        this.onStatus?.(info);
+        if (!this.isPublic) return;
         send(this.ws, { type: 'status', players: info.players, maxPlayers: info.maxPlayers, status: info.status, open: info.open });
         if (!this.listed) {
           this.listed = true;
           this.log('Your game is in the public list: anyone can join it from their Multiplayer window.');
         }
-        this.statusAt = Date.now() + STATUS_EVERY;
       }, () => { this.statusAt = Date.now() + STATUS_RETRY; }).finally(() => { this.reporting = false; });
     }
     if (this.ws && now - this.pingAt >= PING_EVERY) {
