@@ -72,6 +72,12 @@ test('the bindings file adds controller buttons only to the controls changed', (
   assert.ok(bindings.fileText({}).includes('A = SPACE X\n'));
 });
 
+test('the map defaults to M, and to Back on a controller', () => {
+  assert.deepEqual(bindings.keysFor({}, 'MAP'), ['M']);
+  assert.deepEqual(bindings.padsFor({}, 'MAP'), ['PAD_BACK']);
+  assert.ok(bindings.fileText({}).includes('MAP = M\n'));
+});
+
 test('save states default to F5 and F6, and to L1 + R1 (LB + RB) held together on a controller', () => {
   assert.deepEqual(bindings.keysFor({}, 'SAVE_STATE'), ['F5']);
   assert.deepEqual(bindings.keysFor({}, 'LOAD_STATE'), ['F6']);
