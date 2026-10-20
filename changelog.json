@@ -56,7 +56,8 @@
       "Multiplayer: each player's FLUDD now wears their own Customize Mario FLUDD colours in everyone's game, and FLUDD keeps its usual colours for players who haven't picked any.",
       "Fixed GameCube adapters that set up their own driver on Windows, such as the Lossless Adapter in its Switch/Dolphin mode, not being picked up by the game while Dolphin could use them.",
       "Super Mario Eclipse now runs natively on Apple Silicon Macs with the Apple Silicon build, instead of only through Rosetta.",
-      "Fixed Super Mario Eclipse crashing on a Mac when you quit the game."
+      "Fixed Super Mario Eclipse crashing on a Mac when you quit the game.",
+      "Fixed the Apple Silicon build crashing as soon as it starts on some Macs, such as a MacBook Air with M5 on macOS 27."
     ]
   },
   "releases": [
