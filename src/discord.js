@@ -2,12 +2,15 @@
 
 // Discord Rich Presence through the Discord app's local socket (a named pipe
 // on Windows): a handshake with our application ID, then SET_ACTIVITY frames.
-// Discord drops the activity when the socket closes, so stop() only closes it.
+// Discord drops the activity when the socket closes, so stop() only closes it
+// (or clears it, while the launcher listens for game invites).
 // Without Discord running nothing happens; it is looked for again now and then.
 const fs = require('node:fs');
 const net = require('node:net');
+const os = require('node:os');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const { execFile } = require('node:child_process');
 
 const CLIENT_ID = '1557924964869480578';
 const OP = { HANDSHAKE: 0, FRAME: 1, CLOSE: 2, PING: 3, PONG: 4 };
@@ -51,20 +54,29 @@ function socketPaths(platform = process.platform, env = process.env) {
   return paths;
 }
 
+// `listen` keeps the connection while no activity shows, so a friend's game
+// invite still reaches the launcher (onJoin gets the invite's join secret);
+// onJoinRequest hears friends who "Ask to Join", answered with reply().
 function createPresence({ clientId = CLIENT_ID, platform = process.platform, paths = socketPaths(platform),
   exists = platform === 'win32' ? () => true : fs.existsSync, connect = target => net.createConnection(target),
   pid = process.pid, now = Date.now, setTimeout = global.setTimeout, clearTimeout = global.clearTimeout,
-  log = () => {} } = {}) {
-  let socket = null, ready = false, connecting = false, timer = null;
-  let wanted = null, sent = null, sentAt = -Infinity;
+  log = () => {}, onJoin = null, onJoinRequest = null } = {}) {
+  let socket = null, ready = false, connecting = false, timer = null, listening = false;
+  // `sent` is the activity Discord shows: 'null' for none, as on a new connection.
+  let wanted = null, sent = 'null', sentAt = -Infinity;
+  const needed = () => Boolean(wanted) || listening;
 
   function later(callback, ms) {
     if (timer) return;
     timer = setTimeout(() => { timer = null; callback(); }, ms);
   }
 
+  function command(cmd, args, evt) {
+    socket.write(encode(OP.FRAME, { cmd, args, evt, nonce: crypto.randomUUID() }));
+  }
+
   function update() {
-    if (!wanted) return;
+    if (!needed()) return;
     if (!socket) { if (!connecting) open(); return; }
     if (!ready) return;
     const body = JSON.stringify(wanted);
@@ -73,25 +85,44 @@ function createPresence({ clientId = CLIENT_ID, platform = process.platform, pat
     if (wait > 0) return later(update, wait);
     sent = body;
     sentAt = now();
-    socket.write(encode(OP.FRAME, { cmd: 'SET_ACTIVITY', args: { pid, activity: wanted }, nonce: crypto.randomUUID() }));
+    // no activity clears the one shown
+    command('SET_ACTIVITY', wanted ? { pid, activity: wanted } : { pid });
+  }
+
+  function close() {
+    if (timer) { clearTimeout(timer); timer = null; }
+    if (socket) { const closing = socket; socket = null; ready = false; closing.destroy(); }
   }
 
   function open() {
     connecting = true;
     const candidates = paths.filter(target => exists(target));
     const attempt = index => {
-      if (!wanted) { connecting = false; return; }
+      if (!needed()) { connecting = false; return; }
       if (index >= candidates.length) { connecting = false; return later(update, RETRY); }
       const candidate = connect(candidates[index]);
       candidate.once('error', () => { candidate.destroy(); attempt(index + 1); });
       candidate.once('connect', () => {
         candidate.removeAllListeners('error');
         connecting = false;
-        if (!wanted) return candidate.destroy();
+        if (!needed()) return candidate.destroy();
         attach(candidate);
       });
     };
     attempt(0);
+  }
+
+  function dispatch(data) {
+    if (data.evt === 'READY') {
+      ready = true;
+      if (onJoin) command('SUBSCRIBE', {}, 'ACTIVITY_JOIN');
+      if (onJoinRequest) command('SUBSCRIBE', {}, 'ACTIVITY_JOIN_REQUEST');
+      update();
+    } else if (data.evt === 'ACTIVITY_JOIN' && typeof data.data?.secret === 'string') onJoin?.(data.data.secret);
+    else if (data.evt === 'ACTIVITY_JOIN_REQUEST' && data.data?.user?.id) onJoinRequest?.(data.data.user);
+    else if (data.evt === 'ERROR') log(data.cmd === 'SET_ACTIVITY'
+      ? `Discord did not accept the activity: ${data.data?.message || 'unknown error'}`
+      : `Discord refused ${data.cmd || 'a request'}: ${data.data?.message || 'unknown error'}`);
   }
 
   function attach(candidate) {
@@ -102,25 +133,75 @@ function createPresence({ clientId = CLIENT_ID, platform = process.platform, pat
       else if (op === OP.CLOSE) {
         log(`Discord closed the connection: ${data?.message || 'no reason given'}`);
         candidate.destroy();
-      } else if (data?.evt === 'READY') { ready = true; update(); }
-      else if (data?.evt === 'ERROR') log(`Discord did not accept the activity: ${data.data?.message || 'unknown error'}`);
+      } else if (data) dispatch(data);
     }));
     candidate.on('close', () => {
       if (socket !== candidate) return;
-      socket = null; ready = false; sent = null;
-      if (wanted) later(update, RETRY);
+      socket = null; ready = false; sent = 'null';
+      if (needed()) later(update, RETRY);
     });
     candidate.write(encode(OP.HANDSHAKE, { v: 1, client_id: clientId }));
   }
 
   return {
-    set(activity) { wanted = activity; update(); },
+    set(activity) { wanted = activity || null; update(); },
+    listen(on) {
+      listening = Boolean(on);
+      if (needed()) update();
+      else { sent = 'null'; close(); }
+    },
+    // Answers a friend's "Ask to Join": an invite (with the join secret) or a no.
+    reply(userId, accept) {
+      if (!ready) return false;
+      command(accept ? 'SEND_ACTIVITY_JOIN_INVITE' : 'CLOSE_ACTIVITY_REQUEST', { user_id: String(userId) });
+      return true;
+    },
+    // Discord drops the activity when the socket closes; a listening launcher clears it instead.
     stop() {
-      wanted = null; sent = null;
-      if (timer) { clearTimeout(timer); timer = null; }
-      if (socket) { const closing = socket; socket = null; ready = false; closing.destroy(); }
+      wanted = null;
+      if (listening) return update();
+      sent = 'null';
+      close();
     }
   };
 }
 
-module.exports = { CLIENT_ID, OP, MIN_INTERVAL, RETRY, encode, createDecoder, socketPaths, createPresence };
+// How Discord starts the launcher when a friend's game invite is accepted with
+// the launcher closed: it opens discord-<application ID>://, which each system
+// sends to the program registered for it (what Discord's own discord-rpc
+// library registers). Windows and macOS through Electron
+// (app.setAsDefaultProtocolClient; macOS also needs the scheme in Info.plist,
+// package.json's build.protocols); Linux through a hidden .desktop entry.
+const launchScheme = (clientId = CLIENT_ID) => `discord-${clientId}`;
+
+// A launcher argument (or macOS open-url) Discord started it with.
+const isLaunchUrl = (value, clientId = CLIENT_ID) => typeof value === 'string' && value.startsWith(`${launchScheme(clientId)}:`);
+
+// The Desktop Entry spec's quoting: arguments in double quotes, with " ` $ \ escaped; % doubled.
+function desktopArg(value) {
+  const text = String(value).replace(/%/g, '%%');
+  return /^[A-Za-z0-9_\-.,/:=+]+$/.test(text) ? text : `"${text.replace(/(["`$\\])/g, '\\$1')}"`;
+}
+
+function desktopEntry({ execPath, args = [], clientId = CLIENT_ID, name = 'SMS Launcher' }) {
+  return ['[Desktop Entry]', `Name=${name}`, `Exec=${[execPath, ...args].map(desktopArg).join(' ')} %u`, 'Type=Application',
+    'NoDisplay=true', 'Categories=Discord;Games;', `MimeType=x-scheme-handler/${launchScheme(clientId)};`, ''].join('\n');
+}
+
+// Registers how to start the launcher (execPath with args), once: the Linux entry is only rewritten when it changed.
+function registerLaunch({ execPath, args = [], clientId = CLIENT_ID, platform = process.platform, setProtocolClient,
+  home = os.homedir(), env = process.env, run = (file, list) => execFile(file, list, () => {}) } = {}) {
+  const scheme = launchScheme(clientId);
+  if (platform !== 'linux') return setProtocolClient(scheme, execPath, args);
+  const data = env.XDG_DATA_HOME || path.join(home, '.local', 'share');
+  const file = path.join(data, 'applications', `${scheme}.desktop`);
+  const entry = desktopEntry({ execPath, args, clientId });
+  try { if (fs.readFileSync(file, 'utf8') === entry) return false; } catch (_) { /* not there yet */ }
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, entry);
+  run('xdg-mime', ['default', `${scheme}.desktop`, `x-scheme-handler/${scheme}`]);
+  return true;
+}
+
+module.exports = { CLIENT_ID, OP, MIN_INTERVAL, RETRY, encode, createDecoder, socketPaths, createPresence,
+  launchScheme, isLaunchUrl, desktopEntry, registerLaunch };

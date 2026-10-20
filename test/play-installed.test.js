@@ -57,7 +57,8 @@ function fixture(t, { metadata = true, textures = false, eclipse = false, discor
         async ensure() { throw new Error('Playing must not prepare new tools'); },
         async check() { throw new Error('Playing must not prepare new tools'); },
         status() { throw new Error('Playing must not prepare new tools'); } };
-      if (name === './discord') return { createPresence: () => ({ set: activity => activities.push(activity), stop() {} }) };
+      if (name === './discord') return { ...nativeRequire('./discord'),
+        createPresence: () => ({ set: activity => activities.push(activity), stop() {}, listen() {}, reply() {} }) };
       if (name === './mario-model') return { loadMario: () => ({ references: ['disc references'] }) };
       if (name === './mario-pack') return { bake(options) { bakes.push(options); return bake ? bake(options) : options.directory; } };
       if (name === './saves') return {

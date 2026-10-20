@@ -64,3 +64,21 @@ test('before the game reports anything, and in an older game, the activity is pl
   assert.equal(activity.state, undefined);
   assert.equal(activity.assets.large_image, 'logo');
 });
+
+test('a room game can be joined from Discord: party, join secret, and no buttons beside Join', () => {
+  const party = { code: 'KQ7M2D', players: 3, maxPlayers: 8 };
+  const result = presence.activity({ state: 5, area: 2, episode: 0, shines: 4 }, { startedAt: 1, party });
+  assert.equal(result.details, 'Bianco Hills · Road to the Big Windmill');
+  assert.equal(result.state, 'Multiplayer');
+  assert.deepEqual(result.party.size, [3, 8]);
+  assert.equal(result.party.id, presence.partyId('KQ7M2D'));
+  assert.ok(!result.party.id.includes('KQ7M2D'), 'the party ID does not give the code away');
+  assert.deepEqual(result.secrets, { join: 'sms-room:KQ7M2D' });
+  assert.equal(result.buttons, undefined);
+  assert.equal(presence.secretRoom(result.secrets.join), 'KQ7M2D');
+  assert.equal(presence.secretRoom('something else'), null);
+  assert.equal(presence.activity({ state: 5, area: 2, episode: 0, paused: true }, { party }).state, 'Paused · Multiplayer');
+  // the size stays one Discord takes
+  assert.deepEqual(presence.activity(null, { party: { code: 'KQ7M2D', players: 0, maxPlayers: 0 } }).party.size, [1, 8]);
+  assert.ok(presence.activity(null, {}).buttons, 'alone, the buttons stay');
+});

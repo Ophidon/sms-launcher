@@ -5,9 +5,14 @@
 // platform/presence, with SMS_PRESENCE=1); this turns the latest one into a
 // Discord activity. Image keys are art assets uploaded to the Discord
 // application (Rich Presence > Art Assets).
+const crypto = require('node:crypto');
+
 const LAUNCHER_URL = 'https://github.com/chasem-dev/sms-launcher/releases/latest';
 const DISCORD_URL = 'https://discord.gg/Qh8rGWAvDD';
 const PREFIX = '[presence] ';
+// A game invite's join secret: the room code (src/rooms.js), which is what
+// joining needs. Discord hands it only to players the invite let in.
+const JOIN_PREFIX = 'sms-room:';
 
 // TApplication::mAppState.
 const STATE = { BOOT: 2, NLOGO: 3, DONE: 4, GAMEPLAY: 5, MOVIE: 6, TITLE: 8, MENU: 9 };
@@ -81,8 +86,15 @@ function place(area, episode) {
   return { name: title ? `${name} · ${title}` : name, image };
 }
 
-// The latest game presence and the session -> a Discord activity.
-function activity(game, { startedAt, eclipse = false, playtime = 0 } = {}) {
+const joinSecret = code => `${JOIN_PREFIX}${code}`;
+const secretRoom = secret => typeof secret === 'string' && secret.startsWith(JOIN_PREFIX) ? secret.slice(JOIN_PREFIX.length) : null;
+
+// The party's ID, the same for everyone in one room, without giving away the code: friends' Discord apps see it.
+const partyId = code => crypto.createHash('sha256').update(`sms-party:${code}`).digest('hex').slice(0, 32);
+
+// The latest game presence and the session -> a Discord activity. `party`: the room game this player is in,
+// { code, players, maxPlayers }, which makes the activity one friends can be invited to (and ask to join).
+function activity(game, { startedAt, eclipse = false, playtime = 0, party = null } = {}) {
   const counts = game && game.shines > 0
     ? `${eclipse ? plural(game.shines, 'Shine') : `${game.shines} / ${SHINES} Shines`}${game.blueCoins > 0
       ? ` · ${eclipse ? plural(game.blueCoins, 'Blue Coin') : `${game.blueCoins} / ${BLUE_COINS} Blue Coins`}` : ''}`
@@ -112,6 +124,15 @@ function activity(game, { startedAt, eclipse = false, playtime = 0 } = {}) {
       result.details = 'On the title screen';
     else if (game.state === STATE.BOOT || game.state === STATE.NLOGO) result.details = 'Starting up';
   }
+  if (party?.code) {
+    // Discord shows the size after the state: "Multiplayer (2 of 8)". A guest's Shine count is their guest save's.
+    const most = Math.max(2, Math.min(64, Math.trunc(party.maxPlayers) || 8));
+    result.party = { id: partyId(party.code), size: [Math.max(1, Math.min(most, Math.trunc(party.players) || 1)), most] };
+    result.secrets = { join: joinSecret(party.code) };
+    result.state = 'Multiplayer';
+    // The invite's Join button takes the buttons' place (Discord may refuse an activity with both).
+    delete result.buttons;
+  }
   if (game?.paused) result.state = result.state ? `Paused · ${result.state}` : 'Paused';
   else if (game?.cutscene && !eclipse) result.state = 'Watching a cutscene';
   // Discord rejects texts shorter than 2 or longer than 128 characters.
@@ -119,4 +140,5 @@ function activity(game, { startedAt, eclipse = false, playtime = 0 } = {}) {
   return JSON.parse(JSON.stringify(result));
 }
 
-module.exports = { LAUNCHER_URL, DISCORD_URL, PREFIX, STAGES, EPISODES, parseLine, isPresenceLine, activity };
+module.exports = { LAUNCHER_URL, DISCORD_URL, PREFIX, STAGES, EPISODES, parseLine, isPresenceLine, activity,
+  joinSecret, secretRoom, partyId };

@@ -59,6 +59,9 @@ async function renderer(data = state(), copyError = null, notes = { releases: []
     importDolphinSave: async file => { calls.push('importDolphinSave'); droppedFiles.push(file); return importResult; },
     onLog(callback) { logCallback = callback; }, onActivity(callback) { activityCallback = callback; }, onAppUpdate() {}, onWindowState() {}, onOnline(callback) { listeners.online = callback; }, onPublicOnline(callback) { listeners.publicOnline = callback; },
     onLogReset(callback) { resetCallback = callback; },
+    onDiscordJoin(callback) { listeners.discordJoin = callback; },
+    takeDiscordJoin: async () => { const code = data.discordJoin || null; data.discordJoin = null; return code; },
+    joinGame: async value => { calls.push(['joinGame', value]); },
     saveActivityLog: async () => { calls.push('saveActivityLog'); },
     copyActivityLog: async () => { calls.push('copyActivityLog'); if (copyError) throw copyError; },
     saveSettings: async value => { calls.push(['saveSettings', value]); return { ...data, config: { ...data.config, settings: port.normalizeSettings(value, ...host(data.platform)) } }; },
@@ -590,6 +593,24 @@ test('the Multiplayer tab shows how many play in public games, and nothing when 
   ui.listeners.publicOnline({ players: 2, games: 1 });
   ui.listeners.publicOnline(null);
   assert.equal(badge.hidden, true);
+});
+
+test('a Discord game invite joins its room from Multiplayer, at startup and while open', async () => {
+  const data = { ...state(), discordJoin: 'KQ7-M2D' };
+  const ui = await renderer(data);
+  await new Promise(setImmediate);
+  assert.equal(ui.elements.get('multiplayer').hidden, false);
+  assert.equal(ui.elements.get('mp-address').value, 'KQ7-M2D');
+  assert.deepEqual(ui.calls.filter(call => call[0] === 'joinGame').map(call => call[1].address), ['KQ7-M2D']);
+  data.discordJoin = 'ABC-123';
+  ui.listeners.discordJoin();
+  await new Promise(setImmediate);
+  await new Promise(setImmediate);
+  assert.deepEqual(ui.calls.filter(call => call[0] === 'joinGame').map(call => call[1].address), ['KQ7-M2D', 'ABC-123']);
+  // nothing waiting: nothing joins
+  ui.listeners.discordJoin();
+  await new Promise(setImmediate);
+  assert.equal(ui.calls.filter(call => call[0] === 'joinGame').length, 2);
 });
 
 test('the Apple Silicon switch shows on macOS only, and builds the arm64 game when turned on', async () => {

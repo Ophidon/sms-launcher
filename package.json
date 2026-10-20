@@ -42,6 +42,14 @@
       "output": "dist"
     },
     "afterPack": "scripts/after-pack.js",
+    "protocols": [
+      {
+        "name": "Discord game invite",
+        "schemes": [
+          "discord-1557924964869480578"
+        ]
+      }
+    ],
     "toolsets": {
       "appimage": "1.0.3"
     },
