@@ -169,6 +169,7 @@ jobs:
   compile-mac-port:
     needs: changes
     if: needs.changes.outputs.build == 'true'
+    name: compile-mac-port (${{ matrix.os }}, ${{ matrix.arches }})
     strategy:
       fail-fast: false
       matrix:
@@ -236,6 +237,7 @@ jobs:
   compile-eclipse:
     needs: changes
     if: needs.changes.outputs.build == 'true'
+    name: compile-eclipse (${{ matrix.os }})
     strategy:
       fail-fast: false
       matrix:
