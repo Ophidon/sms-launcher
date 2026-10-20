@@ -168,6 +168,20 @@ function readInfo(packet, nonce) {
     if (u8() !== INFO || u32() !== (nonce >>> 0)) return null;
     const info = { players: u8(), maxPlayers: u8(), open: u8() === 1, build: str(), name: str(), status: str(), protocol };
     if (at + 2 <= packet.length) info.protocol = u16();
+    // a newer game's: its game mode and whether it is a server, then whom it takes (its game version, whether
+    // other builds of the same protocol may join, the least game and launcher versions, the least mod API)
+    if (at < packet.length) {
+      try {
+        info.mode = str();
+        info.server = u8() === 1;
+        info.version = str() || null;
+        info.versions = u8() === 1 ? 'drift' : 'exact';
+        info.minVersion = str() || null;
+        info.minLauncher = str() || null;
+        const api = u16();
+        info.minApi = api ? `${api >> 8}.${api & 0xff}` : null;
+      } catch (_) { /* cut short: what was read stands */ }
+    }
     // a game takes 1 to MAX_PLAYERS players: anything else is not a game's answer
     if (info.maxPlayers < 1 || info.maxPlayers > MAX_PLAYERS || info.players > info.maxPlayers) return null;
     return info;
@@ -240,12 +254,38 @@ function formatPing(ms) {
   return Number.isFinite(ms) ? `${Math.max(1, Math.round(ms))} ms` : '';
 }
 
+// "2026.10.18.1" against another, a number at a time (a missing one counts as 0; text after a number, as in
+// "1.2.0-beta", sorts before the plain number, so a beta comes before its release): <0, 0 or >0. The game's own
+// rule (ext/multiplayer/net/mp_net.cpp, mp_version_compare).
+function compareVersions(a, b) {
+  const parts = v => String(v || '').split('.');
+  const pa = parts(a), pb = parts(b);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const x = (pa[i] || '0').match(/^(\d*)(.*)$/), y = (pb[i] || '0').match(/^(\d*)(.*)$/);
+    const nx = Number(x[1] || 0), ny = Number(y[1] || 0);
+    if (nx !== ny) return nx < ny ? -1 : 1;
+    if (x[2] !== y[2]) return !x[2] ? 1 : !y[2] ? -1 : x[2] < y[2] ? -1 : 1;
+  }
+  return 0;
+}
+
 // Why joining `info` would fail, or null when it can be joined. `local` is this player's { build, version,
-// launcher } (or only the build): a different build or protocol says which versions both sides have.
+// launcher } (or only the build). The host decides whom it takes: the same build (the default), or, when it lets
+// versions drift, any build of the same protocol and Eclipse setting; and it may ask for at least a game or a
+// launcher version.
 function joinProblem(info, local = null) {
   const mine = typeof local === 'string' || local === null ? { build: local } : local;
-  if (info.protocol !== PROTOCOL || (mine.build && info.build && info.build !== mine.build))
+  const eclipse = build => /-eclipse$/.test(build || '');
+  const drift = info.versions === 'drift' && info.protocol === PROTOCOL && (!mine.build || !info.build
+    || eclipse(mine.build) === eclipse(info.build));
+  if (info.protocol !== PROTOCOL || (!drift && mine.build && info.build && info.build !== mine.build))
     return versionProblem(info, mine);
+  if (info.minVersion && (!mine.version || compareVersions(mine.version, info.minVersion) < 0))
+    return `This game needs game version ${info.minVersion} or newer (you have ${mine.version || 'an older one'}). `
+      + 'Update your launcher to join.';
+  if (info.minLauncher && (!mine.launcher || compareVersions(mine.launcher, info.minLauncher) < 0))
+    return `This game needs launcher ${info.minLauncher} or newer (you have ${mine.launcher || 'an older one'}). `
+      + 'Update your launcher to join.';
   if (info.players >= info.maxPlayers) return `The game is full (${info.maxPlayers} players).`;
   // a host still on the title screen or choosing a file takes nobody yet
   if (!info.open) return 'The host is still choosing a save file. Try again once they\'re playing.';
@@ -265,14 +305,23 @@ function versionProblem(host, mine) {
 }
 
 // The game's multiplayer settings, as environment variables.
-function environment(mode, { host, port, name, maxPlayers = DEFAULT_MAX_PLAYERS }) {
+// The game's multiplayer settings. `versions` is this launcher's { version (the game's), launcher }, which the game
+// tells a host it joins (a host may ask for at least some versions). A host may also say whom it takes:
+// `allowDrift` (other builds of the same protocol), `minVersion`, `minLauncher` (a dedicated server's choice).
+function environment(mode, { host, port, name, maxPlayers = DEFAULT_MAX_PLAYERS, versions = null, allowDrift = false,
+  minVersion = '', minLauncher = '' }) {
+  const mine = { ...(versions?.version ? { SMS_GAME_VERSION: String(versions.version) } : {}),
+    ...(versions?.launcher ? { SMS_LAUNCHER_VERSION: String(versions.launcher) } : {}) };
   if (mode === 'host') return { SMS_MULTIPLAYER: 'host', SMS_MULTIPLAYER_PORT: String(port), SMS_MULTIPLAYER_NAME: name,
-    SMS_MULTIPLAYER_MAX_PLAYERS: String(parseMaxPlayers(maxPlayers)) };
+    SMS_MULTIPLAYER_MAX_PLAYERS: String(parseMaxPlayers(maxPlayers)), ...mine,
+    ...(allowDrift ? { SMS_MULTIPLAYER_VERSIONS: 'drift' } : {}),
+    ...(minVersion ? { SMS_MULTIPLAYER_MIN_VERSION: String(minVersion) } : {}),
+    ...(minLauncher ? { SMS_MULTIPLAYER_MIN_LAUNCHER: String(minLauncher) } : {}) };
   const address = net.isIPv6(host) ? `[${host}]:${port}` : `${host}:${port}`;
   return { SMS_MULTIPLAYER: 'join', SMS_MULTIPLAYER_ADDRESS: address, SMS_MULTIPLAYER_PORT: String(port),
-    SMS_MULTIPLAYER_NAME: name };
+    SMS_MULTIPLAYER_NAME: name, ...mine };
 }
 
 module.exports = { DEFAULT_PORT, MIN_PLAYERS, MAX_PLAYERS, DEFAULT_MAX_PLAYERS, PROTOCOL, parseAddress, parsePort,
   parseMaxPlayers, playerName, probePacket, readInfo, probe, describeVersion, formatPing,
-  joinProblem, environment, inviteCode, parseInvite, maskAddress, lanAddresses, rememberHost, RECENT_HOSTS };
+  compareVersions, joinProblem, environment, inviteCode, parseInvite, maskAddress, lanAddresses, rememberHost, RECENT_HOSTS };
