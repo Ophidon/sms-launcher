@@ -6,6 +6,12 @@ arch=$2
 cd "$repo"
 
 [[ -f cmake/eclipse.cmake ]] || { echo "This checkout does not have Eclipse support. Update the game from the launcher." >&2; exit 1; }
+# On macOS, a game version whose build.sh builds Eclipse (SMS_ECLIPSE=1)
+# does it: for Apple Silicon (arm64) as well as Rosetta, with MoltenVK beside
+# the game for the Vulkan renderer. Without the patched disc bundled, as below.
+if [[ "$(uname -s)" == Darwin ]] && grep -q SMS_ECLIPSE build.sh 2>/dev/null; then
+  SMS_ARCH="$arch" SMS_ECLIPSE=1 SMS_DISC_IMAGE= exec ./build.sh
+fi
 case "$(uname -s)" in
   Linux) os=linux ;;
   Darwin) os=macos; [[ "$arch" == 64 ]] || { echo "macOS supports 64 bit only." >&2; exit 1; } ;;
