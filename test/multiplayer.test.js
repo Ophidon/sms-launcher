@@ -6,7 +6,7 @@ const dgram = require('node:dgram');
 const multiplayer = require('../src/multiplayer');
 
 // A host's INFO answer, laid out as the game writes it (ext/multiplayer/net/mp_net.cpp).
-function infoPacket(nonce, { players = 1, max = 4, open = true, build = 'c8fb4a3e81a2', name = 'Host', status = 'Delfino Plaza', protocol = multiplayer.PROTOCOL } = {}) {
+function infoPacket(nonce, { players = 1, max = 4, open = true, build = 'c8fb4a3e81a2', name = 'Host', status = 'Delfino Plaza', protocol = multiplayer.PROTOCOL, policy = null } = {}) {
   const str = text => Buffer.concat([Buffer.from([Buffer.byteLength(text, 'latin1')]), Buffer.from(text, 'latin1')]);
   const head = Buffer.alloc(11);
   head.writeUInt32LE(0x504d4d53, 0);
@@ -15,7 +15,11 @@ function infoPacket(nonce, { players = 1, max = 4, open = true, build = 'c8fb4a3
   head.writeUInt32LE(nonce, 7);
   const tail = Buffer.alloc(2);
   tail.writeUInt16LE(protocol, 0);
-  return Buffer.concat([head, Buffer.from([players, max, open ? 1 : 0]), str(build), str(name), str(status), tail]);
+  // a newer game's: mode, server, then whom it takes
+  const more = policy ? Buffer.concat([str(policy.mode || ''), Buffer.from([policy.server ? 1 : 0]), str(policy.version || ''),
+    Buffer.from([policy.drift ? 1 : 0]), str(policy.minVersion || ''), str(policy.minLauncher || ''),
+    (() => { const b = Buffer.alloc(2); b.writeUInt16LE(policy.minApi || 0, 0); return b; })()]) : Buffer.alloc(0);
+  return Buffer.concat([head, Buffer.from([players, max, open ? 1 : 0]), str(build), str(name), str(status), tail, more]);
 }
 
 // A stand-in for a hosting game on a free local port; `answer` makes its reply.
@@ -140,7 +144,56 @@ test('the probe packet is the game\'s PROBE', () => {
   assert.equal(multiplayer.readInfo(infoPacket(5).subarray(0, 20), 5), null);
 });
 
+test('a newer host\'s answer says whom it takes', () => {
+  const info = multiplayer.readInfo(infoPacket(7, { policy: { mode: 'squid-race', server: true, version: '2026.10.20.1', drift: true,
+    minVersion: '2026.10.18.1', minLauncher: '0.1.62', minApi: 0x0102 } }), 7);
+  assert.equal(info.mode, 'squid-race');
+  assert.equal(info.server, true);
+  assert.equal(info.version, '2026.10.20.1');
+  assert.equal(info.versions, 'drift');
+  assert.equal(info.minVersion, '2026.10.18.1');
+  assert.equal(info.minLauncher, '0.1.62');
+  assert.equal(info.minApi, '1.2');
+  // an older game's answer ends before them: as before
+  const old = multiplayer.readInfo(infoPacket(8), 8);
+  assert.equal(old.versions, undefined);
+  assert.equal(old.build, 'c8fb4a3e81a2');
+});
+
+test('versions compare a number at a time, as the game compares them', () => {
+  assert.equal(multiplayer.compareVersions('2026.10.18.1', '2026.10.18.1'), 0);
+  assert.ok(multiplayer.compareVersions('2026.10.9.1', '2026.10.18.1') < 0);
+  assert.ok(multiplayer.compareVersions('2026.11.1.1', '2026.10.30.9') > 0);
+  assert.equal(multiplayer.compareVersions('2026.10.18', '2026.10.18.0'), 0);
+  assert.ok(multiplayer.compareVersions('1.2.0-beta', '1.2.0') < 0);
+  assert.ok(multiplayer.compareVersions('0.1.61', '0.1.62') < 0);
+});
+
+test('a host that lets versions drift takes other builds, down to the versions it asks for', () => {
+  const host = { players: 1, maxPlayers: 8, open: true, build: 'aaaaaaaaaaaa', protocol: multiplayer.PROTOCOL, versions: 'drift',
+    version: '2026.10.20.1' };
+  const mine = { build: 'bbbbbbbbbbbb', version: '2026.10.19.1', launcher: '0.1.61' };
+  assert.equal(multiplayer.joinProblem(host, mine), null);
+  assert.match(multiplayer.joinProblem({ ...host, versions: 'exact' }, mine), /different version/);
+  assert.match(multiplayer.joinProblem({ ...host, protocol: multiplayer.PROTOCOL + 1 }, mine), /different version/);
+  assert.match(multiplayer.joinProblem(host, { ...mine, build: 'bbbbbbbbbbbb-eclipse' }), /different version|Eclipse/);
+  assert.match(multiplayer.joinProblem({ ...host, minVersion: '2026.10.20.1' }, mine), /needs game version 2026\.10\.20\.1 or newer \(you have 2026\.10\.19\.1\)/);
+  assert.equal(multiplayer.joinProblem({ ...host, minVersion: '2026.10.18.1' }, mine), null);
+  assert.match(multiplayer.joinProblem({ ...host, minLauncher: '0.1.62' }, mine), /launcher 0\.1\.62 or newer/);
+  assert.equal(multiplayer.joinProblem({ ...host, minLauncher: '0.1.61' }, mine), null);
+});
+
 test('the game is told to host or join through its environment', () => {
+  const versions = { version: '2026.10.20.1', launcher: '0.1.62' };
+  assert.deepEqual(multiplayer.environment('join', { host: '203.0.113.7', port: 24002, name: 'Bob', versions }),
+    { SMS_MULTIPLAYER: 'join', SMS_MULTIPLAYER_ADDRESS: '203.0.113.7:24002', SMS_MULTIPLAYER_PORT: '24002', SMS_MULTIPLAYER_NAME: 'Bob',
+      SMS_GAME_VERSION: '2026.10.20.1', SMS_LAUNCHER_VERSION: '0.1.62' });
+  const server = multiplayer.environment('host', { port: 24002, name: 'Server', versions, allowDrift: true, minVersion: '2026.10.18.1',
+    minLauncher: '0.1.60' });
+  assert.equal(server.SMS_MULTIPLAYER_VERSIONS, 'drift');
+  assert.equal(server.SMS_MULTIPLAYER_MIN_VERSION, '2026.10.18.1');
+  assert.equal(server.SMS_MULTIPLAYER_MIN_LAUNCHER, '0.1.60');
+  assert.equal(multiplayer.environment('host', { port: 24002, name: 'Host' }).SMS_MULTIPLAYER_VERSIONS, undefined); // exact: the default
   assert.deepEqual(multiplayer.environment('host', { port: 24005, name: 'Chase' }),
     { SMS_MULTIPLAYER: 'host', SMS_MULTIPLAYER_PORT: '24005', SMS_MULTIPLAYER_NAME: 'Chase', SMS_MULTIPLAYER_MAX_PLAYERS: '8' });
   assert.equal(multiplayer.environment('host', { port: 24005, name: 'Chase', maxPlayers: '3' }).SMS_MULTIPLAYER_MAX_PLAYERS, '3');

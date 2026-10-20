@@ -1145,7 +1145,7 @@ async function hostGame(input) {
       : `Room code ${hostedRoom} (copied): friends join with it from their Multiplayer window.`);
     broadcast('activity', activityState());
   };
-  const session = { mode: 'host', env: multiplayer.environment('host', { port: settings.hostPort, name, maxPlayers: settings.maxPlayers }),
+  const session = { mode: 'host', env: multiplayer.environment('host', { port: settings.hostPort, name, maxPlayers: settings.maxPlayers, versions: localVersions() }),
     beforePlay: async () => {
       await natCheck?.catch(() => {});
       const { build, version, launcher } = localVersions();
@@ -1257,7 +1257,7 @@ async function joinRoom(code, settings) {
       const problem = multiplayer.joinProblem({ ...info, ...hosted }, localVersions());
       if (problem) throw new Error(problem);
       log(`${hostedLine(hosted)}. Starting the game to join it.`);
-      session.env = multiplayer.environment('join', { host: '127.0.0.1', port: link.localPort, name });
+      session.env = multiplayer.environment('join', { host: '127.0.0.1', port: link.localPort, name, versions: localVersions() });
     } };
   try { return await launchGame(session); }
   finally { link?.close(); }
@@ -1292,7 +1292,7 @@ async function joinGame(input) {
   saveConfig();
   log(`Found ${hostedLine(info, 'the host')}. `
     + (updateDue ? 'Updating the game first, then joining it.' : 'Starting the game to join it.'));
-  return launchGame({ mode: 'join', env: multiplayer.environment('join', { ...target, name: multiplayer.playerName(settings.name) }),
+  return launchGame({ mode: 'join', env: multiplayer.environment('join', { ...target, name: multiplayer.playerName(settings.name), versions: localVersions() }),
     beforePlay: updateDue ? () => find(localVersions()) : null });
 }
 
