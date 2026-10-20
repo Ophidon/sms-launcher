@@ -4,7 +4,8 @@ name: Build launcher
 #   - run by hand with a pull request number: published as the moving
 #     pre-release "pr-<number>", with a comment on the pull request;
 #   - with "beta" (usually from refresh-beta.yml): main, with the newest
-#     commit of the game's branch, published as the moving pre-release "beta".
+#     commit of the game's branch, published as the moving pre-release "beta"
+#     once that game builds everywhere (game-build.yml, as before a release).
 # Players opt into either under Settings > Launcher > Launcher updates.
 # Stable players never see a pre-release.
 on:
@@ -200,9 +201,25 @@ jobs:
             dist/*.blockmap
             dist/latest*.yml
           if-no-files-found: error
+  # Beta reaches players without a release, so it gets the release's gate: the
+  # game it plays must build everywhere first, with this launcher's build tools.
+  verify-game:
+    needs: plan
+    if: needs.plan.outputs.channel == 'beta'
+    uses: ./.github/workflows/game-build.yml
+    with:
+      launcher-ref: ${{ needs.plan.outputs.sha }}
+      game-commit: ${{ needs.plan.outputs.game }}
+      game-decomp: ${{ needs.plan.outputs.decomp }}
+      game-version: ${{ needs.plan.outputs.game_version }}
+    permissions:
+      contents: read
   publish:
-    needs: [plan, package]
-    if: needs.plan.outputs.preview == 'true'
+    needs: [plan, package, verify-game]
+    # verify-game is skipped for pull request previews.
+    if: >-
+      !cancelled() && needs.plan.outputs.preview == 'true' && needs.package.result == 'success' &&
+      contains(fromJSON('["success", "skipped"]'), needs.verify-game.result)
     runs-on: ubuntu-latest
     permissions:
       contents: write

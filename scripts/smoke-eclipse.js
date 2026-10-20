@@ -13,7 +13,11 @@ const capture = async (command, args, cwd, env) => execFileSync(command, args, {
 const { run, runMain } = require('./tool-run');
 
 async function main() {
-  const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'sms eclipse ci-'));
+  // The same folder every run: the game's compiles name their paths, so in a new
+  // folder the compiler cache CI keeps between runs could never hit.
+  const userData = path.join(os.tmpdir(), 'sms eclipse ci');
+  fs.rmSync(userData, { recursive: true, force: true });
+  fs.mkdirSync(userData);
   const manifestFile = process.env.SMS_TOOL_ASSET_MANIFEST;
   const generated = manifestFile ? JSON.parse(fs.readFileSync(manifestFile, 'utf8')) : null;
   const source = generated?.platforms[process.platform === 'darwin' ? process.arch : process.platform] || null;

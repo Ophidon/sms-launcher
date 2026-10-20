@@ -1,9 +1,10 @@
 name: Refresh Beta
 # Keeps the Beta channel on the newest launcher main and the newest game.
 #   - every push to main rebuilds Beta;
-#   - every hour, Beta is rebuilt if the game's branch has new commits, or main
-#     has commits that change the packaged launcher (not docs, tests or
-#     workflows alone; put [skip ci] in a commit message to skip the push build);
+#   - every hour, Beta is rebuilt if main has commits that change the packaged
+#     launcher, or the game's branch has commits that change the game (not docs,
+#     tests or workflows alone in either; put [skip ci] in a launcher commit
+#     message to skip the push build);
 #   - Actions > Refresh Beta > Run workflow rebuilds it right away.
 # The build itself is build.yml with "beta".
 on:
@@ -38,21 +39,36 @@ jobs:
           game_repo=$(jq -r '.repository | sub("^https://github.com/"; "") | sub("\\.git$"; "")' <<<"$pinned")
           game=$(gh api "repos/$game_repo/commits/$(jq -r .branch <<<"$pinned")" --jq .sha)
           built=$(gh release view beta --json body --jq .body 2>/dev/null | grep -o '<!-- beta launcher=[0-9a-f]* game=[0-9a-f]* -->' || true)
-          built_launcher=$(sed -n 's/.*launcher=\([0-9a-f]*\).*/\1/p' <<<"$built")
-          # What goes into the packaged launcher (package.json "build"). Commits
-          # that touch none of it (docs, tests, workflows) leave Beta as it is.
+          built_launcher=$(sed -n 's/.*launcher=\([0-9a-f]*\) .*/\1/p' <<<"$built")
+          built_game=$(sed -n 's/.*game=\([0-9a-f]*\) .*/\1/p' <<<"$built")
+          # The files commits since Beta's build changed: changed <base> <head> <repository>.
+          # A list GitHub cuts short (300 files), or none at all, counts as a change to everything.
+          changed() {
+            gh api "repos/$3/compare/$1...$2" --jq 'if (.files | length) >= 300 then "(300 files or more)" else .files[].filename end' ||
+              echo "(could not compare)"
+          }
+          # What goes into the packaged launcher (package.json "build"), and
+          # what the game's build does not read (its CI, docs and tests).
+          # Commits that change nothing players get leave Beta as it is.
           packaged='^(src/|build/|package(-lock)?\.json$|changelog\.json$|scripts/(build-eclipse\.sh|texture-progress\.py|after-pack\.js|mac-sign\.js)$)'
-          if [ "$built" = "<!-- beta launcher=$SHA game=$game -->" ]; then
-            echo "Beta is already launcher ${SHA:0:7} with game ${game:0:7}."; echo stale=false >> "$GITHUB_OUTPUT"
-          elif [ -n "$built_launcher" ] && [ "$built" = "<!-- beta launcher=$built_launcher game=$game -->" ] &&
-               changed=$(gh api "repos/$GH_REPO/compare/$built_launcher...$SHA" \
-                 --jq 'if (.files | length) >= 300 then "src/" else .files[].filename end') &&
-               ! grep -qE "$packaged" <<<"$changed"; then
-            echo "Beta is launcher ${built_launcher:0:7} with game ${game:0:7}; main's newer commits change nothing in the packaged launcher:"
-            echo "$changed"; echo stale=false >> "$GITHUB_OUTPUT"
-          else
-            echo "Beta is out of date; rebuilding with game ${game:0:7}."; echo stale=true >> "$GITHUB_OUTPUT"
+          not_game='^(\.github/|docs/|tools/tests/)|\.md$'
+          stale=false
+          if [ -z "$built_launcher" ] || [ -z "$built_game" ]; then
+            echo "Beta's release names no launcher and game commit."; stale=true
           fi
+          if [ "$stale" = false ] && [ "$built_launcher" != "$SHA" ]; then
+            files=$(changed "$built_launcher" "$SHA" "$GH_REPO")
+            echo "Launcher files changed since Beta's ${built_launcher:0:7}:"; echo "$files"
+            if grep -qE "$packaged" <<<"$files" || grep -q '^(' <<<"$files"; then stale=true; fi
+          fi
+          if [ "$stale" = false ] && [ "$built_game" != "$game" ]; then
+            files=$(changed "$built_game" "$game" "$game_repo")
+            echo "Game files changed since Beta's ${built_game:0:7}:"; echo "$files"
+            if grep -qvE "$not_game" <<<"$files"; then stale=true; fi
+          fi
+          if [ "$stale" = true ]; then echo "Beta is out of date; rebuilding with game ${game:0:7}."
+          else echo "Beta (launcher ${built_launcher:0:7}, game ${built_game:0:7}) already has what players would get from launcher ${SHA:0:7} with game ${game:0:7}."; fi
+          echo "stale=$stale" >> "$GITHUB_OUTPUT"
   build:
     needs: check
     if: needs.check.outputs.stale == 'true'
