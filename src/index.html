@@ -339,12 +339,12 @@
       </div>
     </dialog>
 
-    <dialog id="apple-silicon-offer" class="launcher-modal path-modal" aria-labelledby="apple-silicon-offer-title">
-      <div class="modal-head"><div><p class="eyebrow">APPLE SILICON</p><h1 id="apple-silicon-offer-title">Play natively on this Mac</h1><p>Your game runs through Rosetta now.</p></div><button class="modal-close" data-close-modal aria-label="Close">×</button></div>
+    <dialog id="apple-silicon-switched" class="launcher-modal path-modal" aria-labelledby="apple-silicon-switched-title">
+      <div class="modal-head"><div><p class="eyebrow">APPLE SILICON</p><h1 id="apple-silicon-switched-title">Now playing natively on this Mac</h1><p>Your game ran through Rosetta until now.</p></div><button class="modal-close" data-close-modal aria-label="Close">×</button></div>
       <div class="modal-body">
-        <p class="path-summary">This game version can be built for Apple Silicon instead, which runs faster without Rosetta. Your saved games and settings stay as they are.</p>
-        <p class="path-why">Switching builds the game again the next time you play. We'll only ask once: Apple Silicon build under Manage game, Files changes it any time.</p>
-        <div class="actions path-actions"><button class="subtle" data-close-modal>Not now</button><button id="apple-silicon-offer-confirm" class="solid">Use Apple Silicon</button></div>
+        <p class="path-summary"><span id="apple-silicon-switched-game">Your game</span> now builds for Apple Silicon, which runs faster without Rosetta. It builds again the next time you play, and your saved games and settings stay as they are.</p>
+        <p class="path-why">Rather play through Rosetta? Choose Keep Rosetta, or turn off Apple Silicon build under Manage game, Files any time.</p>
+        <div class="actions path-actions"><button id="apple-silicon-keep-rosetta" class="subtle">Keep Rosetta</button><button class="solid" data-close-modal>OK</button></div>
       </div>
     </dialog>
 

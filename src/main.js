@@ -228,9 +228,9 @@ function loadConfig() {
     steamOffered: Boolean(saved.steamOffered),
     // Whether the launcher has offered to fix a Steam shortcut without --no-sandbox.
     steamFixOffered: Boolean(saved.steamFixOffered),
-    // Whether the launcher has offered the Apple Silicon build to a Mac playing through Rosetta.
-    appleSiliconOffered: Boolean(saved.appleSiliconOffered),
-    // Whether the launcher has moved Super Mario Eclipse, which used to play through Rosetta only, to the Apple Silicon build.
+    // Whether the launcher has moved a Mac playing through Rosetta to the Apple Silicon build, once
+    // for the game and once more for Super Mario Eclipse, whose game versions gained it later.
+    appleSiliconSwitched: Boolean(saved.appleSiliconSwitched),
     eclipseAppleSiliconSwitched: Boolean(saved.eclipseAppleSiliconSwitched),
     // Customize Mario: the colours the player chose and the Shine shirt.
     marioLook: marioColors.normalizeLook(saved.marioLook),
@@ -1356,12 +1356,10 @@ function state() {
   return {
     config, platform: info, repoReady, portable: Boolean(portableRoot), pathProblem: blockedPath || pathProblem(),
     features,
-    // Once, to a Mac with Apple Silicon playing through Rosetta when its game has the native build.
-    offerAppleSilicon: info.arches.includes('arm64') && config.completedSetup && !config.appleSiliconOffered &&
-      config.settings.arch === '64' && !config.settings.eclipse && features.appleSilicon,
-    // Eclipse played through Rosetta only until now, so it moves to the native build, as a new setup has it, once its game has that.
-    switchEclipseAppleSilicon: info.arches.includes('arm64') && config.completedSetup && !config.eclipseAppleSiliconSwitched &&
-      config.settings.arch === '64' && config.settings.eclipse && features.appleSilicon && features.eclipseAppleSilicon,
+    // A Mac with Apple Silicon playing through Rosetta moves to the native build, as a new setup has it,
+    // once its game has that build (for Eclipse, once it builds Eclipse too).
+    switchAppleSilicon: info.arches.includes('arm64') && config.completedSetup && config.settings.arch === '64' && features.appleSilicon &&
+      (config.settings.eclipse ? !config.eclipseAppleSiliconSwitched && features.eclipseAppleSilicon : !config.appleSiliconSwitched),
     romReady: Boolean(config.rom) && !romError, romError,
     eclipseInstalled: repoReady && fs.existsSync(path.join(config.repo, port.ECLIPSE_ISO)),
     hdVisualsReady: repoReady && port.hdVisualsInstalled(config.repo, config.settings),
@@ -1684,8 +1682,12 @@ function registerHandlers() {
   ipcMain.handle('gc-adapter-allow', () => allowGcAdapter());
   ipcMain.handle('gc-adapter-copy-command', () => clipboard.writeText(gcAdapter.terminalCommand()));
   ipcMain.handle('steam-offered', (_event, prompt) => markSteamOffered(prompt));
-  ipcMain.handle('apple-silicon-offered', () => { config.appleSiliconOffered = true; saveConfig(); });
-  ipcMain.handle('eclipse-apple-silicon-switched', () => { config.eclipseAppleSiliconSwitched = config.appleSiliconOffered = true; saveConfig(); });
+  // Keeping Rosetta keeps it for Eclipse too.
+  ipcMain.handle('apple-silicon-switched', (_event, keptRosetta) => {
+    config.appleSiliconSwitched = true;
+    if (config.settings.eclipse || keptRosetta) config.eclipseAppleSiliconSwitched = true;
+    saveConfig();
+  });
   ipcMain.handle('add-to-steam', (_event, options) => exclusive('Add to Steam', () => addToSteam(options)));
   // Takes one or more .gci files: a player's Dolphin card often has both the
   // Sunshine (01-GMSE) and the Eclipse (04-GMSE) save, and either may be empty.

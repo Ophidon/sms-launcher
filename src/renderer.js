@@ -803,7 +803,7 @@ function refresh(data) {
   renderDependents(Boolean(data.active));
   renderHdr(Boolean(data.active));
   changing = false;
-  offerAppleSilicon();
+  switchAppleSilicon();
 }
 
 let updateChannels = [{ id: 'stable', label: 'Stable' }];
@@ -1711,37 +1711,29 @@ $('steam-add-confirm').addEventListener('click', async () => {
   }
 });
 refreshSteamBanner().then(offerSteamFix);
-// Apple Silicon, offered once to a Mac playing through Rosetta when its game
-// has the native build: on Play over nothing else, after What's new at start or
-// once a game update brings it. Eclipse, which played through Rosetta only
-// until now, switches instead, with a message saying so.
-let appleSiliconOfferReady = false;
-function offerAppleSilicon() {
-  if (!appleSiliconOfferReady || !current || current.active || page !== 'play' ||
+// Apple Silicon: a Mac playing through Rosetta moves to the native build once
+// its game has it, as a new setup does, and a dialog says so with a way back.
+// On Play over nothing else, after What's new at start or once a game update
+// brings it, and never during a task, which would refuse the change.
+let appleSiliconSwitchReady = false;
+async function switchAppleSilicon() {
+  if (!appleSiliconSwitchReady || !current?.switchAppleSilicon || current.active || page !== 'play' ||
     [...document.querySelectorAll('.launcher-modal')].some(dialog => dialog.open)) return;
-  if (current.switchEclipseAppleSilicon) {
-    current.switchEclipseAppleSilicon = false;
-    switchEclipseToAppleSilicon();
-    return;
-  }
-  if (!current.offerAppleSilicon) return;
-  current.offerAppleSilicon = false;
-  window.sms.appleSiliconOffered().catch(() => {});
-  $('apple-silicon-offer').showModal();
-}
-$('apple-silicon-offer-confirm').addEventListener('click', async () => {
-  $('apple-silicon-offer').close();
-  $('appleSilicon').checked = true;
-  await saveSettings();
-  if (current?.config.settings.arch === 'arm64') setMessage('The game builds for Apple Silicon the next time you play.');
-});
-async function switchEclipseToAppleSilicon() {
+  current.switchAppleSilicon = false;
   $('appleSilicon').checked = true;
   await saveSettings();
   if (current?.config.settings.arch !== 'arm64') return;
-  window.sms.eclipseAppleSiliconSwitched().catch(() => {});
-  setMessage('Super Mario Eclipse now runs on Apple Silicon without Rosetta, which is faster: it builds again the next time you play. Apple Silicon build under Manage game, Files changes it back.');
+  window.sms.appleSiliconSwitched(false).catch(() => {});
+  $('apple-silicon-switched-game').textContent = current.config.settings.eclipse ? 'Super Mario Eclipse' : 'Your game';
+  $('apple-silicon-switched').showModal();
 }
+$('apple-silicon-keep-rosetta').addEventListener('click', async () => {
+  $('apple-silicon-switched').close();
+  await window.sms.appleSiliconSwitched(true).catch(() => {});
+  $('appleSilicon').checked = false;
+  await saveSettings();
+  if (current?.config.settings.arch === '64') setMessage('Your game keeps playing through Rosetta.');
+});
 const dolphinDrop = $('dolphin-save-drop');
 for (const type of ['dragenter', 'dragover']) dolphinDrop.addEventListener(type, event => {
   event.preventDefault();
@@ -1952,4 +1944,4 @@ window.smsGamepadNav.start({
 window.sms.windowState().then(renderWindowState).catch(showError);
 setInterval(() => { if (current?.active) renderActivity(current.active); }, 1000);
 sync().then(() => { for (const line of current.logs) appendLog(line); if (!showPathProblem()) return showWhatsNew(); })
-  .then(() => { appleSiliconOfferReady = true; offerAppleSilicon(); }).catch(showError);
+  .then(() => { appleSiliconSwitchReady = true; return switchAppleSilicon(); }).catch(showError);

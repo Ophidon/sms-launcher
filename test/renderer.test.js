@@ -69,8 +69,7 @@ async function renderer(data = state(), copyError = null, notes = { releases: []
     checkNat: async () => ({ label: 'Open', type: 'open', text: 'You can host and join.' }), publicGames: async () => [],
     copyText: async text => { calls.push(['copyText', text]); },
     steamStatus: async () => ({ ...steam }), steamOffered: async prompt => { calls.push(`steamOffered:${prompt}`); },
-    appleSiliconOffered: async () => { calls.push('appleSiliconOffered'); },
-    eclipseAppleSiliconSwitched: async () => { calls.push('eclipseAppleSiliconSwitched'); },
+    appleSiliconSwitched: async keptRosetta => { calls.push(['appleSiliconSwitched', keptRosetta]); },
     addToSteam: async options => { calls.push(['addToSteam', options]); steam = { ...steam, inSteam: true, needsFix: false, offer: false, offerFix: false };
       return { added: true, play: options.play, name: 'Super Mario Sunshine', artwork: 5, total: 5 }; }
   };
@@ -79,7 +78,7 @@ async function renderer(data = state(), copyError = null, notes = { releases: []
       addEventListener() {} }, document: {
     getElementById(id) { assert.ok(elements.has(id), `Missing HTML element ${id}`); return elements.get(id); },
     querySelectorAll(selector) {
-      const modals = ['steam-add', 'mac-tools-help', 'apple-silicon-offer'].map(id => elements.get(id));
+      const modals = ['steam-add', 'mac-tools-help', 'apple-silicon-switched'].map(id => elements.get(id));
       return selector === '.launcher-modal' ? modals : selector === '.launcher-modal[open]' ? modals.filter(modal => modal.open) : [];
     }, createElement: () => element()
   } });
@@ -622,48 +621,39 @@ test('the Apple Silicon switch shows on macOS only, and builds the arm64 game wh
   assert.equal(windowsUi.elements.get('arch-field').hidden, false);
 });
 
-test('a Mac playing through Rosetta is offered the Apple Silicon build once, which Use Apple Silicon saves', async () => {
+test('a Mac playing through Rosetta switches to the Apple Silicon build, and the dialog saying so can keep Rosetta', async () => {
   const data = state();
   data.platform = port.platformInfo('darwin', 'arm64');
   data.config.settings = port.normalizeSettings({ arch: '64' }, 'darwin', 'arm64');
-  data.offerAppleSilicon = true;
+  data.switchAppleSilicon = true;
+  const settle = () => new Promise(resolve => setImmediate(resolve));
   const ui = await renderer(data);
-  assert.equal(ui.elements.get('apple-silicon-offer').open, true);
-  assert.ok(ui.calls.includes('appleSiliconOffered'));
-  await ui.click('apple-silicon-offer-confirm');
-  assert.equal(ui.elements.get('apple-silicon-offer').open, false);
+  await settle();
   assert.equal(ui.calls.find(call => call[0] === 'saveSettings')[1].arch, 'arm64');
-  assert.equal(ui.elements.get('message-text').textContent, 'The game builds for Apple Silicon the next time you play.');
+  assert.deepEqual(ui.calls.find(call => call[0] === 'appleSiliconSwitched'), ['appleSiliconSwitched', false]);
+  assert.equal(ui.elements.get('apple-silicon-switched').open, true);
+  assert.equal(ui.elements.get('apple-silicon-switched-game').textContent, 'Your game');
+  await ui.click('apple-silicon-keep-rosetta');
+  assert.equal(ui.elements.get('apple-silicon-switched').open, false);
+  assert.deepEqual(ui.calls.filter(call => call[0] === 'appleSiliconSwitched').at(-1), ['appleSiliconSwitched', true]);
+  assert.equal(ui.calls.filter(call => call[0] === 'saveSettings').at(-1)[1].arch, '64');
+  assert.equal(ui.elements.get('message-text').textContent, 'Your game keeps playing through Rosetta.');
 
-  // Not again in the same session after Not now, and never while a task runs.
-  const declined = await renderer({ ...data, config: { ...data.config } });
-  declined.elements.get('apple-silicon-offer').close();
-  await declined.refresh();
-  assert.equal(declined.elements.get('apple-silicon-offer').open, false);
-  const busy = await renderer({ ...data, active: { label: 'Build game' } });
-  assert.equal(busy.elements.get('apple-silicon-offer').open, false);
-});
-
-test('Eclipse on Rosetta switches to the Apple Silicon build once its game has it, and says so', async () => {
-  const data = state();
-  data.platform = port.platformInfo('darwin', 'arm64');
-  data.config.settings = port.normalizeSettings({ arch: '64', eclipse: true }, 'darwin', 'arm64');
-  data.features = { vulkan: true, appleSilicon: true, eclipseAppleSilicon: true };
-  data.switchEclipseAppleSilicon = true;
-  const ui = await renderer(data);
-  await new Promise(resolve => setImmediate(resolve));
-  assert.equal(ui.elements.get('apple-silicon-offer').open, false);
-  const saved = ui.calls.find(call => call[0] === 'saveSettings')[1];
+  // Super Mario Eclipse switches the same way, and the dialog names it.
+  const eclipse = { ...data, switchAppleSilicon: true, config: { ...data.config, settings: port.normalizeSettings({ arch: '64', eclipse: true }, 'darwin', 'arm64') },
+    features: { vulkan: true, appleSilicon: true, eclipseAppleSilicon: true } };
+  const eclipseUi = await renderer(eclipse);
+  await settle();
+  const saved = eclipseUi.calls.find(call => call[0] === 'saveSettings')[1];
   assert.equal(saved.arch, 'arm64');
   assert.equal(saved.eclipse, true);
-  assert.ok(ui.calls.includes('eclipseAppleSiliconSwitched'));
-  assert.match(ui.elements.get('message-text').textContent, /^Super Mario Eclipse now runs on Apple Silicon/);
+  assert.equal(eclipseUi.elements.get('apple-silicon-switched-game').textContent, 'Super Mario Eclipse');
 
-  // Not while a task runs: saving settings would be refused.
-  const busy = await renderer({ ...data, active: { label: 'Build game' } });
-  await new Promise(resolve => setImmediate(resolve));
+  // Never while a task runs, since saving settings would be refused.
+  const busy = await renderer({ ...data, switchAppleSilicon: true, active: { label: 'Build game' } });
+  await settle();
   assert.equal(busy.calls.some(call => call[0] === 'saveSettings'), false);
-  assert.equal(busy.calls.includes('eclipseAppleSiliconSwitched'), false);
+  assert.equal(busy.elements.get('apple-silicon-switched').open, false);
 });
 
 test('the Renderer list is saved with the others, and hidden where only OpenGL is offered', async () => {

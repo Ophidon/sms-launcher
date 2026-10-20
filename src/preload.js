@@ -44,8 +44,7 @@ contextBridge.exposeInMainWorld('sms', {
   allowGcAdapter: () => ipcRenderer.invoke('gc-adapter-allow'),
   copyGcAdapterCommand: () => ipcRenderer.invoke('gc-adapter-copy-command'),
   steamOffered: prompt => ipcRenderer.invoke('steam-offered', prompt),
-  appleSiliconOffered: () => ipcRenderer.invoke('apple-silicon-offered'),
-  eclipseAppleSiliconSwitched: () => ipcRenderer.invoke('eclipse-apple-silicon-switched'),
+  appleSiliconSwitched: keptRosetta => ipcRenderer.invoke('apple-silicon-switched', Boolean(keptRosetta)),
   addToSteam: options => ipcRenderer.invoke('add-to-steam', options),
   importDolphinSave: files => {
     const filePaths = files ? Array.from(files, file => webUtils.getPathForFile(file)) : null;
