@@ -11,6 +11,7 @@
       "Renderer: choose OpenGL or Vulkan under Graphics, on Windows, Linux and Mac. Vulkan is experimental: it is often faster, and if it can't start on your computer the game uses OpenGL. On Windows, choosing Vulkan builds the game again the first time.",
       "Apple Silicon build: on a Mac, turn it on under Manage game, Files to build the game for Apple Silicon instead of running it through Rosetta, which is faster. It is off by default, and Super Mario Eclipse still plays through Rosetta.",
       "Customize Mario now paints FLUDD too: under FLUDD, pick colours for its body, metal, straps and trim, or try a FLUDD preset like Gold or Midnight. FLUDD wears them in the game and in Super Mario Eclipse, and other players see your FLUDD in your colours in multiplayer. Mario's presets leave FLUDD's colours alone.",
+      "The launcher has a new logo: a golden sun at the top left.",
       "Fixed HD texture, HD cutscene and language pack downloads failing on some Windows computers with a CERTIFICATE_VERIFY_FAILED error."
     ],
     "game": [
