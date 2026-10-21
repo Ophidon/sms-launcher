@@ -84,7 +84,8 @@
       "Auto save: with the launcher's Auto Save on, the game saves by itself where it used to ask, and a Shine at the bottom left shows it saving. If it can't save without asking (no save file yet, or a file saved over elsewhere), the usual prompt opens instead; a game over still asks.",
       "Fixed Super Mario Eclipse asking to save after every Shine and blue coin in the 64-bit game, even with its Save Prompts setting on AUTO SAVE; it now saves by itself as that setting says.",
       "A settings menu in the game: pause and press Y to change the launcher's graphics, display, gameplay and control settings while you play, including separate music and sound effects volume. Changes show at once (screen format, frame rate and HD texture loading from the next area), and the launcher keeps them.",
-      "Super Mario Eclipse downloads its mods' sources once for every game version instead of again for each, saving about 110 MB per update and nearly 1 GB of disk space per game version."
+      "Super Mario Eclipse downloads its mods' sources once for every game version instead of again for each, saving about 110 MB per update and nearly 1 GB of disk space per game version.",
+      "With button prompts set to Xbox, PlayStation, Steam Deck, keyboard or Automatic, the B shown over a character you can talk to is now that controller's B button (or your key for it) instead of the GameCube B."
     ]
   },
   "releases": [
