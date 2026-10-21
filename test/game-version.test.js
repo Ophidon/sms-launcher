@@ -356,6 +356,18 @@ test('records the toolset root for x64-host cross compilers as well as native co
   }
 });
 
+test('Eclipse source downloads stay on the game folder\'s drive, which the game can fetch them from', () => {
+  const win = path.win32;
+  const userData = 'C:\\Users\\j\\AppData\\Roaming\\sms-launcher';
+  assert.equal(game.eclipseSourcesPath(userData, 'C:\\Games\\sms-pc-port', win), win.join(userData, 'eclipse-sources'));
+  assert.equal(game.eclipseSourcesPath(userData, 'c:\\Games\\sms-pc-port', win), win.join(userData, 'eclipse-sources'));
+  assert.equal(game.eclipseSourcesPath(userData, 'D:\\aa\\0\\sms-pc-port', win), 'D:\\aa\\0\\sms-pc-port.eclipse-sources');
+  assert.equal(game.eclipseSourcesPath(userData, '\\\\nas\\games\\sms-pc-port', win), '\\\\nas\\games\\sms-pc-port.eclipse-sources');
+  assert.equal(game.eclipseSourcesPath(userData, null, win), win.join(userData, 'eclipse-sources'));
+  assert.equal(game.eclipseSourcesPath('/home/j/.config/sms-launcher', '/mnt/games/sms-pc-port'),
+    path.join('/home/j/.config/sms-launcher', 'eclipse-sources'));
+});
+
 test('game folders are named by a short commit and a hash of the rest, to keep Windows paths short', () => {
   const snapshot = game.snapshotPath('/x/sms', { arch: '64', eclipse: false });
   assert.equal(path.dirname(snapshot), path.join('/x', 'sms.releases'));

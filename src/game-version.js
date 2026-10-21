@@ -107,6 +107,17 @@ function snapshotPath(base, settings, source = release) {
   return path.join(`${base}.releases`, `${source.commit.slice(0, 7)}-${hash}`);
 }
 
+// Where Super Mario Eclipse's source downloads are kept for every game version
+// (the game's SMS_ECLIPSE_GIT_CACHE): the launcher's data folder. A build folder
+// fetches them by a relative path, since MSYS Git reads C:/... as a host name,
+// and there is none to another drive, so a game on another drive keeps them
+// beside <base>.releases instead.
+function eclipseSourcesPath(userData, base, paths = path) {
+  const shared = paths.join(userData, 'eclipse-sources');
+  const drive = folder => paths.parse(paths.resolve(folder)).root.toLowerCase();
+  return !base || drive(base) === drive(userData) ? shared : `${base}.eclipse-sources`;
+}
+
 async function checkout(root, { git = 'git', run, capture, env, source = release, reference } = {}) {
   const parent = path.dirname(root);
   if (!fs.existsSync(parent)) fs.mkdirSync(parent, { recursive: true });
@@ -300,4 +311,4 @@ function recoverBuild(root, settings) {
   return true;
 }
 
-module.exports = { release, gitRevision, matchesSource, identity, installed, compilerToolRoot, toolRoot, needsVulkanBuild, isCurrent, snapshotPath, checkout, carryUserFiles, relinkUserFolders, pruneSnapshots, buildSafely, recoverBuild };
+module.exports = { release, gitRevision, matchesSource, identity, installed, compilerToolRoot, toolRoot, needsVulkanBuild, isCurrent, snapshotPath, eclipseSourcesPath, checkout, carryUserFiles, relinkUserFolders, pruneSnapshots, buildSafely, recoverBuild };

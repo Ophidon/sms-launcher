@@ -12,6 +12,7 @@
       "Apple Silicon build: on a Mac with Apple Silicon, the game and Super Mario Eclipse now build for it instead of running through Rosetta, which is faster. If yours plays through Rosetta, it switches by itself once your game version can build it, and a message says so with a Keep Rosetta button. Apple Silicon build under Manage game, Files changes it any time.",
       "Customize Mario now paints FLUDD too: under FLUDD, pick colours for its body, metal, straps and trim, or try a FLUDD preset like Gold or Midnight. FLUDD wears them in the game and in Super Mario Eclipse, and other players see your FLUDD in your colours in multiplayer. Mario's presets leave FLUDD's colours alone.",
       "The launcher has a new logo: a golden sun at the top left.",
+      "Fixed Super Mario Eclipse downloading its mods' sources again for every game version when the game is on another drive than Windows.",
       "Fixed HD texture, HD cutscene and language pack downloads failing on some Windows computers with a CERTIFICATE_VERIFY_FAILED error.",
       "Fixed setting up Super Mario Eclipse failing with \"macOS supports 64 bit only\" when the Apple Silicon build is on.",
       "Super Mario Eclipse on a Mac now uses the Vulkan renderer when you choose it under Graphics, instead of OpenGL.",
