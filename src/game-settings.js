@@ -15,7 +15,7 @@ const KEYS = [
   'frameRate', 'vsync', 'overlay',
   'hdr', 'hdrCalibration', 'hdrPaperWhite', 'hdrPeak', 'hdrContrast', 'hdrSaturation', 'hdrHighlights',
   'skipMovies', 'volume', 'musicVolume', 'sfxVolume', 'invertCameraX', 'invertCameraY', 'freeCamera', 'cameraSpeed',
-  'mouseCamera', 'mouseSensitivity',
+  'mouseCamera', 'closeCameraMouse', 'mouseSensitivity',
   'softTrigger', 'rumbleStrength', 'buttonPrompts', 'promptPad'
 ];
 

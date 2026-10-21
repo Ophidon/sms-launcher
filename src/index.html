@@ -187,7 +187,8 @@
               <label class="switch"><span><strong>Free camera</strong><small>Stays where you point it; L recentres.</small></span><input id="freeCamera" type="checkbox"><i></i></label>
               <label class="switch"><span><strong>Aim with the C-stick</strong><small>In the close-up view Y opens, the C-stick aims FLUDD too, as in shooters.</small></span><input id="cstickAim" type="checkbox"><i></i></label>
               <label class="field range-field"><span><strong>Camera speed</strong><output id="cameraSpeed-value" for="cameraSpeed">100%</output></span><input id="cameraSpeed" type="range" min="25" max="300" step="5" aria-label="Camera speed"></label>
-              <label class="switch"><span><strong>Mouse look</strong><small>Orbit the camera around Mario with the mouse and zoom with the wheel; F10 frees it.</small></span><input id="mouseCamera" type="checkbox"><i></i></label>
+              <label class="switch"><span><strong>Mouse look</strong><small>Orbit the camera around Mario with the mouse and zoom with the wheel; F10 frees it. The default keys are laid out for it.</small></span><input id="mouseCamera" type="checkbox"><i></i></label>
+              <label class="switch"><span><strong>Mouse aim in Mario Cam</strong><small>In the close-up view Y opens, the mouse turns the view and aims FLUDD, as in shooters.</small></span><input id="closeCameraMouse" type="checkbox"><i></i></label>
               <label class="field range-field"><span><strong>Mouse sensitivity</strong><output id="mouseSensitivity-value" for="mouseSensitivity">100%</output></span><input id="mouseSensitivity" type="range" min="25" max="400" step="5" aria-label="Mouse sensitivity"></label>
             </div>
           </section>
@@ -262,14 +263,14 @@
             <div class="controls-head"><h2 class="group-title">Buttons</h2><div class="binding-modes" role="group" aria-label="Show bindings for"><button class="subtle" data-binding-mode="keyboard" aria-pressed="true">Keyboard</button><button class="subtle" data-binding-mode="controller" aria-pressed="false">Controller</button></div></div>
             <div class="settings-group controls-panel">
               <div id="binding-list" class="binding-list"></div>
-              <div class="actions"><button class="subtle" id="reset-bindings">Reset all to defaults</button><span id="binding-note" class="helper" role="status">Choose Change, then press a key or click a mouse button. Esc cancels.</span></div>
+              <div class="actions"><button class="subtle" id="reset-bindings">Reset all to defaults</button><button class="subtle" id="classic-bindings" title="The keyboard-only layout from before: Space jumps, Shift dives, V and F are X and Y, Q and E are L and R">Use classic keys</button><span id="binding-note" class="helper" role="status">Choose Change, then press a key or click a mouse button. Esc cancels.</span></div>
             </div>
             <h2 class="group-title">Prompts, triggers and rumble</h2>
             <div class="settings-group">
               <label class="field"><span>Button prompts<small>The buttons shown in the game's text. Original keeps the game's own; Automatic switches between keyboard and controller as you play.</small></span><select id="buttonPrompts"></select></label>
               <label class="field" id="promptPad-field" hidden><span>Controller prompts</span><select id="promptPad"></select></label>
               <div id="prompt-preview" class="prompt-preview" aria-label="Button prompt preview"></div>
-              <label class="field range-field"><span><strong>Soft press depth</strong><output id="softTrigger-value" for="softTrigger">40%</output><small>How far Soft L and Soft R press the trigger: a light press without the click, such as spraying FLUDD on the move.</small></span><input id="softTrigger" type="range" min="5" max="95" step="5" aria-label="Soft press depth"></label>
+              <label class="field range-field"><span><strong>Soft press depth</strong><output id="softTrigger-value" for="softTrigger">95%</output><small>How far Soft L and Soft R press the trigger without the click, such as spraying FLUDD on the move (Soft R is middle click). Deeper sprays harder.</small></span><input id="softTrigger" type="range" min="5" max="95" step="5" aria-label="Soft press depth"></label>
               <label class="field range-field"><span><strong>Rumble strength</strong><output id="rumbleStrength-value" for="rumbleStrength">50%</output><small>How hard your controller rumbles. 50% matches the console; higher makes light rumbles stronger, and 0% turns rumble off. Your controller rumbles as you move the slider.</small></span><input id="rumbleStrength" type="range" min="0" max="100" step="5" aria-label="Rumble strength"></label>
             </div>
             <section id="gc-adapter-note" class="controls-note" aria-label="GameCube adapter" aria-live="polite" hidden><h2>GameCube adapter</h2><p id="gc-adapter-text"></p><div class="actions" id="gc-adapter-actions" hidden><button id="gc-adapter-allow">Allow access</button><button class="subtle" id="gc-adapter-copy">Copy terminal command</button><button class="subtle" id="gc-adapter-check">Check again</button></div><p class="helper" id="gc-adapter-helper"></p></section>

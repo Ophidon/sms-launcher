@@ -8,8 +8,9 @@ test('every control has game defaults and a label', () => {
   for (const { id, label } of bindings.CONTROLS) {
     assert.ok(label, id);
     assert.ok(Array.isArray(bindings.DEFAULTS[id]), id);
-    // only the soft L / R presses start unbound
-    if (!['L_SOFT', 'R_SOFT'].includes(id)) assert.ok(bindings.DEFAULTS[id].length, id);
+    // only the soft L press starts unbound
+    if (id !== 'L_SOFT') assert.ok(bindings.DEFAULTS[id].length, id);
+    assert.ok(Array.isArray(bindings.CLASSIC[id]), id);
   }
 });
 
@@ -28,7 +29,7 @@ test('browser key codes map to the key names the game reads', () => {
 
 test('normalize keeps only changed controls with known, distinct keys, at most eight', () => {
   assert.deepEqual(bindings.normalize(null), {});
-  assert.deepEqual(bindings.normalize({ A: ['SPACE', 'X'] }), {});
+  assert.deepEqual(bindings.normalize({ A: ['MOUSE_LEFT'] }), {});
   assert.deepEqual(bindings.normalize({ A: ['J', 'J', 'BOGUS'] }), { A: ['J'] });
   assert.deepEqual(bindings.normalize({ QUIT: 'ESCAPE', NOT_A_CONTROL: ['A'] }), {});
   assert.equal(bindings.normalize({ A: 'ABCDEFGHIJ'.split('') }).A.length, 8);
@@ -39,7 +40,7 @@ test('the bindings file lists every control, with changed keys replacing the def
   const lines = text.trim().split('\n').filter(line => !line.startsWith('#'));
   assert.equal(lines.length, bindings.CONTROLS.length);
   assert.ok(lines.includes('A = J KP_0'));
-  assert.ok(lines.includes('B = LSHIFT RSHIFT C'));
+  assert.ok(lines.includes('B = MOUSE_RIGHT'));
   assert.ok(lines.includes('QUIT = ESCAPE'));
 });
 
@@ -67,9 +68,9 @@ test('the bindings file adds controller buttons only to the controls changed', (
   const text = bindings.fileText({ A: ['J'] }, { A: ['PAD_Y'], Z: ['PAD_RT'] });
   const lines = text.trim().split('\n').filter(line => !line.startsWith('#'));
   assert.ok(lines.includes('A = J PAD_Y'));
-  assert.ok(lines.includes('Z = Z PAD_RT'));
-  assert.ok(lines.includes('B = LSHIFT RSHIFT C'));
-  assert.ok(bindings.fileText({}).includes('A = SPACE X\n'));
+  assert.ok(lines.includes('Z = TAB PAD_RT'));
+  assert.ok(lines.includes('B = MOUSE_RIGHT'));
+  assert.ok(bindings.fileText({}).includes('A = MOUSE_LEFT\n'));
 });
 
 test('the map defaults to M, and to Back on a controller', () => {
@@ -112,4 +113,27 @@ test('mouse buttons bind as keys, by MouseEvent.button, under the names the game
   assert.equal(bindings.keyLabel('KP_8'), 'KP 8');
   assert.ok(bindings.isMouse('MOUSE_BACK'));
   assert.ok(!bindings.isMouse('SPACE'));
+});
+
+test('the default keys are laid out for keyboard and mouse', () => {
+  const keys = id => bindings.keysFor({}, id);
+  assert.deepEqual([keys('A'), keys('B'), keys('X'), keys('Y'), keys('Z'), keys('L'), keys('R'), keys('R_SOFT'), keys('START')],
+    [['MOUSE_LEFT'], ['MOUSE_RIGHT'], ['Q'], ['E'], ['TAB'], ['LSHIFT'], ['SPACE'], ['MOUSE_MIDDLE'], ['ENTER']]);
+  assert.deepEqual([keys('STICK_UP'), keys('STICK_LEFT'), keys('STICK_DOWN'), keys('STICK_RIGHT')],
+    [['W', 'UP'], ['A', 'LEFT'], ['S', 'DOWN'], ['D', 'RIGHT']]);
+  // no key does two things
+  const all = bindings.CONTROLS.flatMap(({ id }) => keys(id));
+  assert.equal(new Set(all).size, all.length);
+});
+
+test('the classic keys are the keyboard-only layout from before, as changes from today\'s defaults', () => {
+  const classic = bindings.fromClassic({});
+  assert.deepEqual([classic.A, classic.B, classic.X, classic.Y, classic.Z, classic.L, classic.R, classic.R_SOFT],
+    [['SPACE', 'X'], ['LSHIFT', 'RSHIFT', 'C'], ['V'], ['F'], ['Z'], ['Q'], ['E'], []]);
+  assert.equal(classic.STICK_UP, undefined);
+  // keys a player changed back then stay changed; the rest keep their classic keys
+  const kept = bindings.fromClassic({ A: ['J'], MAP: ['N'] });
+  assert.deepEqual([kept.A, kept.MAP, kept.B], [['J'], ['N'], ['LSHIFT', 'RSHIFT', 'C']]);
+  const text = bindings.fileText(classic);
+  assert.ok(text.includes('\nR_SOFT =\n') && text.includes('\nA = SPACE X\n'));
 });

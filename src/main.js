@@ -976,7 +976,7 @@ async function setupGame() {
 }
 
 const PLAYER_SETTINGS = [
-  'volume', 'musicVolume', 'sfxVolume', 'invertCameraX', 'invertCameraY', 'keyBindings', 'padBindings', 'softTrigger', 'rumbleStrength', 'freeCamera', 'cstickAim', 'cameraSpeed', 'mouseCamera',
+  'volume', 'musicVolume', 'sfxVolume', 'invertCameraX', 'invertCameraY', 'keyBindings', 'padBindings', 'softTrigger', 'rumbleStrength', 'freeCamera', 'cstickAim', 'cameraSpeed', 'mouseCamera', 'closeCameraMouse',
   'mouseSensitivity', 'skipMovies', 'skipIntro', 'language', 'heatHaze', 'pauseTracker', 'radar', 'autoSave', 'buttonPrompts', 'promptPad', 'hdr', 'hdrCalibration', 'hdrPaperWhite', 'hdrPeak', 'hdrContrast', 'hdrSaturation', 'hdrHighlights', 'overlay', 'fullscreenMode', 'exclusiveResolution', 'display', 'vsync',
   'msaa', 'fxaa', 'anisotropic', 'sharpen', 'fsrMode', 'brightness', 'aspect', 'presentFilter', 'renderer'
 ];
@@ -1068,7 +1068,9 @@ async function play(installation = null, session = null) {
     : toolEnv({ ...port.buildEnvironment(settings, disc, root), SMS_SAVE_DIR: saveDir });
   shieldGame(root, settings, env);
   // Changed keys go to a file of the launcher's own, so a bindings.txt kept by hand in the game folder is left alone.
-  if (Object.keys(settings.keyBindings || {}).length || Object.keys(settings.padBindings || {}).length) {
+  // A game older than the keyboard and mouse keys gets the whole layout the Controls page shows that way too.
+  if (Object.keys(settings.keyBindings || {}).length || Object.keys(settings.padBindings || {}).length ||
+      !port.gameFeatures(root).mouseKeys) {
     const file = path.join(app.getPath('userData'), 'bindings.txt');
     fs.writeFileSync(file, bindings.fileText(settings.keyBindings, settings.padBindings));
     env.SMS_BINDINGS = file;

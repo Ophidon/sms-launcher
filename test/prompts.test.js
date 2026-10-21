@@ -33,8 +33,9 @@ test('remapped controller buttons show as bound', () => {
 });
 
 test('keyboard prompts show the first bound key, remapped or not', () => {
-  assert.deepEqual(prompts.icon('keyboard', 'A', {}, {}), { kind: 'key', text: 'Space' });
-  assert.deepEqual(prompts.icon('keyboard', 'L', {}, {}), { kind: 'key', text: 'Q' });
+  assert.deepEqual(prompts.icon('keyboard', 'A', {}, {}), { kind: 'mouse', button: 'left' });
+  assert.deepEqual(prompts.icon('keyboard', 'R', {}, {}), { kind: 'key', text: 'Space' });
+  assert.deepEqual(prompts.icon('keyboard', 'L', {}, {}), { kind: 'key', text: 'Shift' });
   assert.deepEqual(prompts.icon('keyboard', 'A', { A: ['KP_0'] }, {}), { kind: 'key', text: 'Num0' });
   assert.deepEqual(prompts.icon('keyboard', 'Z', { Z: [] }, {}), { kind: 'none', text: 'Z' });
 });
