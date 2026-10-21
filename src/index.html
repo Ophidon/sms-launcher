@@ -139,8 +139,16 @@
       </div>
       </section>
       <section id="changelog" class="page sheet changelog-page" aria-labelledby="changelog-title" hidden>
-      <div class="modal-head"><div><h1 id="changelog-title">Changelog</h1><p id="changelog-subtitle">Launcher and game updates</p></div></div>
-      <div class="modal-body"><div id="changelog-list" class="changelog-list" aria-live="polite"></div><div class="actions changelog-actions"><button class="subtle" id="changelog-show-all" hidden>Show all releases</button><button class="text-button" id="changelog-page">View on GitHub ↗</button></div></div>
+      <div class="modal-head"><div><h1 id="changelog-title">What's new</h1><p id="changelog-subtitle">Launcher and game updates</p></div></div>
+      <div class="modal-body changelog-body">
+        <nav id="changelog-nav" class="changelog-nav" aria-label="Releases"></nav>
+        <div id="changelog-detail" class="changelog-detail">
+          <p id="changelog-status" class="changelog-status" role="status">Loading…</p>
+          <header id="changelog-head" class="changelog-head" hidden><div class="changelog-heading"><h2 id="changelog-version"></h2><span id="changelog-badge" class="badge" hidden></span></div><p id="changelog-meta"></p></header>
+          <div id="changelog-columns" class="changelog-columns"></div>
+        </div>
+        <div class="changelog-actions"><button class="text-button" id="changelog-page">View on GitHub ↗</button></div>
+      </div>
       </section>
       <section id="page-settings" class="page sheet settings-page" aria-label="Settings" hidden>
       <div class="modal-head"><div><h1>Settings</h1><p>Changes save automatically.</p></div></div>
@@ -151,6 +159,7 @@
           <button id="tab-graphics" class="settings-tab" role="tab" aria-controls="pane-graphics" aria-selected="false"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="3.5" width="15" height="13" rx="2"/><circle cx="7.5" cy="8" r="1.5"/><path d="m3 15 4.5-4.5 3 3 2.5-2.5 4.5 4.5"/></svg>Graphics</button>
           <button id="tab-controls" class="settings-tab" role="tab" aria-controls="pane-controls" aria-selected="false"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 6.5h8a4 4 0 0 1 3.9 4.8l-.6 3a2 2 0 0 1-3.4 1L12 13.5H8l-1.9 1.8a2 2 0 0 1-3.4-1l-.6-3A4 4 0 0 1 6 6.5z"/><path d="M6.5 9v3M5 10.5h3M12.5 9.5h.1M14.5 11.5h.1"/></svg>Controls</button>
           <button id="tab-manage" class="settings-tab" role="tab" aria-controls="pane-manage" aria-selected="false"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 4h12M4 10h12M4 16h12"/><circle cx="8" cy="4" r="2"/><circle cx="13" cy="10" r="2"/><circle cx="7" cy="16" r="2"/></svg>Manage game</button>
+          <button id="tab-mods" class="settings-tab" role="tab" aria-controls="pane-mods" aria-selected="false"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 6.5h3.2a1.8 1.8 0 1 1 3.6 0H14v3.2a1.8 1.8 0 1 1 0 3.6V16.5H10.8a1.8 1.8 0 1 0-3.6 0H4v-3.2a1.8 1.8 0 1 0 0-3.6z"/></svg>Mods</button>
           <button id="tab-launcher" class="settings-tab" role="tab" aria-controls="pane-launcher" aria-selected="false"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5"/><path d="M10 9v5M10 6.2v.1"/></svg>Launcher</button>
         </nav>
 
@@ -285,6 +294,15 @@
             <div class="settings-group source-group"><details id="game-source"><summary><h2>Game source <small>Advanced</small></h2></summary><p class="helper">Build from another sms-pc-port or decomp fork, branch, tag or commit, for testing. Leave a row empty to keep this release's, or enter only a branch, tag or commit to use our fork's. Your saves stay where they are.</p><div class="source-grid"><label>Game repository<input id="source-port-repository" type="text" spellcheck="false" autocomplete="off" placeholder="https://github.com/chasem-dev/sms-pc-port.git"></label><label>Branch, tag or commit<input id="source-port-ref" type="text" spellcheck="false" autocomplete="off" placeholder="main"></label><label>Decomp repository<input id="source-decomp-repository" type="text" spellcheck="false" autocomplete="off" placeholder="https://github.com/chasem-dev/sms-english.git"></label><label>Branch, tag or commit<input id="source-decomp-ref" type="text" spellcheck="false" autocomplete="off" placeholder="main"></label></div><div class="actions"><button class="subtle" id="apply-game-source">Use this source</button><button class="subtle" id="reset-game-source">Use this release's</button></div><p id="game-source-note" class="helper"></p></details></div>
           </section>
 
+          <section id="pane-mods" class="settings-pane" role="tabpanel" aria-labelledby="tab-mods" hidden>
+            <h2 class="group-title">Mods</h2>
+            <div class="settings-group native-mods">
+              <p class="row-note lead">Mods add to the game. Download one here and switch it on or off; its own settings are in the game's Mods menu (F1). Changes take effect the next time the game starts.</p>
+              <div id="native-mod-list" class="native-mod-list"></div>
+              <div class="actions"><button class="subtle" id="native-mods-check">Check for updates</button><button class="subtle" id="open-native-mods">Open mods folder</button></div>
+              <p id="native-mod-result" class="helper" role="status" aria-live="polite"></p>
+            </div>
+          </section>
           <section id="pane-launcher" class="settings-pane" role="tabpanel" aria-labelledby="tab-launcher" hidden>
             <h2 class="group-title">Appearance</h2>
             <div class="settings-group">
@@ -370,6 +388,7 @@
   <script src="prompts.js"></script>
   <script src="presets.js"></script>
   <script src="activity-log.js"></script>
+  <script src="changelog-text.js"></script>
   <script src="gamepad-nav.js"></script>
   <script src="rumble.js"></script>
   <script src="renderer.js"></script>

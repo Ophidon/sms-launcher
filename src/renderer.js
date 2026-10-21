@@ -47,7 +47,7 @@ function showPage(name) {
 for (const [name, item] of Object.entries(pages)) $(item.nav).addEventListener('click', () => showPage(name));
 
 // Settings is one page with a tab per section; it reopens on the last one shown.
-const settingsTabs = ['gameplay', 'display', 'graphics', 'controls', 'manage', 'launcher'];
+const settingsTabs = ['gameplay', 'display', 'graphics', 'controls', 'manage', 'mods', 'launcher'];
 let settingsTab = 'gameplay';
 function showSettingsTab(name) {
   if (settingsTab === 'controls' && name !== 'controls') stopCapture();
@@ -60,6 +60,7 @@ function showSettingsTab(name) {
   $('settings-panes').scrollTop = 0;
   if (name === 'controls') { renderBindings(); loadGcAdapter(); }
   if (name === 'launcher') loadUpdateChannels();
+  if (name === 'mods') loadNativeMods();
 }
 for (const tab of settingsTabs) $(`tab-${tab}`).addEventListener('click', () => showSettingsTab(tab));
 onPage('settings', {
@@ -1209,78 +1210,134 @@ for (const [id, run] of Object.entries({
 $('discord').addEventListener('click', () => window.sms.openDiscord().catch(error => setMessage(errorText(error))));
 
 // --- Changelog: changelog.json in the launcher repository (src/changelog.js). Each release lists its
-// launcher changes and the game it pins. After an update it opens once with the releases since the last.
+// launcher changes and the game it pins. After an update it opens once on the newest release since the last.
 // Beta builds also get Beta's hand-written notes, shown again whenever they change.
+// Beta and the releases are listed down the left; the chosen one shows its launcher and game changes side
+// by side, each as a bold headline over its details (src/changelog-text.js), with its fixes as a checklist.
 function changelogDate(date) {
   return date ? new Date(`${date}T12:00:00`).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '';
 }
-function changelogSection(heading, items) {
-  const section = document.createElement('section');
-  const title = document.createElement('h3');
-  title.textContent = heading;
-  const list = document.createElement('ul');
-  list.append(...items.map(text => { const item = document.createElement('li'); item.textContent = text; return item; }));
-  section.append(title, list);
-  return section;
+function changelogNode(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text != null) node.textContent = text;
+  return node;
 }
-function changelogRelease(release, data) {
-  const article = document.createElement('article');
-  article.className = 'changelog-release';
-  const head = document.createElement('header');
-  const title = document.createElement('h2');
-  title.textContent = release.title ? `v${release.version} · ${release.title}` : `v${release.version}`;
-  head.append(title);
-  const tag = data.unseen.includes(release.version) ? ['New', 'badge good'] : release.version === data.current ? ['Installed', 'badge'] : null;
-  if (tag) { const badge = document.createElement('span'); [badge.textContent, badge.className] = tag; head.append(badge); }
-  const date = document.createElement('time');
-  date.textContent = changelogDate(release.date);
-  head.append(date);
-  article.append(head);
-  if (release.launcher.length) article.append(changelogSection('Launcher', release.launcher));
-  if (release.game?.changes.length)
-    article.append(changelogSection(release.game.version ? `Game ${release.game.version}` : 'Game', release.game.changes));
-  return article;
+// Long details are cut to a few lines; those changes open in full on a click, or A on a controller.
+function changelogToggle(change) {
+  if (!change.classList.contains('can-open')) return;
+  const open = !change.classList.contains('open');
+  change.classList.toggle('open', open);
+  change.setAttribute('aria-expanded', String(open));
 }
-function changelogBeta(beta) {
-  const article = document.createElement('article');
-  article.className = 'changelog-release changelog-beta';
-  const head = document.createElement('header');
-  const title = document.createElement('h2');
-  title.textContent = 'Beta';
-  const badge = document.createElement('span');
-  [badge.textContent, badge.className] = beta.unseen ? ['New', 'badge good'] : ['Not released yet', 'badge warn'];
-  head.append(title, badge);
-  const note = document.createElement('p');
-  note.className = 'changelog-note';
-  note.textContent = 'In this Beta build, not in a release yet. Beta uses the newest game from its main branch.';
-  article.append(head, note);
-  if (beta.launcher.length) article.append(changelogSection('Launcher', beta.launcher));
-  if (beta.game.length) article.append(changelogSection('Game', beta.game));
-  return article;
+function changelogClamps() {
+  for (const change of $('changelog-columns').querySelectorAll('.changelog-change')) {
+    const open = change.classList.contains('open');
+    const more = open || [...change.querySelectorAll('.changelog-clamp')].some(node => node.scrollHeight > node.clientHeight + 1);
+    change.classList.toggle('can-open', more);
+    if (more) { change.tabIndex = 0; change.setAttribute('role', 'button'); change.setAttribute('aria-expanded', String(open)); }
+    else for (const name of ['tabindex', 'role', 'aria-expanded']) change.removeAttribute(name);
+  }
 }
-let changelogShown = null;
+window.addEventListener('resize', () => { if (page === 'changelog') changelogClamps(); });
+function changelogChange(text, withTag) {
+  const { tag, headline, runOn, body } = window.smsChangelogText.splitChange(text);
+  const change = changelogNode('div', 'changelog-change');
+  const head = changelogNode('p', 'changelog-headline');
+  if (withTag && tag) head.append(changelogNode('span', `changelog-tag${tag === 'Multiplayer' ? ' multiplayer' : ''}`, tag));
+  head.append(changelogNode('strong', null, headline));
+  if (runOn) { head.append(runOn); head.classList.add('changelog-clamp'); }
+  change.append(head);
+  if (body) change.append(changelogNode('p', 'changelog-details changelog-clamp', body));
+  change.addEventListener('click', () => changelogToggle(change));
+  change.addEventListener('keydown', event => {
+    if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); changelogToggle(change); }
+  });
+  return change;
+}
+function changelogColumn(heading, lines) {
+  const column = changelogNode('section', 'changelog-column');
+  const title = changelogNode('h3', null, heading);
+  title.append(changelogNode('span', 'changelog-count', String(lines.length)));
+  const fixed = line => window.smsChangelogText.splitChange(line).fix;
+  column.append(title, ...lines.filter(line => !fixed(line)).map(line => changelogChange(line, true)));
+  const fixes = lines.filter(fixed);
+  if (fixes.length) {
+    const list = changelogNode('ul', 'changelog-fixes');
+    list.append(...fixes.map(line => { const item = changelogNode('li'); item.append(changelogChange(line, false)); return item; }));
+    column.append(changelogNode('h4', null, `Fixes · ${fixes.length}`), list);
+  }
+  return column;
+}
+// Beta first when this build has its notes, then every release, newest first.
+function changelogEntries(data) {
+  const entries = data.releases.map(release => ({ key: release.version, release,
+    badge: data.unseen.includes(release.version) ? ['New', 'badge good'] : release.version === data.current ? ['Installed', 'badge'] : null }));
+  if (data.beta) entries.unshift({ key: 'beta', beta: data.beta, badge: data.beta.unseen ? ['New', 'badge good'] : ['Not released yet', 'badge warn'] });
+  return entries;
+}
+let changelogButtons = [];
+function changelogStatus(text) {
+  $('changelog-status').textContent = text;
+  $('changelog-status').hidden = false;
+  $('changelog-head').hidden = true;
+  $('changelog-columns').replaceChildren();
+}
+function changelogShow(entry) {
+  for (const button of changelogButtons) {
+    const active = button.dataset.key === entry.key;
+    button.classList.toggle('active', active);
+    if (active) button.setAttribute('aria-current', 'true'); else button.removeAttribute('aria-current');
+  }
+  const release = entry.release;
+  $('changelog-status').hidden = true;
+  $('changelog-head').hidden = false;
+  $('changelog-version').textContent = entry.beta ? 'Beta' : `v${release.version}`;
+  $('changelog-badge').hidden = !entry.badge;
+  if (entry.badge) [$('changelog-badge').textContent, $('changelog-badge').className] = entry.badge;
+  $('changelog-meta').textContent = entry.beta ? 'In this Beta build, not in a release yet. Beta uses the newest game from its main branch.'
+    : [changelogDate(release.date), release.game?.version && `Game ${release.game.version}`, release.title].filter(Boolean).join(' · ');
+  const launcher = entry.beta ? entry.beta.launcher : release.launcher, game = entry.beta ? entry.beta.game : release.game?.changes || [];
+  $('changelog-columns').replaceChildren(...[['Launcher', launcher], ['Game', game]]
+    .filter(([, lines]) => lines.length).map(([heading, lines]) => changelogColumn(heading, lines)));
+  $('changelog-detail').scrollTop = 0;
+  requestAnimationFrame(changelogClamps);
+}
 function renderChangelog(data, onlyUnseen) {
-  changelogShown = data;
-  const releases = onlyUnseen ? data.releases.filter(release => data.unseen.includes(release.version)) : data.releases;
-  const beta = data.beta && (!onlyUnseen || data.beta.unseen) ? data.beta : null;
-  $('changelog-title').textContent = !onlyUnseen ? 'Changelog' : releases.length ? `Updated to v${data.current}` : "What's new in Beta";
+  const entries = changelogEntries(data);
+  const unseen = entries.filter(entry => entry.badge?.[0] === 'New'), releases = unseen.filter(entry => entry.release);
+  $('changelog-title').textContent = !onlyUnseen ? "What's new" : releases.length ? `Updated to v${data.current}` : "What's new in Beta";
   $('changelog-subtitle').textContent = !onlyUnseen ? 'Launcher and game updates'
     : releases.length ? `What's new in the launcher and game since you last opened it.` : "Changes in this Beta that aren't in a release yet.";
-  $('changelog-show-all').hidden = !onlyUnseen || (releases.length === data.releases.length && beta === data.beta);
-  const items = [...(beta ? [changelogBeta(beta)] : []), ...releases.map(release => changelogRelease(release, data))];
-  if (items.length) $('changelog-list').replaceChildren(...items);
-  else $('changelog-list').textContent = 'No changes are listed yet.';
+  changelogButtons = entries.map(entry => {
+    const button = changelogNode('button', `changelog-version${entry.beta ? ' beta' : ''}`);
+    button.dataset.key = entry.key;
+    const name = changelogNode('span', 'changelog-version-name');
+    name.append(changelogNode('strong', null, entry.beta ? 'Beta' : `v${entry.release.version}`));
+    if (entry.release && entry.badge) {
+      const dot = changelogNode('i', `changelog-dot${entry.badge[0] === 'New' ? ' new' : ''}`);
+      dot.title = entry.badge[0];
+      name.append(dot);
+    }
+    button.append(name, changelogNode('small', null, entry.beta ? (entry.beta.unseen ? 'New notes' : 'Not released yet') : changelogDate(entry.release.date)));
+    button.addEventListener('click', () => changelogShow(entry));
+    return button;
+  });
+  $('changelog-nav').replaceChildren(...changelogButtons);
+  if (!entries.length) return changelogStatus('No changes are listed yet.');
+  // After an update, the newest release since the last (or Beta's new notes); otherwise the top of the list.
+  changelogShow(onlyUnseen ? releases[0] || unseen[0] || entries[0] : entries[0]);
 }
-// The What's new tab shows every release; after an update it shows only the new ones.
+// The What's new tab shows every release; after an update it opens on the newest one.
 let changelogUnseen = false;
 async function showChangelog() {
   if (changelogUnseen) { changelogUnseen = false; return; }
-  $('changelog-title').textContent = 'Changelog';
+  $('changelog-title').textContent = "What's new";
   $('changelog-subtitle').textContent = 'Launcher and game updates';
-  $('changelog-show-all').hidden = true;
-  $('changelog-list').textContent = 'Loading…';
+  $('changelog-nav').replaceChildren();
+  changelogStatus('Loading…');
   try { renderChangelog(await window.sms.changelog(), false); }
-  catch (_) { $('changelog-list').textContent = "The changelog couldn't be loaded. Try again later."; }
+  catch (_) { changelogStatus("The changelog couldn't be loaded. Try again later."); }
 }
 onPage('changelog', { show: showChangelog });
 // Opens once per update. Away from Play, over another window or during a running task it waits for the next start.
@@ -1566,7 +1623,6 @@ async function joinFromDiscord() {
 window.sms.onDiscordJoin(() => joinFromDiscord().catch(showError));
 $('mp-ping').addEventListener('click', pingTypedGame);
 
-$('changelog-show-all').addEventListener('click', () => renderChangelog(changelogShown, false));
 $('changelog-page').addEventListener('click', () => window.sms.openChangelogPage().catch(error => setMessage(errorText(error))));
 $('play').addEventListener('click', () => {
   if (wizardStep === 0) { if (!offerSteam()) runWizardAction('launchGame'); }
@@ -1790,6 +1846,97 @@ function saveStateHelp() {
     `${loadKey ? ` (${loadKey} loads the newest)` : ''}. A state loads exactly in the game build that saved it; ` +
     'from another build or someone else\'s game it takes you to the same place. Share a state by sending its file.';
 }
+
+// --- Mods (src/native-mods.js): the launcher's mods, downloaded from their GitHub releases.
+let nativeModReleases = null; // each mod's newest release, asked once a session (or on Check for updates)
+function newerVersion(a, b) {
+  const split = value => String(value || '').replace(/^v/i, '').split(/[.+-]/).map(part => Number.parseInt(part, 10) || 0);
+  const x = split(a), y = split(b);
+  for (let i = 0; i < Math.max(x.length, y.length); i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0);
+  return false;
+}
+
+function nativeModStatus(mod, release) {
+  if (mod.api && !mod.supported)
+    return `Needs a newer game (mod API ${mod.api}${mod.gameApi ? `; this one has ${mod.gameApi}` : ''}): update the game under Manage game.`;
+  const latest = release && !release.error ? release.version : null;
+  if (mod.installed) {
+    const version = mod.installed.version ? `Version ${mod.installed.version}` : 'Downloaded';
+    return latest && newerVersion(latest, mod.installed.version) ? `${version} · ${latest} available` : `${version}${mod.enabled ? '' : ' · off'}`;
+  }
+  if (release?.error) return release.error;
+  return latest ? `Version ${latest} to download` : 'Not downloaded';
+}
+
+function renderNativeMods({ mods, gameApi }) {
+  if (!mods.length) {
+    const empty = document.createElement('p'); empty.className = 'save-state-empty'; empty.textContent = 'No mods to offer yet.';
+    $('native-mod-list').replaceChildren(empty);
+    return;
+  }
+  $('native-mod-list').replaceChildren(...mods.map(mod => {
+    const release = nativeModReleases?.[mod.id];
+    const row = document.createElement('div'); row.className = 'native-mod-row';
+    const text = document.createElement('span'); text.className = 'save-state-text native-mod-text';
+    const title = document.createElement('strong'); title.textContent = mod.name;
+    const description = document.createElement('small'); description.className = 'native-mod-description'; description.textContent = mod.description || '';
+    const status = document.createElement('small'); status.textContent = nativeModStatus({ ...mod, gameApi }, release);
+    text.append(title, description, status);
+    const actions = document.createElement('span'); actions.className = 'binding-actions native-mod-actions';
+    const button = (label, onClick, solid = false) => {
+      const item = document.createElement('button'); item.className = solid ? 'solid' : 'subtle'; item.textContent = label;
+      item.addEventListener('click', async () => {
+        item.disabled = true;
+        try { await onClick(); } catch (error) { showError(error); } finally { item.disabled = false; }
+      });
+      return item;
+    };
+    const install = async verb => {
+      $('native-mod-result').textContent = `Downloading ${mod.name}…`;
+      try {
+        renderNativeMods(await window.sms.installNativeMod(mod.id));
+        $('native-mod-result').textContent = `${mod.name} ${verb}. It runs the next time the game starts.`;
+      } catch (error) { $('native-mod-result').textContent = ''; throw error; }
+    };
+    if (mod.installed) {
+      const toggle = document.createElement('label'); toggle.className = 'switch native-mod-switch';
+      const input = document.createElement('input'); input.type = 'checkbox'; input.checked = mod.enabled;
+      input.setAttribute('aria-label', `${mod.name} on`); toggle.title = mod.enabled ? 'On' : 'Off';
+      input.disabled = Boolean(mod.api && !mod.supported);
+      input.addEventListener('change', async () => {
+        try { renderNativeMods(await window.sms.enableNativeMod(mod.id, input.checked)); }
+        catch (error) { input.checked = !input.checked; showError(error); }
+      });
+      toggle.append(input, document.createElement('i'));
+      const latest = release && !release.error ? release.version : null;
+      if (mod.repository && latest && newerVersion(latest, mod.installed.version)) actions.append(button('Update', () => install('updated'), true));
+      actions.append(button('Remove', async () => {
+        renderNativeMods(await window.sms.removeNativeMod(mod.id));
+        $('native-mod-result').textContent = `${mod.name} removed.`;
+      }), toggle);
+    } else if (mod.repository) {
+      actions.append(button('Download', () => install('downloaded'), true));
+    }
+    row.append(text, actions);
+    return row;
+  }));
+}
+
+async function loadNativeMods(check = false) {
+  try {
+    renderNativeMods(await window.sms.nativeMods());
+    if (check || !nativeModReleases) {
+      nativeModReleases = await window.sms.nativeModsLatest();
+      renderNativeMods(await window.sms.nativeMods());
+    }
+  } catch (error) { showError(error); }
+}
+$('native-mods-check').addEventListener('click', async () => {
+  $('native-mod-result').textContent = 'Checking…';
+  await loadNativeMods(true);
+  $('native-mod-result').textContent = '';
+});
+$('open-native-mods').addEventListener('click', () => window.sms.openNativeMods().catch(showError));
 
 function renderSaveStates({ states }) {
   $('save-state-help').textContent = saveStateHelp();
