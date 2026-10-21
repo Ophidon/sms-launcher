@@ -458,5 +458,30 @@ async function prepare(userData, { platform = process.platform, run, progress = 
   }
 }
 
+// Removes this computer's toolsets other than this release's and those in
+// `keep` (the ones the kept game versions were built with: a game loads its
+// runtime libraries from them), and what interrupted downloads and unpacking
+// left behind. `leftoversOnly` keeps every toolset, for when a kept game's
+// tools aren't known. Returns the paths removed.
+async function pruneToolsets(userData, keep = [], { platform = process.platform, leftoversOnly = false, onError = () => {} } = {}) {
+  const parent = path.join(userData, 'build-tools');
+  let names;
+  try { names = fs.readdirSync(parent); } catch (_) { return []; }
+  const same = item => platform === 'win32' ? path.resolve(item).toLowerCase() : path.resolve(item);
+  const kept = new Set([rootFor(userData, platform), ...keep.filter(Boolean)].map(same));
+  const id = platformId(platform);
+  const toolset = new RegExp(`^${id}(?:-[a-f0-9]{12})?$`);
+  const leftover = new RegExp(`^(?:${id}(?:-[a-f0-9]{12})?\\.previous-[0-9a-f-]{36}|\\.unpack-.+|sms-build-tools-[A-Za-z0-9._-]+\\.tar\\.gz(?:\\.part)?)$`);
+  const removed = [];
+  for (const name of names) {
+    const item = path.join(parent, name);
+    if (!(leftover.test(name) || (!leftoversOnly && toolset.test(name))) || kept.has(same(item))) continue;
+    // Not rmSync, which can't remove read-only files on Windows.
+    try { await fs.promises.rm(item, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }); removed.push(item); }
+    catch (error) { onError(error, item); }
+  }
+  return removed;
+}
+
 module.exports = { TOOLSET, toolsetFor, platformId, rootFor, legacyRootFor, privateReady, missingTools, deletedToolsError, systemReady, status, environment, environmentAtRoot, check,
-  fetchVerified, hashFile, assetFor, prepare, unpackNative, renameRetrying };
+  fetchVerified, hashFile, assetFor, prepare, pruneToolsets, unpackNative, renameRetrying };
