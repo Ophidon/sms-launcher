@@ -364,3 +364,44 @@ test('a real rename goes through on the first try', async () => {
     assert.ok(fs.existsSync(path.join(dir, 'to')) && !fs.existsSync(path.join(dir, 'from')));
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
+
+test('pruning removes toolsets no kept game uses and interrupted downloads, and keeps the rest', async t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sms-tool-prune-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const parent = path.join(dir, 'build-tools');
+  const id = tools.platformId('linux');
+  const current = tools.rootFor(dir, 'linux');
+  const make = (name, file = 'ready.json') => {
+    fs.mkdirSync(path.join(parent, name), { recursive: true });
+    fs.writeFileSync(path.join(parent, name, file), '{}');
+  };
+  make(path.basename(current));
+  make(`${id}-aaaaaaaaaaaa`);
+  make(`${id}-bbbbbbbbbbbb`);
+  make(id);
+  make(`${id}-aaaaaaaaaaaa.previous-0f8fad5b-d9cb-469f-a165-70867728950e`);
+  make('.unpack-x1y2z3');
+  make('notes', 'mine.txt');
+  make('windows-x64');
+  fs.writeFileSync(path.join(parent, 'sms-build-tools-linux-x64-2026-10-05.1.tar.gz.part'), 'half a download');
+  fs.writeFileSync(path.join(parent, 'readme.txt'), 'mine');
+  const errors = [];
+  const removed = await tools.pruneToolsets(dir, [path.join(parent, `${id}-bbbbbbbbbbbb`)],
+    { platform: 'linux', onError: error => errors.push(error) });
+  assert.deepEqual(errors, []);
+  assert.deepEqual(removed.map(item => path.basename(item)).sort(), [`.unpack-x1y2z3`, id, `${id}-aaaaaaaaaaaa`,
+    `${id}-aaaaaaaaaaaa.previous-0f8fad5b-d9cb-469f-a165-70867728950e`, 'sms-build-tools-linux-x64-2026-10-05.1.tar.gz.part'].sort());
+  assert.deepEqual(fs.readdirSync(parent).sort(), [path.basename(current), `${id}-bbbbbbbbbbbb`, 'notes', 'readme.txt', 'windows-x64'].sort());
+  assert.deepEqual(await tools.pruneToolsets(path.join(dir, 'none'), [], { platform: 'linux' }), []);
+});
+
+test('pruning keeps every toolset when a kept game\'s tools are not known', async t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sms-tool-prune-unknown-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const id = tools.platformId('linux');
+  fs.mkdirSync(path.join(dir, 'build-tools', `${id}-aaaaaaaaaaaa`), { recursive: true });
+  fs.mkdirSync(path.join(dir, 'build-tools', '.unpack-abc'));
+  const removed = await tools.pruneToolsets(dir, [], { platform: 'linux', leftoversOnly: true });
+  assert.deepEqual(removed.map(item => path.basename(item)), ['.unpack-abc']);
+  assert.ok(fs.existsSync(path.join(dir, 'build-tools', `${id}-aaaaaaaaaaaa`)));
+});

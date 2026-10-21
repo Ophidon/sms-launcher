@@ -9,6 +9,7 @@ const port = require('./port');
 const saves = require('./saves');
 const gciSave = require('./gci-save');
 const buildTools = require('./build-tools');
+const compilerCache = require('./compiler-cache');
 const windowsDlls = require('./windows-dlls');
 const game = require('./game-version');
 const updateChannel = require('./update-channel');
@@ -47,6 +48,8 @@ let config;
 let active = null;
 let preparingTools = false;
 let operation = null;
+// When the player last stopped a task (Stop), so a stopped build isn't tried again.
+let stoppedAt = 0;
 let appUpdate = { state: 'idle', message: '' };
 let updater = null;
 // Before anything reads userData: the single-instance lock is keyed on it too,
@@ -870,16 +873,28 @@ async function build(forceFresh = false) {
   await updateLanguagePack(root, settings);
   if (settings.eclipse && !fs.existsSync(path.join(root, port.ECLIPSE_ISO))) await installEclipse(root);
   const disc = port.gameDisc(root, rom, settings.eclipse);
-  const env = toolEnv(port.buildEnvironment(settings, disc, root));
+  const env = await withBuildCaches(toolEnv(port.buildEnvironment(settings, disc, root)), root);
   env.NINJA_STATUS = '[%f/%t] ';
-  const cmd = settings.eclipse
-    ? port.eclipseBuildCommand(root, settings, process.platform, env)
-    : port.commandFor(root, 'build', [disc], process.platform, env);
-  const result = await game.buildSafely(root, settings, saveDirectory,
-    // A build that fails because antivirus deleted a tool says so instead of CMake's error.
-    () => launch(cmd.command, cmd.args, { cwd: cmd.cwd, env: cmd.env }, settings.eclipse ? 'Build Eclipse port' : 'Build Sunshine port')
-      .catch(error => { throw buildTools.deletedToolsError(app.getPath('userData')) || error; }),
-    undefined, source);
+  const compile = buildEnv => {
+    const cmd = settings.eclipse
+      ? port.eclipseBuildCommand(root, settings, process.platform, buildEnv)
+      : port.commandFor(root, 'build', [disc], process.platform, buildEnv);
+    return game.buildSafely(root, settings, saveDirectory,
+      // A build that fails because antivirus deleted a tool says so instead of CMake's error.
+      () => launch(cmd.command, cmd.args, { cwd: cmd.cwd, env: cmd.env }, settings.eclipse ? 'Build Eclipse port' : 'Build Sunshine port')
+        .catch(error => { throw buildTools.deletedToolsError(app.getPath('userData')) || error; }),
+      undefined, source);
+  };
+  const startedAt = Date.now();
+  let result;
+  try { result = await compile(env); }
+  catch (error) {
+    // A failed build through the compiler cache is tried once more without it,
+    // unless the player stopped it or the build tools lost files.
+    if (!usesCompilerCache(env) || stoppedAt >= startedAt || buildTools.missingTools(app.getPath('userData'))?.length) throw error;
+    log('The build failed with the compiler cache. Building again without it…');
+    result = await compile(Object.fromEntries(Object.entries(env).filter(([key]) => key !== 'SMS_COMPILER_CACHE' && !/^CCACHE_/i.test(key))));
+  }
   // Ready for sms-standalone.exe, which players can also start from Explorer.
   shieldGame(root, settings, env);
   // Preferences switch only after a successful build. Closing the app or a
@@ -893,7 +908,47 @@ async function build(forceFresh = false) {
   catch (error) { config = earlier; throw error; }
   log(`Game ${source.version} is ready. Your saved games stay in the same folder.`);
   await removeOldVersions();
+  await removeOldBuildTools();
   return result;
+}
+
+// What every game version's build shares: the compiler cache (compiler-cache.js),
+// and the Eclipse sources' downloads (the game's SMS_ECLIPSE_GIT_CACHE). A
+// player's own SMS_COMPILER_CACHE (empty for none) or SMS_ECLIPSE_GIT_CACHE is
+// used instead. Without the cache the game builds as before.
+function eclipseSourcesDirectory() { return path.join(app.getPath('userData'), 'eclipse-sources'); }
+
+function usesCompilerCache(env) { return Boolean(env.SMS_COMPILER_CACHE) && !('SMS_COMPILER_CACHE' in process.env); }
+
+async function withBuildCaches(env, root) {
+  const userData = app.getPath('userData');
+  if (!('SMS_ECLIPSE_GIT_CACHE' in process.env))
+    env = { ...env, SMS_ECLIPSE_GIT_CACHE: eclipseSourcesDirectory().replaceAll(path.sep, '/') };
+  if ('SMS_COMPILER_CACHE' in process.env) return env;
+  try { return compilerCache.environment(env, await compilerCache.prepare(userData, { log }), { userData, root }); }
+  catch (error) {
+    log(`Building without the compiler cache: ${error.message}.`);
+    return env;
+  }
+}
+
+// Build tools no kept game version was built with: an update's newer tools
+// replaced them. A kept game loads its runtime libraries from its own.
+async function removeOldBuildTools() {
+  const keep = [];
+  let unknown = false;
+  for (const root of [config.repo, config.previousInstall?.repo].filter(Boolean))
+    for (const arch of port.platformInfo().arches)
+      for (const eclipse of [false, true]) {
+        if (!fs.existsSync(port.binaryPath(root, { arch, eclipse }))) continue;
+        const tools = game.toolRoot(root, { arch, eclipse });
+        if (tools) keep.push(tools);
+        else unknown = true;
+      }
+  const removed = await buildTools.pruneToolsets(app.getPath('userData'), keep, { leftoversOnly: unknown,
+    onError: (error, item) => log(`Could not remove old build tools ${item}: ${error.message}`) });
+  if (removed.length) log(`Removed ${removed.length === 1 ? 'old build tools' : `${removed.length} old build tool folders`} ` +
+    'that no game version uses any more, to free up disk space.');
 }
 
 // Keep the current and previous game versions; older ones only take up space.
@@ -1465,7 +1520,16 @@ async function clean(dryRun) {
   const env = toolEnv();
   delete env.SMS_ARCH;
   const cmd = port.commandFor(root, 'clean', dryRun ? ['--dry-run'] : [], process.platform, env);
-  return launch(cmd.command, cmd.args, { cwd: cmd.cwd, env: cmd.env }, dryRun ? 'Preview cleanup' : 'Clean build output');
+  const result = await launch(cmd.command, cmd.args, { cwd: cmd.cwd, env: cmd.env }, dryRun ? 'Preview cleanup' : 'Clean build output');
+  if (dryRun) return result;
+  // The compiler cache and the Eclipse downloads are made again by the next builds too.
+  try {
+    await compilerCache.clear(app.getPath('userData'));
+    await fs.promises.rm(eclipseSourcesDirectory(), { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+    log('Removed the compiler cache and the downloaded Super Mario Eclipse sources.');
+  } catch (error) { log(`Could not remove the compiler cache: ${error.message}`); }
+  await removeOldBuildTools();
+  return result;
 }
 
 function state() {
@@ -1908,6 +1972,7 @@ function registerHandlers() {
   ipcMain.handle('stop', () => {
     if (!active) return false;
     if (!active.child) return false;
+    stoppedAt = Date.now();
     if (process.platform === 'win32') spawn('taskkill', ['/PID', String(active.child.pid), '/T', '/F'], { windowsHide: true });
     else { try { process.kill(-active.child.pid, 'SIGTERM'); } catch (error) { if (error.code !== 'ESRCH') throw error; } }
     return true;

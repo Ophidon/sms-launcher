@@ -222,7 +222,7 @@ Game failures report the actual exit code or signal, without treating resource w
 - **Setup or a download failed:** open **View activity** on the error message to see what happened, then try setup again. A failed HD download leaves **Finish HD setup** available to retry.
 - **A game update failed:** use **Play installed version** in Manage game. After a successful update, **Play previous version** is also available there.
 - **Mac says the launcher is on a read-only volume:** quit the launcher, move SMS Launcher.app into Applications, eject the DMG, and reopen it from Applications.
-- **Need to free up space:** use **See removable files** in Manage game, then **Free up space**. The launcher keeps your disc file and saved games.
+- **Need to free up space:** use **See removable files** in Manage game, then **Free up space**. The launcher keeps your disc file and saved games. Free up space also clears the compiler cache (up to 2 GB) and the downloaded Super Mario Eclipse sources, so the next build takes longer.
 
 ## For developers
 
@@ -322,7 +322,7 @@ Check-ins and the online count come from `sms-server-api`, a Cloudflare Worker k
 
 The launcher honors `SMS_SAVE_DIR` or `save_dir` in the port's `settings.txt` and displays the resolved path. Verified backups live outside the launcher and port folders in `~/SMS Launcher Backups`.
 
-Source updates build in separate folders and switch preferences only after success. Rebuilds preserve the previous binary and metadata; a recovery journal restores interrupted builds on the next start. Cleanup refuses custom save folders inside removable build output. Restore verifies the backup and saves current progress first. Disc images and patched discs are not included in save backups. A single-instance lock prevents overlapping updates and save operations.
+Source updates build in separate folders and switch preferences only after success. Each build compiles through [ccache](https://ccache.dev) (`src/compiler-cache.js`: its own release, pinned by SHA-256 and downloaded on first use, in `compiler-cache/` in the launcher's data folder, up to 2 GB), with paths hashed relative to the game folder being built, so a new version's folder or the Eclipse build reuses every object whose sources didn't change; without it the game builds as before, and a player's own `SMS_COMPILER_CACHE` (empty for none) replaces it. Super Mario Eclipse's sources are downloaded once into `eclipse-sources/` (the game's `SMS_ECLIPSE_GIT_CACHE`). After a successful build, toolsets no kept game version was built with, and interrupted tool downloads, are removed. Rebuilds preserve the previous binary and metadata; a recovery journal restores interrupted builds on the next start. Cleanup refuses custom save folders inside removable build output. Restore verifies the backup and saves current progress first. Disc images and patched discs are not included in save backups. A single-instance lock prevents overlapping updates and save operations.
 
 ### HD cutscene integration
 
