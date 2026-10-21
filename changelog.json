@@ -85,7 +85,8 @@
       "Fixed Super Mario Eclipse asking to save after every Shine and blue coin in the 64-bit game, even with its Save Prompts setting on AUTO SAVE; it now saves by itself as that setting says.",
       "A settings menu in the game: pause and press Y to change the launcher's graphics, display, gameplay and control settings while you play, including separate music and sound effects volume. Changes show at once (screen format, frame rate and HD texture loading from the next area), and the launcher keeps them.",
       "Super Mario Eclipse downloads its mods' sources once for every game version instead of again for each, saving about 110 MB per update and nearly 1 GB of disk space per game version.",
-      "Mods can now tell why a stage is left (a Shine, Exit Area, a lost life, a pipe), send the game straight to an episode past the episode select, and read each world's episodes and their names; in multiplayer, players who got a Shine wait a moment for the host and then go wherever the host goes."
+      "Mods can now tell why a stage is left (a Shine, Exit Area, a lost life, a pipe), send the game straight to an episode past the episode select, and read each world's episodes and their names; in multiplayer, players who got a Shine wait a moment for the host and then go wherever the host goes.",
+      "Server mods can do much more in multiplayer games: move, resize, hide or remove the level's objects, add copies of objects and coins, launch players or change their health, water and nozzle, turn off FLUDD, damage, pausing or pickups, and show standings, markers over places or players, fades, camera shakes and rumble; they can also set a player's Mario colours and where they come back after losing a life."
     ]
   },
   "releases": [
