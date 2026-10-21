@@ -69,7 +69,7 @@ function gameRoot(t, minor) {
 
 test('the catalog names Seamless Episodes, its repository and the mod API it needs', () => {
   assert.equal(ENTRY.repository, 'chasem-dev/sms-seamless-episodes');
-  assert.equal(ENTRY.api, '1.5');
+  assert.equal(ENTRY.api, '1.4');
   for (const entry of mods.catalog()) assert.match(entry.id, /^[a-z0-9.-]+$/);
 });
 
@@ -94,13 +94,13 @@ test('switching a mod off and on writes the game\'s own list, keeping what else 
 });
 
 test('a game folder\'s mod API comes from its SDK header, and decides what it runs', t => {
-  assert.deepEqual(mods.gameApi(gameRoot(t, 5)), { major: 1, minor: 5 });
+  assert.deepEqual(mods.gameApi(gameRoot(t, 4)), { major: 1, minor: 4 });
   assert.equal(mods.gameApi(temporary(t)), null);
-  assert.equal(mods.supports({ major: 1, minor: 5 }, '1.5'), true);
-  assert.equal(mods.supports({ major: 1, minor: 6 }, '1.5'), true);
-  assert.equal(mods.supports({ major: 1, minor: 3 }, '1.5'), false);
-  assert.equal(mods.supports({ major: 2, minor: 0 }, '1.5'), false);
-  assert.equal(mods.supports(null, '1.5'), false);
+  assert.equal(mods.supports({ major: 1, minor: 4 }, '1.4'), true);
+  assert.equal(mods.supports({ major: 1, minor: 6 }, '1.4'), true);
+  assert.equal(mods.supports({ major: 1, minor: 3 }, '1.4'), false);
+  assert.equal(mods.supports({ major: 2, minor: 0 }, '1.4'), false);
+  assert.equal(mods.supports(null, '1.4'), false);
   assert.equal(mods.supports(null, ''), true);
 });
 
@@ -133,11 +133,11 @@ test('a zip that is not the mod, or reaches outside its folder, leaves the insta
 
 test('the game is told of the launcher\'s mods only when it has some and a mod API that reads the list', t => {
   const userData = temporary(t);
-  const root = gameRoot(t, 5);
+  const root = gameRoot(t, 4);
   assert.deepEqual(mods.environment(root, userData), {});
   mods.installZip(userData, ENTRY, releaseZip(), {});
   assert.deepEqual(mods.environment(root, userData), { SMS_NATIVE_MODS_DIR: `${path.join(root, 'mods')};${mods.directory(userData)}` });
-  assert.deepEqual(mods.environment(gameRoot(t, 4), userData), {});
+  assert.deepEqual(mods.environment(gameRoot(t, 3), userData), {});
 });
 
 test('the newest release is downloaded from GitHub and installed', async t => {
@@ -162,8 +162,8 @@ test('the Mods page lists the catalog with what is installed, on, and runnable',
   const env = { SMS_NATIVE_MODS_DATA: data };
   mods.installZip(userData, ENTRY, releaseZip(), {});
   mods.setEnabled('seamless-episodes', false, env);
-  const page = mods.list(userData, gameRoot(t, 5), env);
-  assert.equal(page.gameApi, '1.5');
+  const page = mods.list(userData, gameRoot(t, 4), env);
+  assert.equal(page.gameApi, '1.4');
   const row = page.mods.find(mod => mod.id === 'seamless-episodes');
   assert.equal(row.installed.version, '1.0.0');
   assert.equal(row.enabled, false);

@@ -4,6 +4,6 @@
     "name": "Seamless Episodes",
     "description": "After a Shine Sprite is saved, the world's next episode starts right away, with its opening cutscene: no trip back to Delfino Plaza and no episode select. Works in singleplayer and when you host multiplayer; the players who join follow you.",
     "repository": "chasem-dev/sms-seamless-episodes",
-    "api": "1.5"
+    "api": "1.4"
   }
 ]

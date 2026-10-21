@@ -70,7 +70,7 @@ async function renderer(data = state(), copyError = null, notes = { releases: []
     updateAndPlay: async () => { calls.push('updateAndPlay'); },
     updatePort: async () => { calls.push('updatePort'); data.game = { ...data.game, needsUpdate: false, installedVersion: data.game.availableVersion }; },
     checkNat: async () => ({ label: 'Open', type: 'open', text: 'You can host and join.' }), publicGames: async () => [],
-    nativeMods: async () => ({ folder: '/mods', gameApi: '1.5', mods: [] }), nativeModsLatest: async () => ({}),
+    nativeMods: async () => ({ folder: '/mods', gameApi: '1.4', mods: [] }), nativeModsLatest: async () => ({}),
     copyText: async text => { calls.push(['copyText', text]); },
     steamStatus: async () => ({ ...steam }), steamOffered: async prompt => { calls.push(`steamOffered:${prompt}`); },
     appleSiliconSwitched: async keptRosetta => { calls.push(['appleSiliconSwitched', keptRosetta]); },

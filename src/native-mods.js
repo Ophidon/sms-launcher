@@ -87,7 +87,7 @@ function parseApi(text) {
   return match ? { major: Number(match[1]), minor: Number(match[2]) } : null;
 }
 
-// Whether a game with mod API `have` runs a mod that needs `need` ("1.5").
+// Whether a game with mod API `have` runs a mod that needs `need` ("1.4").
 function supports(have, need) {
   const want = typeof need === 'string' ? parseApi(need) : need;
   if (!want) return true;
@@ -113,11 +113,11 @@ function installed(userData) {
 }
 
 // What the game is told at launch: the game's own mods/ and the launcher's
-// folder. Only for games whose mod API is 1.5 or newer, which take a list with
+// folder. Only for games whose mod API is 1.4 or newer, which take a list with
 // spaces in its paths (older ones split it at spaces too, and would lose their
 // own mods/ in a folder named with spaces).
 function environment(root, userData) {
-  if (!installed(userData).length || !supports(gameApi(root), '1.5')) return {};
+  if (!installed(userData).length || !supports(gameApi(root), '1.4')) return {};
   return { SMS_NATIVE_MODS_DIR: [path.join(root, 'mods'), directory(userData)].join(';') };
 }
 
