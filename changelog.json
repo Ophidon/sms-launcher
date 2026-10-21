@@ -89,7 +89,8 @@
       "With button prompts set to Xbox, PlayStation, Steam Deck, keyboard or Automatic, the B shown over a character you can talk to is now that controller's B button (or your key for it) instead of the GameCube B.",
       "Mods, in C or Lua, can now tell why a stage is left (a Shine, Exit Area, a lost life, a pipe), send the game straight to an episode past the episode select, and read each world's episodes and their names; in multiplayer, players who got a Shine wait a moment for the host and then go wherever the host goes.",
       "Server mods can do much more in multiplayer games: move, resize, hide or remove the level's objects, add copies of objects and coins, launch players or change their health, water and nozzle, turn off FLUDD, damage, pausing or pickups, and show standings, markers over places or players, fades, camera shakes and rumble; they can also set a player's Mario colours and where they come back after losing a life.",
-      "Fixed a black screen from the moment the game starts with Windows HDR on."
+      "Fixed a black screen from the moment the game starts with Windows HDR on.",
+      "Fixed the Vulkan renderer never starting: choosing Vulkan under Graphics always played with OpenGL instead."
     ]
   },
   "releases": [
