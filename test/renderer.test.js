@@ -40,7 +40,7 @@ async function renderer(data = state(), copyError = null, notes = { releases: []
       click() { if (!this.disabled) for (const callback of listeners.get('click') || []) callback(); },
       dispatch(event, value) { for (const callback of listeners.get(event) || []) callback(value); },
       setAttribute(name, value) { this[name] = value; }, removeAttribute(name) { delete this[name]; },
-      replaceChildren(...children) { this.textContent = children.map(text).join(''); }, append() {}, focus() {},
+      replaceChildren(...children) { this.textContent = children.map(text).join(''); this.replaced = children; }, append() {}, focus() {},
       children: [], appendChild(child) { this.children.push(child); return child; },
       close() { this.open = false; }, showModal() { this.open = true; },
       dataset: {}, getBoundingClientRect: () => ({ left: 0, top: 0 }), querySelectorAll: () => [],
@@ -77,7 +77,7 @@ async function renderer(data = state(), copyError = null, notes = { releases: []
       return { added: true, play: options.play, name: 'Super Mario Sunshine', artwork: 5, total: 5 }; }
   };
   const context = vm.createContext({ console, setInterval() {}, clearInterval() {}, requestAnimationFrame: callback => setImmediate(callback),
-    window: { sms, smsActivityLog: require('../src/activity-log'), smsRumble: require('../src/rumble'), smsGamepadNav: { start: options => Object.assign(gamepad, options) },
+    window: { sms, smsActivityLog: require('../src/activity-log'), smsChangelogText: require('../src/changelog-text'), smsRumble: require('../src/rumble'), smsGamepadNav: { start: options => Object.assign(gamepad, options) },
       addEventListener() {} }, document: {
     getElementById(id) { assert.ok(elements.has(id), `Missing HTML element ${id}`); return elements.get(id); },
     querySelectorAll(selector) {
@@ -379,15 +379,23 @@ const notes = {
   ]
 };
 
-test('the changelog opens once after an update with only the new releases', async () => {
+const version = (ui, key) => ui.elements.get('changelog-nav').replaced.find(button => button.dataset.key === key);
+
+test('the changelog opens once after an update on the newest release, with the others beside it', async () => {
   const ui = await renderer(state(), null, notes);
   assert.equal(ui.elements.get('changelog').hidden, false);
   assert.equal(ui.elements.get('changelog-title').textContent, 'Updated to v0.1.39');
-  assert.equal(ui.elements.get('changelog-show-all').hidden, false);
+  assert.equal(ui.elements.get('changelog-version').textContent, 'v0.1.39');
+  assert.equal(ui.elements.get('changelog-badge').textContent, 'New');
+  assert.equal(ui.elements.get('changelog-meta').textContent, `${new Date('2026-10-09T12:00:00').toLocaleDateString(undefined,
+    { year: 'numeric', month: 'short', day: 'numeric' })} · Game 2026.10.09.1`);
+  assert.deepEqual(ui.elements.get('changelog-nav').replaced.map(button => button.dataset.key), ['0.1.39', '0.1.38']);
   assert.equal(ui.changelogSeen.length, 1);
-  await ui.click('changelog-show-all');
-  assert.equal(ui.elements.get('changelog-title').textContent, 'Changelog');
-  assert.equal(ui.elements.get('changelog-show-all').hidden, true);
+  version(ui, '0.1.38').click();
+  assert.equal(ui.elements.get('changelog-version').textContent, 'v0.1.38');
+  assert.equal(ui.elements.get('changelog-badge').hidden, true);
+  assert.ok(version(ui, '0.1.38').classList.contains('active'));
+  assert.ok(!version(ui, '0.1.39').classList.contains('active'));
 });
 
 test('nothing new means no popup, and a running task postpones it to the next start', async () => {
@@ -399,12 +407,18 @@ test('nothing new means no popup, and a running task postpones it to the next st
   assert.equal(busy.changelogSeen.length, 0);
 });
 
-test("the What's new tab shows every release", async () => {
+test("the What's new tab lists every release and opens on the newest", async () => {
   const ui = await renderer(state(), null, { ...notes, unseen: [] });
   await ui.click('open-changelog');
   assert.equal(ui.elements.get('changelog').hidden, false);
-  assert.equal(ui.elements.get('changelog-title').textContent, 'Changelog');
-  assert.equal(ui.elements.get('changelog-show-all').hidden, true);
+  assert.equal(ui.elements.get('changelog-title').textContent, "What's new");
+  assert.equal(ui.elements.get('changelog-version').textContent, 'v0.1.39');
+  assert.equal(ui.elements.get('changelog-badge').textContent, 'Installed');
+  assert.equal(ui.elements.get('changelog-nav').replaced.length, 2);
+  const empty = await renderer(state(), null, { releases: [], unseen: [], current: '0.1.39' });
+  await empty.click('open-changelog');
+  assert.equal(empty.elements.get('changelog-status').textContent, 'No changes are listed yet.');
+  assert.equal(empty.elements.get('changelog-head').hidden, true);
 });
 
 test('Beta builds see new Beta notes first, and only Beta notes when no release is new', async () => {
@@ -412,12 +426,16 @@ test('Beta builds see new Beta notes first, and only Beta notes when no release 
   const ui = await renderer(state(), null, { ...notes, unseen: [], beta });
   assert.equal(ui.elements.get('changelog').hidden, false);
   assert.equal(ui.elements.get('changelog-title').textContent, "What's new in Beta");
-  assert.equal(ui.elements.get('changelog-show-all').hidden, false);
+  assert.equal(ui.elements.get('changelog-version').textContent, 'Beta');
+  assert.equal(ui.elements.get('changelog-badge').textContent, 'New');
+  assert.deepEqual(ui.elements.get('changelog-nav').replaced.map(button => button.dataset.key), ['beta', '0.1.39', '0.1.38']);
   assert.equal(ui.changelogSeen.length, 1);
   const seen = await renderer(state(), null, { ...notes, unseen: [], beta: { ...beta, unseen: false } });
   assert.equal(seen.elements.get('changelog').hidden, true);
   await seen.click('open-changelog');
-  assert.equal(seen.elements.get('changelog-title').textContent, 'Changelog');
+  assert.equal(seen.elements.get('changelog-title').textContent, "What's new");
+  assert.equal(seen.elements.get('changelog-version').textContent, 'Beta');
+  assert.equal(seen.elements.get('changelog-badge').textContent, 'Not released yet');
 });
 
 test('controller buttons open settings, step through its tabs, go back and pause while the game runs', async () => {

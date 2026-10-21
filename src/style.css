@@ -259,7 +259,6 @@ pre { height: 120px; margin: 0; padding: 12px; overflow: auto; border-radius: 8p
 .controls-note p { color: #405a60; font-size: 13px; line-height: 1.45; }
 .controls-note p + p { margin-top: 6px; }
 .modal-body { min-height: 0; overflow: auto; padding: 18px 24px 24px; }
-.changelog-page .changelog-list, .changelog-page .changelog-actions { max-width: 760px; }
 .saves-page .settings-pane { max-width: 760px; }
 /* Multiplayer: your room on top, then two columns that stack when the page is narrow. */
 .mp-body { display: grid; grid-auto-rows: max-content; gap: 14px; container-type: inline-size; }
@@ -339,17 +338,49 @@ pre { height: 120px; margin: 0; padding: 12px; overflow: auto; border-radius: 8p
 .dark .mp-recent-join { color: #8fd3da; }
 .steam-modal { width: min(460px, calc(100% - 36px)); }
 .steam-actions { justify-content: flex-end; margin-top: 16px; }
-.changelog-list { display: grid; gap: 12px; color: #637980; font-size: 13px; }
-.changelog-release { padding: 15px 18px 16px; border: 1px solid #dfe9e8; border-radius: 12px; background: #fff; }
-.changelog-release header { display: flex; align-items: center; gap: 8px; }
-.changelog-release h2 { color: #17343d; }
-.changelog-release time { margin-left: auto; color: #637980; font-size: 12px; white-space: nowrap; }
-.changelog-release h3 { margin: 12px 0 5px; color: #207889; font-size: 10px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
-.changelog-release ul { margin: 0; padding-left: 18px; color: #2c4a51; font-size: 13px; line-height: 1.5; }
-.changelog-release li + li { margin-top: 3px; }
-.changelog-beta { border-color: #f1d9a6; background: #fffaf0; }
-.changelog-note { margin-top: 6px; color: #637980; font-size: 12px; }
-.changelog-actions { justify-content: space-between; margin-top: 14px; }
+/* What's new: Beta and the releases down the left, the chosen one beside them with its launcher and game
+   changes in two columns that stack when the page is narrow. */
+.changelog-body { display: grid; grid-template: minmax(0, 1fr) auto / 210px minmax(0, 1fr); padding: 0; overflow: hidden; }
+.changelog-nav { display: flex; flex-direction: column; gap: 2px; overflow: auto; padding: 14px 10px; border-right: 1px solid #dce7e6; background: #f1f6f5; }
+.changelog-version { display: grid; flex: none; gap: 2px; padding: 9px 12px; border: 0; border-radius: 9px; background: transparent; color: #31545b; text-align: left; }
+.changelog-version:hover { background: #e4eeed; }
+.changelog-version.active { background: #fff; color: #17343d; box-shadow: inset 3px 0 0 #f2b81c, 0 1px 3px #0b2a3a1a; }
+.changelog-version-name { display: flex; align-items: center; gap: 7px; font-size: 14px; }
+.changelog-version small { color: #6f8489; font-size: 11.5px; font-weight: 500; }
+.changelog-version.beta small { color: #a0731f; }
+.changelog-dot { width: 7px; height: 7px; border-radius: 50%; background: #9fb1b5; }
+.changelog-dot.new { background: #22a06b; }
+.changelog-detail { overflow: auto; padding: 22px 28px 28px; container-type: inline-size; }
+.changelog-status { color: #637980; font-size: 13px; }
+.changelog-head { display: grid; gap: 6px; margin-bottom: 18px; padding-bottom: 16px; border-bottom: 1px solid #e3ecec; }
+.changelog-head[hidden] { display: none; }
+.changelog-heading { display: flex; align-items: center; gap: 10px; }
+.changelog-heading h2 { color: #17343d; font-size: 26px; letter-spacing: -.01em; }
+.changelog-head p { color: #637980; font-size: 12.5px; }
+.changelog-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 18px 34px; }
+@container (max-width: 680px) { .changelog-columns { grid-template-columns: minmax(0, 1fr); } }
+.changelog-column { display: grid; gap: 14px; }
+.changelog-column h3 { display: flex; align-items: center; gap: 8px; color: #207889; font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.changelog-count { padding: 1px 7px; border-radius: 999px; background: #e3f0ef; color: #4d7177; font-size: 10px; letter-spacing: 0; }
+.changelog-column h4 { margin-top: 6px; color: #6f8489; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.changelog-change { min-width: 0; border-radius: 6px; }
+.changelog-change.can-open { cursor: pointer; }
+.changelog-change:focus-visible { outline: 2px solid #17818a; outline-offset: 3px; }
+.changelog-headline { color: #4d666c; font-size: 12.5px; line-height: 1.5; }
+.changelog-headline strong { color: #17343d; font-size: 13.5px; font-weight: 700; line-height: 1.35; }
+.changelog-details { margin-top: 3px; color: #4d666c; font-size: 12.5px; line-height: 1.5; }
+.changelog-clamp { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
+.changelog-headline.changelog-clamp { -webkit-line-clamp: 4; }
+.changelog-change.open .changelog-clamp { display: block; }
+.changelog-change.can-open:not(.open) .changelog-clamp:last-child { -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 1.5em), #0008); }
+.changelog-tag { display: inline-flex; align-items: center; height: 18px; margin-right: 7px; padding: 0 7px; border-radius: 999px; background: #e6f3f2; color: #1d6f78;
+  font-size: 10px; font-weight: 800; vertical-align: 1px; white-space: nowrap; }
+.changelog-tag.multiplayer { background: #e4ecfb; color: #3156a8; }
+.changelog-fixes { display: grid; gap: 9px; margin: 0; padding: 12px 14px; border: 1px solid #e0eae9; border-radius: 10px; background: #fff; list-style: none; }
+.changelog-fixes li { position: relative; padding-left: 18px; }
+.changelog-fixes li::before { content: '✓'; position: absolute; left: 0; top: 0; color: #22a06b; font-size: 12px; font-weight: 800; }
+.changelog-fixes .changelog-headline strong { font-size: 12.5px; font-weight: 600; }
+.changelog-actions { grid-column: 1 / -1; display: flex; padding: 10px 24px; border-top: 1px solid #dce7e6; background: #fff; }
 .viewport { overflow: auto; }
 .home-page { height: auto; min-height: 100%; }
 .activity-drawer { flex: none; display: flex; flex-direction: column; color: #d7e9ed; background: #0b2537; border-top: 1px solid #719aaa66; box-shadow: 0 -8px 28px #061e3433; }
@@ -523,16 +554,16 @@ pre { height: 120px; margin: 0; padding: 12px; overflow: auto; border-radius: 8p
 .dark .settings-tab { position: relative; }
 .dark .settings-tab.active { background: linear-gradient(90deg, #ffc75a1f, #ffc75a08); color: #ffe2a3; box-shadow: none; }
 .dark .settings-tab.active::before { position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; border-radius: 3px; background: #ffc75a; content: ''; }
-.dark :is(.settings-group, .changelog-release, .mac-command, :is(.launcher-modal, .sheet) .panel) { border-color: #2a4d61; border-top-color: #36637a; background: linear-gradient(180deg, #17364b, #132e40); box-shadow: 0 6px 18px #0004; }
+.dark :is(.settings-group, .changelog-fixes, .mac-command, :is(.launcher-modal, .sheet) .panel) { border-color: #2a4d61; border-top-color: #36637a; background: linear-gradient(180deg, #17364b, #132e40); box-shadow: 0 6px 18px #0004; }
 .dark :is(.settings-group > *, .binding-row, .version-list > div + div, .switch, .field) { border-color: #23404f; }
 .dark :is(.switch strong, .settings-group .field > span, .settings-group .range-field strong, .path-row strong, .backup-picker span,
-  .changelog-release h2, .binding-row.changed > span:first-child, .binding-modes button[aria-pressed="true"]) { color: #e6f2f4; }
+  .changelog-heading h2, .changelog-headline strong, .changelog-version.active, .binding-row.changed > span:first-child, .binding-modes button[aria-pressed="true"]) { color: #e6f2f4; }
 .dark :is(.modal-head p:last-child, .switch small, .settings-group .field small, .range-field output, .row-note, .small-path, .helper,
-  .version-list dt, .version-list small, .changelog-list, .changelog-release time, .changelog-note, .binding-keys.binding-none,
+  .version-list dt, .version-list small, .changelog-status, .changelog-head p, .changelog-version small, .changelog-column h4, .binding-keys.binding-none,
   .mac-help-intro, .mac-check-actions) { color: #93acb4; }
 .dark #game-source summary small, .dark #game-source summary::after { color: #93acb4; }
-.dark :is(.settings-group > .row-note.lead, .binding-row, .source-grid label, .changelog-release ul, .controls-note p, .field) { color: #c9dce1; }
-.dark :is(.group-title, .changelog-release h3, .text-button, .binding-row.capturing .binding-keys) { color: #7fd3d6; }
+.dark :is(.settings-group > .row-note.lead, .binding-row, .source-grid label, .changelog-headline, .changelog-details, .changelog-version, .controls-note p, .field) { color: #c9dce1; }
+.dark :is(.group-title, .changelog-column h3, .text-button, .binding-row.capturing .binding-keys) { color: #7fd3d6; }
 .dark :is(select, .source-grid input, .binding-keys kbd, .mp-input) { border-color: #33566a; background: #0f2636; color: #e3eff2; }
 .dark .mp-section { border-color: #24465a; background: #12303f; }
 .dark .mp-field { color: #b8cdd2; }
@@ -551,7 +582,16 @@ pre { height: 120px; margin: 0; padding: 12px; overflow: auto; border-radius: 8p
 .dark .binding-modes { border-color: #27475a; background: #0f2636; }
 .dark .binding-modes button { color: #a9c3ca; }
 .dark .binding-modes button[aria-pressed="true"] { background: #1c3e53; box-shadow: none; }
-.dark :is(.preset-tip, .changelog-release.changelog-beta, .controls-note) { border-color: #5a4b22; background: #2b2716; color: #f3e2a8; }
+.dark :is(.preset-tip, .controls-note) { border-color: #5a4b22; background: #2b2716; color: #f3e2a8; }
+.dark :is(.changelog-nav, .changelog-actions) { border-color: #2a4d61; background: #10283a; }
+.dark .changelog-version:hover { background: #17364b; }
+.dark .changelog-version.active { background: #1b3d53; box-shadow: inset 3px 0 0 #ffc75a; }
+.dark .changelog-version.beta small { color: #f0c873; }
+.dark .changelog-head { border-color: #2a4d61; }
+.dark .changelog-count { background: #1f4a5a; color: #a9d6da; }
+.dark .changelog-tag { background: #1f4a5a; color: #8fe0e2; }
+.dark .changelog-tag.multiplayer { background: #24365e; color: #a9c1f5; }
+.dark .changelog-change:focus-visible { outline-color: #7fd3d6; }
 .dark .controls-note h2 { color: #f3e2a8; }
 .dark .dolphin-save-drop { border-color: #4f97a3; background: #10303f; }
 .dark .dolphin-save-drop.drag-over { border-color: #7fd3d6; background: #15414f; }
