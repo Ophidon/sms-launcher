@@ -47,7 +47,7 @@ function showPage(name) {
 for (const [name, item] of Object.entries(pages)) $(item.nav).addEventListener('click', () => showPage(name));
 
 // Settings is one page with a tab per section; it reopens on the last one shown.
-const settingsTabs = ['gameplay', 'display', 'graphics', 'controls', 'manage', 'launcher'];
+const settingsTabs = ['gameplay', 'display', 'graphics', 'controls', 'manage', 'mods', 'launcher'];
 let settingsTab = 'gameplay';
 function showSettingsTab(name) {
   if (settingsTab === 'controls' && name !== 'controls') stopCapture();
@@ -60,6 +60,7 @@ function showSettingsTab(name) {
   $('settings-panes').scrollTop = 0;
   if (name === 'controls') { renderBindings(); loadGcAdapter(); }
   if (name === 'launcher') loadUpdateChannels();
+  if (name === 'mods') loadNativeMods();
 }
 for (const tab of settingsTabs) $(`tab-${tab}`).addEventListener('click', () => showSettingsTab(tab));
 onPage('settings', {
@@ -1790,6 +1791,97 @@ function saveStateHelp() {
     `${loadKey ? ` (${loadKey} loads the newest)` : ''}. A state loads exactly in the game build that saved it; ` +
     'from another build or someone else\'s game it takes you to the same place. Share a state by sending its file.';
 }
+
+// --- Mods (src/native-mods.js): the launcher's mods, downloaded from their GitHub releases.
+let nativeModReleases = null; // each mod's newest release, asked once a session (or on Check for updates)
+function newerVersion(a, b) {
+  const split = value => String(value || '').replace(/^v/i, '').split(/[.+-]/).map(part => Number.parseInt(part, 10) || 0);
+  const x = split(a), y = split(b);
+  for (let i = 0; i < Math.max(x.length, y.length); i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0);
+  return false;
+}
+
+function nativeModStatus(mod, release) {
+  if (mod.api && !mod.supported)
+    return `Needs a newer game (mod API ${mod.api}${mod.gameApi ? `; this one has ${mod.gameApi}` : ''}): update the game under Manage game.`;
+  const latest = release && !release.error ? release.version : null;
+  if (mod.installed) {
+    const version = mod.installed.version ? `Version ${mod.installed.version}` : 'Downloaded';
+    return latest && newerVersion(latest, mod.installed.version) ? `${version} · ${latest} available` : `${version}${mod.enabled ? '' : ' · off'}`;
+  }
+  if (release?.error) return release.error;
+  return latest ? `Version ${latest} to download` : 'Not downloaded';
+}
+
+function renderNativeMods({ mods, gameApi }) {
+  if (!mods.length) {
+    const empty = document.createElement('p'); empty.className = 'save-state-empty'; empty.textContent = 'No mods to offer yet.';
+    $('native-mod-list').replaceChildren(empty);
+    return;
+  }
+  $('native-mod-list').replaceChildren(...mods.map(mod => {
+    const release = nativeModReleases?.[mod.id];
+    const row = document.createElement('div'); row.className = 'native-mod-row';
+    const text = document.createElement('span'); text.className = 'save-state-text native-mod-text';
+    const title = document.createElement('strong'); title.textContent = mod.name;
+    const description = document.createElement('small'); description.className = 'native-mod-description'; description.textContent = mod.description || '';
+    const status = document.createElement('small'); status.textContent = nativeModStatus({ ...mod, gameApi }, release);
+    text.append(title, description, status);
+    const actions = document.createElement('span'); actions.className = 'binding-actions native-mod-actions';
+    const button = (label, onClick, solid = false) => {
+      const item = document.createElement('button'); item.className = solid ? 'solid' : 'subtle'; item.textContent = label;
+      item.addEventListener('click', async () => {
+        item.disabled = true;
+        try { await onClick(); } catch (error) { showError(error); } finally { item.disabled = false; }
+      });
+      return item;
+    };
+    const install = async verb => {
+      $('native-mod-result').textContent = `Downloading ${mod.name}…`;
+      try {
+        renderNativeMods(await window.sms.installNativeMod(mod.id));
+        $('native-mod-result').textContent = `${mod.name} ${verb}. It runs the next time the game starts.`;
+      } catch (error) { $('native-mod-result').textContent = ''; throw error; }
+    };
+    if (mod.installed) {
+      const toggle = document.createElement('label'); toggle.className = 'switch native-mod-switch';
+      const input = document.createElement('input'); input.type = 'checkbox'; input.checked = mod.enabled;
+      input.setAttribute('aria-label', `${mod.name} on`); toggle.title = mod.enabled ? 'On' : 'Off';
+      input.disabled = Boolean(mod.api && !mod.supported);
+      input.addEventListener('change', async () => {
+        try { renderNativeMods(await window.sms.enableNativeMod(mod.id, input.checked)); }
+        catch (error) { input.checked = !input.checked; showError(error); }
+      });
+      toggle.append(input, document.createElement('i'));
+      const latest = release && !release.error ? release.version : null;
+      if (mod.repository && latest && newerVersion(latest, mod.installed.version)) actions.append(button('Update', () => install('updated'), true));
+      actions.append(button('Remove', async () => {
+        renderNativeMods(await window.sms.removeNativeMod(mod.id));
+        $('native-mod-result').textContent = `${mod.name} removed.`;
+      }), toggle);
+    } else if (mod.repository) {
+      actions.append(button('Download', () => install('downloaded'), true));
+    }
+    row.append(text, actions);
+    return row;
+  }));
+}
+
+async function loadNativeMods(check = false) {
+  try {
+    renderNativeMods(await window.sms.nativeMods());
+    if (check || !nativeModReleases) {
+      nativeModReleases = await window.sms.nativeModsLatest();
+      renderNativeMods(await window.sms.nativeMods());
+    }
+  } catch (error) { showError(error); }
+}
+$('native-mods-check').addEventListener('click', async () => {
+  $('native-mod-result').textContent = 'Checking…';
+  await loadNativeMods(true);
+  $('native-mod-result').textContent = '';
+});
+$('open-native-mods').addEventListener('click', () => window.sms.openNativeMods().catch(showError));
 
 function renderSaveStates({ states }) {
   $('save-state-help').textContent = saveStateHelp();

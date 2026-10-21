@@ -29,6 +29,7 @@ const changelog = require('./changelog');
 const multiplayer = require('./multiplayer');
 const nat = require('./nat');
 const rooms = require('./rooms');
+const nativeMods = require('./native-mods');
 const { cleanOutputLine, createActivityReader } = require('./progress');
 const { createActivityLog } = require('./activity-log');
 const { observeProcess, exitDescription, failureMessage } = require('./process-output');
@@ -1018,6 +1019,31 @@ async function displayInfo() {
 }
 
 // `session`: a multiplayer game to host or join ({ mode: 'host' or 'join', env }: hostGame, joinGame), or null to play alone.
+// The Mods page: the launcher's mods, and whether this game can run them.
+function nativeModsState() {
+  const root = config.repo && fs.existsSync(config.repo) ? config.repo : null;
+  return nativeMods.list(app.getPath('userData'), root);
+}
+
+// Each mod's newest release, for the page's Update buttons; a mod GitHub
+// cannot answer about just shows none.
+async function nativeModsLatest() {
+  const latest = {};
+  await Promise.all(nativeMods.catalog().map(async entry => {
+    try { latest[entry.id] = await nativeMods.latestRelease(entry, (url, options) => net.fetch(url, options)); }
+    catch (error) { latest[entry.id] = { error: error.message }; }
+  }));
+  return latest;
+}
+
+async function installNativeMod(id) {
+  const entry = nativeMods.catalog().find(item => item.id === id);
+  if (!entry) throw new Error('That mod is not one the launcher offers.');
+  const done = await nativeMods.download(app.getPath('userData'), entry, (url, options) => net.fetch(url, options));
+  log(`Installed ${entry.name} ${done.version} in ${done.dir}.`);
+  return nativeModsState();
+}
+
 async function play(installation = null, session = null) {
   keepGameSettings();
   const root = installation?.repo || requireRepo();
@@ -1053,6 +1079,8 @@ async function play(installation = null, session = null) {
   if (look) env.SMS_MARIO_LOOK = look;
   // Together, each game paints the others in their own colours (theirs come over the network).
   if (session) Object.assign(env, marioPaintEnvironment(rom, root, settings));
+  // Mods from the Mods page, beside the game's own mods/ folder.
+  Object.assign(env, nativeMods.environment(root, app.getPath('userData')));
   if (session) Object.assign(env, session.env);
   if (portableRoot && !env.SMS_GX_SHADER_CACHE) {
     // The game only makes the folder for its default location.
@@ -1936,6 +1964,15 @@ function registerHandlers() {
   });
   // Save states: files the game keeps in a savestates folder beside the memory card (src/savestates.js).
   const stateDirectory = () => savestates.stateDirectory(currentSaveDirectory());
+  ipcMain.handle('native-mods', () => nativeModsState());
+  ipcMain.handle('native-mods-latest', () => nativeModsLatest());
+  ipcMain.handle('native-mod-install', (_event, id) => exclusive('Download mod', () => installNativeMod(id)));
+  ipcMain.handle('native-mod-remove', (_event, id) => { nativeMods.remove(app.getPath('userData'), String(id)); return nativeModsState(); });
+  ipcMain.handle('native-mod-enable', (_event, id, on) => { nativeMods.setEnabled(String(id), Boolean(on)); return nativeModsState(); });
+  ipcMain.handle('open-native-mods', () => {
+    fs.mkdirSync(nativeMods.directory(app.getPath('userData')), { recursive: true });
+    return shell.openPath(nativeMods.directory(app.getPath('userData')));
+  });
   ipcMain.handle('save-states', () => ({ directory: stateDirectory(), states: savestates.listStates(stateDirectory()) }));
   ipcMain.handle('open-save-states', () => {
     fs.mkdirSync(stateDirectory(), { recursive: true });

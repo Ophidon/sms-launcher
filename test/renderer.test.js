@@ -70,6 +70,7 @@ async function renderer(data = state(), copyError = null, notes = { releases: []
     updateAndPlay: async () => { calls.push('updateAndPlay'); },
     updatePort: async () => { calls.push('updatePort'); data.game = { ...data.game, needsUpdate: false, installedVersion: data.game.availableVersion }; },
     checkNat: async () => ({ label: 'Open', type: 'open', text: 'You can host and join.' }), publicGames: async () => [],
+    nativeMods: async () => ({ folder: '/mods', gameApi: '1.5', mods: [] }), nativeModsLatest: async () => ({}),
     copyText: async text => { calls.push(['copyText', text]); },
     steamStatus: async () => ({ ...steam }), steamOffered: async prompt => { calls.push(`steamOffered:${prompt}`); },
     appleSiliconSwitched: async keptRosetta => { calls.push(['appleSiliconSwitched', keptRosetta]); },
@@ -423,7 +424,7 @@ test('Beta builds see new Beta notes first, and only Beta notes when no release 
 test('controller buttons open settings, step through its tabs, go back and pause while the game runs', async () => {
   const view = await renderer(state());
   const { elements, gamepad } = view;
-  const tabs = ['gameplay', 'display', 'graphics', 'controls', 'manage', 'launcher'];
+  const tabs = ['gameplay', 'display', 'graphics', 'controls', 'manage', 'mods', 'launcher'];
   const shown = () => tabs.filter(name => !elements.get(`pane-${name}`).hidden);
   assert.equal(gamepad.paused(), false);
   gamepad.actions.menu();
@@ -438,6 +439,8 @@ test('controller buttons open settings, step through its tabs, go back and pause
   assert.deepEqual(shown(), ['launcher']);
   assert.equal(elements.get('tab-launcher')['aria-selected'], 'true');
   assert.equal(elements.get('tab-gameplay')['aria-selected'], 'false');
+  gamepad.actions.previous();
+  assert.deepEqual(shown(), ['mods']);
   gamepad.actions.previous();
   assert.deepEqual(shown(), ['manage']);
   gamepad.actions.back();
