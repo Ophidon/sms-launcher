@@ -537,6 +537,14 @@ pre { height: 120px; margin: 0; padding: 12px; overflow: auto; border-radius: 8p
 .save-state-text small { overflow: hidden; color: #607a80; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .save-state-empty { margin: 0; color: #607a80; font-size: 12px; }
 #save-state-result:empty { display: none; }
+.native-mod-list { display: grid; gap: 4px; margin: 8px 0; }
+.native-mod-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid #e3eef0; }
+.native-mod-row:first-child { border-top: 0; }
+.native-mod-text small.native-mod-description { white-space: normal; line-height: 1.45; }
+.native-mod-actions { flex: none; align-items: center; }
+.native-mod-switch { padding: 0 0 0 6px; border-bottom: 0; }
+#native-mod-result:empty { display: none; }
+.dark .native-mod-row { border-color: #23404f; }
 .dark .save-state-row { border-color: #23404f; }
 .dark .save-state-text strong { color: #e6f2f4; }
 .dark :is(.save-state-text small, .save-state-empty) { color: #93acb4; }
