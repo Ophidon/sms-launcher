@@ -139,8 +139,16 @@
       </div>
       </section>
       <section id="changelog" class="page sheet changelog-page" aria-labelledby="changelog-title" hidden>
-      <div class="modal-head"><div><h1 id="changelog-title">Changelog</h1><p id="changelog-subtitle">Launcher and game updates</p></div></div>
-      <div class="modal-body"><div id="changelog-list" class="changelog-list" aria-live="polite"></div><div class="actions changelog-actions"><button class="subtle" id="changelog-show-all" hidden>Show all releases</button><button class="text-button" id="changelog-page">View on GitHub ↗</button></div></div>
+      <div class="modal-head"><div><h1 id="changelog-title">What's new</h1><p id="changelog-subtitle">Launcher and game updates</p></div></div>
+      <div class="modal-body changelog-body">
+        <nav id="changelog-nav" class="changelog-nav" aria-label="Releases"></nav>
+        <div id="changelog-detail" class="changelog-detail">
+          <p id="changelog-status" class="changelog-status" role="status">Loading…</p>
+          <header id="changelog-head" class="changelog-head" hidden><div class="changelog-heading"><h2 id="changelog-version"></h2><span id="changelog-badge" class="badge" hidden></span></div><p id="changelog-meta"></p></header>
+          <div id="changelog-columns" class="changelog-columns"></div>
+        </div>
+        <div class="changelog-actions"><button class="text-button" id="changelog-page">View on GitHub ↗</button></div>
+      </div>
       </section>
       <section id="page-settings" class="page sheet settings-page" aria-label="Settings" hidden>
       <div class="modal-head"><div><h1>Settings</h1><p>Changes save automatically.</p></div></div>
@@ -370,6 +378,7 @@
   <script src="prompts.js"></script>
   <script src="presets.js"></script>
   <script src="activity-log.js"></script>
+  <script src="changelog-text.js"></script>
   <script src="gamepad-nav.js"></script>
   <script src="rumble.js"></script>
   <script src="renderer.js"></script>
