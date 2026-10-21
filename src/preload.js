@@ -69,6 +69,7 @@ contextBridge.exposeInMainWorld('sms', {
   stop: () => ipcRenderer.invoke('stop'),
   openDocs: () => ipcRenderer.invoke('open-docs'),
   openDiscord: () => ipcRenderer.invoke('open-discord'),
+  openEclipseGithub: () => ipcRenderer.invoke('open-eclipse-github'),
   changelog: () => ipcRenderer.invoke('changelog'),
   markChangelogSeen: () => ipcRenderer.invoke('changelog-seen'),
   openChangelogPage: () => ipcRenderer.invoke('open-changelog-page'),

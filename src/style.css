@@ -77,6 +77,9 @@ select { width: 100%; padding: 7px 10px; border: 1px solid #d3dedc; border-radiu
 .switch input:checked + i:after { left: 18px; }
 .text-button { padding: 2px 0; border: 0; background: transparent; color: #17737a; font-size: 12px; }
 .text-button:hover:not(:disabled) { text-decoration: underline; }
+.credit-link { display: inline-flex; align-items: center; gap: 3px; margin-left: 2px; color: #17737a; font-weight: 600; text-decoration: none; vertical-align: -2px; }
+.credit-link:hover { text-decoration: underline; }
+.credit-link svg { width: 12px; height: 12px; fill: currentColor; }
 .statusbar { flex: 0 0 40px; display: flex; align-items: center; gap: 10px; padding: 0 26px; border-top: 1px solid #e8e3d8; background: #fffdf8; color: #728287; font-size: 11px; }
 .status-dot { width: 7px; height: 7px; border-radius: 50%; background: #4aa98a; }
 .status-separator { color: #b7c2c2; }
@@ -156,6 +159,8 @@ pre { height: 120px; margin: 0; padding: 12px; overflow: auto; border-radius: 8p
 .discord-logo { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 10px; background: #5865f2; }
 .discord-logo svg { width: 23px; height: 23px; fill: #fff; }
 .steam-logo { background: linear-gradient(135deg, #1b2838, #2a475e); }
+.eclipse-logo { background: linear-gradient(135deg, #2b1f55, #5b3fa8); }
+.eclipse-logo svg { width: 22px; height: 22px; }
 .steam-banner:disabled { opacity: .75; cursor: progress; }
 .discord-copy { display: grid; gap: 2px; }
 .discord-copy strong { font-size: 14px; font-weight: 750; letter-spacing: -.01em; }
@@ -571,7 +576,7 @@ pre { height: 120px; margin: 0; padding: 12px; overflow: auto; border-radius: 8p
   .mac-help-intro, .mac-check-actions) { color: #93acb4; }
 .dark #game-source summary small, .dark #game-source summary::after { color: #93acb4; }
 .dark :is(.settings-group > .row-note.lead, .binding-row, .source-grid label, .changelog-headline, .changelog-details, .changelog-version, .controls-note p, .field) { color: #c9dce1; }
-.dark :is(.group-title, .changelog-column h3, .text-button, .binding-row.capturing .binding-keys) { color: #7fd3d6; }
+.dark :is(.group-title, .changelog-column h3, .text-button, .credit-link, .binding-row.capturing .binding-keys) { color: #7fd3d6; }
 .dark :is(select, .source-grid input, .binding-keys kbd, .mp-input) { border-color: #33566a; background: #0f2636; color: #e3eff2; }
 .dark .mp-section { border-color: #24465a; background: #12303f; }
 .dark .mp-field { color: #b8cdd2; }

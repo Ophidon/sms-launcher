@@ -484,6 +484,7 @@ function showWizardStep(data) {
   const eclipse = data.config.settings.eclipse;
   $('shell').classList.toggle('eclipse', Boolean(eclipse));
   $('eclipse-disclaimer').hidden = !eclipse;
+  $('eclipse-banner').hidden = !eclipse;
   $('home-title').textContent = ready ? eclipse ? 'Super Mario Eclipse' : 'Super Mario Sunshine' : 'Set up your game';
   $('home-description').textContent = ready
     ? downloadTextures ? 'Set up HD visuals to finish setup.'
@@ -1208,6 +1209,13 @@ for (const [id, run] of Object.entries({
 })) $(id).addEventListener('click', () => { $('play-menu').hidePopover(); run(); });
 // The invite opens in the browser, even while the game builds or runs.
 $('discord').addEventListener('click', () => window.sms.openDiscord().catch(error => setMessage(errorText(error))));
+// The credit link sits inside the Eclipse switch's label: open GitHub without toggling it.
+$('eclipse-github').addEventListener('click', event => {
+  event.preventDefault();
+  event.stopPropagation();
+  window.sms.openEclipseGithub().catch(error => setMessage(errorText(error)));
+});
+$('eclipse-banner').addEventListener('click', () => window.sms.openEclipseGithub().catch(error => setMessage(errorText(error))));
 
 // --- Changelog: changelog.json in the launcher repository (src/changelog.js). Each release lists its
 // launcher changes and the game it pins. After an update it opens once on the newest release since the last.
