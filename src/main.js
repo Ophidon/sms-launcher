@@ -914,10 +914,13 @@ async function build(forceFresh = false) {
 }
 
 // What every game version's build shares: the compiler cache (compiler-cache.js),
-// and the Eclipse sources' downloads (the game's SMS_ECLIPSE_GIT_CACHE). A
-// player's own SMS_COMPILER_CACHE (empty for none) or SMS_ECLIPSE_GIT_CACHE is
-// used instead. Without the cache the game builds as before.
-function eclipseSourcesDirectory() { return path.join(app.getPath('userData'), 'eclipse-sources'); }
+// and the Eclipse sources' downloads (the game's SMS_ECLIPSE_GIT_CACHE, on the
+// game's drive: game.eclipseSourcesPath). A player's own SMS_COMPILER_CACHE
+// (empty for none) or SMS_ECLIPSE_GIT_CACHE is used instead. Without the cache
+// the game builds as before.
+function eclipseSourcesDirectory() {
+  return game.eclipseSourcesPath(app.getPath('userData'), config.installRoot || config.repo);
+}
 
 function usesCompilerCache(env) { return Boolean(env.SMS_COMPILER_CACHE) && !('SMS_COMPILER_CACHE' in process.env); }
 
@@ -1553,7 +1556,8 @@ async function clean(dryRun) {
   // The compiler cache and the Eclipse downloads are made again by the next builds too.
   try {
     await compilerCache.clear(app.getPath('userData'));
-    await fs.promises.rm(eclipseSourcesDirectory(), { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+    for (const folder of new Set([game.eclipseSourcesPath(app.getPath('userData')), eclipseSourcesDirectory()]))
+      await fs.promises.rm(folder, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
     log('Removed the compiler cache and the downloaded Super Mario Eclipse sources.');
   } catch (error) { log(`Could not remove the compiler cache: ${error.message}`); }
   await removeOldBuildTools();
