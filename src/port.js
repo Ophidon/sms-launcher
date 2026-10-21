@@ -262,6 +262,32 @@ function textureExtrasWanted(root, settings) {
   return Boolean(settings.textures) && textureExtrasSupported(root) && !textureExtrasInstalled(root);
 }
 
+// The radar's maps of Super Mario Eclipse's stages, made from Eclipse's disc
+// and published with the texture extras. The port pins their release in
+// tools/mods/eclipse-maps.json, installs them with Eclipse (get.py eclipse)
+// and records the one it installed in mods/maps/eclipse/.release, as for the
+// extras; an Eclipse install from before them, or a new pin, downloads only
+// the maps.
+function eclipseMapsDirectory(root) { return path.join(root, 'mods', 'maps', 'eclipse'); }
+
+function eclipseMapsSupported(root) {
+  return fs.existsSync(path.join(root, 'tools', 'mods', 'eclipse-maps.json'));
+}
+
+function eclipseMapsInstalled(root) {
+  try {
+    const pinned = JSON.parse(fs.readFileSync(path.join(root, 'tools', 'mods', 'eclipse-maps.json'), 'utf8'));
+    const installed = JSON.parse(fs.readFileSync(path.join(eclipseMapsDirectory(root), '.release'), 'utf8'));
+    return typeof pinned.md5 === 'string' && /^[0-9a-f]{32}$/.test(pinned.md5) && installed.md5 === pinned.md5;
+  } catch (_) { return false; }
+}
+
+// Maps to download for these settings: Eclipse with the radar on, a port that
+// knows them, and not the pinned release installed.
+function eclipseMapsWanted(root, settings) {
+  return Boolean(settings.eclipse && settings.radar) && eclipseMapsSupported(root) && !eclipseMapsInstalled(root);
+}
+
 // Languages other than the disc's English come from language packs (the
 // European release's four and community translations, published with the
 // texture extras). The launcher's own catalog, language-packs.json, says
@@ -547,10 +573,11 @@ function commandFor(root, action, args = [], platform = process.platform, enviro
   if (action === 'language' && !pack) throw new Error(`There is no language pack "${args[0]}".`);
   const packArgs = pack ? [args[0], pack.name, pack.url, pack.md5, String(pack.size)] : [];
   if (platform !== 'win32') {
-    const file = ['python', 'textures', 'texture-extras', 'language', 'cutscenes'].includes(action) ? 'python3' : path.join(root, `${action}.sh`);
+    const file = ['python', 'textures', 'texture-extras', 'eclipse-maps', 'language', 'cutscenes'].includes(action) ? 'python3' : path.join(root, `${action}.sh`);
     const commandArgs = action === 'python' ? [textureProgress, path.join(root, 'tools', 'mods', 'get.py'), 'eclipse', '--iso', ...args]
       : action === 'textures' ? [textureProgress, path.join(root, 'tools', 'mods', 'get.py')]
         : action === 'texture-extras' ? [textureProgress, path.join(root, 'tools', 'mods', 'get.py'), 'extras', '--if-outdated']
+        : action === 'eclipse-maps' ? [textureProgress, path.join(root, 'tools', 'mods', 'get.py'), 'eclipse-maps', '--if-outdated']
         : action === 'language' ? [textureProgress, installLanguage, ...packArgs]
         : action === 'cutscenes' ? ['tools/media/install_cutscenes.py', '--iso', ...args] : args;
     return { command: file, args: commandArgs, cwd: root, env: environment };
@@ -566,6 +593,8 @@ function commandFor(root, action, args = [], platform = process.platform, enviro
       ? 'cd "$(cygpath -u "$1")" && python "$(cygpath -u "$2")" tools/mods/get.py'
     : action === 'texture-extras'
       ? 'cd "$(cygpath -u "$1")" && python "$(cygpath -u "$2")" tools/mods/get.py extras --if-outdated'
+    : action === 'eclipse-maps'
+      ? 'cd "$(cygpath -u "$1")" && python "$(cygpath -u "$2")" tools/mods/get.py eclipse-maps --if-outdated'
     : action === 'language'
       ? 'cd "$(cygpath -u "$1")" && python "$(cygpath -u "$2")" "$(cygpath -u "$3")" "${@:4}"'
     : action === 'clean'
@@ -573,7 +602,7 @@ function commandFor(root, action, args = [], platform = process.platform, enviro
       : `cd "$(cygpath -u "$1")" && ./${action}.sh "$(cygpath -u "$2")"`;
   return {
     command: bash,
-    args: ['-c', script, 'sms-launcher', root, ...(action === 'textures' || action === 'texture-extras' ? [textureProgress]
+    args: ['-c', script, 'sms-launcher', root, ...(action === 'textures' || action === 'texture-extras' || action === 'eclipse-maps' ? [textureProgress]
       : action === 'language' ? [textureProgress, installLanguage, ...packArgs]
       : action === 'python' ? [textureProgress, args[0]] : args)], cwd: root,
     env: msysEnvironment(msys, environment)
@@ -624,6 +653,7 @@ function eclipseRunCommand(...args) { return gameRunCommand(...args); }
 
 module.exports = { PORT_URL, ECLIPSE_ISO, platformInfo, isPort, validateRom, normalizeSettings, savedSettings, gameFeatures,
   texturePackDirectory, texturePackInstalled, textureExtrasDirectory, textureExtrasSupported, textureExtrasInstalled, textureExtrasWanted,
+  eclipseMapsDirectory, eclipseMapsSupported, eclipseMapsInstalled, eclipseMapsWanted,
   LANGUAGES, LANGUAGE_PACKS, gameLanguage, languagePackDirectory, languagePacksSupported, languageAvailable, languageChoices,
   languagePackInstalled, languagePackWanted,
   cutscenePackDirectory, cutscenePackInstalled, cutscenePackSupported, cutscenePackRequirements, wantsCutscenes, hdVisualsInstalled, buildEnvironment, gameDisc, binaryPath,

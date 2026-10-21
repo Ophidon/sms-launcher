@@ -800,6 +800,21 @@ async function updateTextureExtras(root, settings) {
   }
 }
 
+// The radar's maps of Eclipse's stages, when Eclipse is played with the radar
+// and they are missing (an Eclipse install from before them) or another
+// release is pinned. Only the radar needs them, so a failed download is logged
+// and never stops setup or play.
+async function updateEclipseMaps(root, settings) {
+  if (!port.eclipseMapsWanted(root, settings) || !fs.existsSync(path.join(root, port.ECLIPSE_ISO))) return;
+  try {
+    await ensureBuildTools();
+    const cmd = port.commandFor(root, 'eclipse-maps', [], process.platform, toolEnv());
+    await launch(cmd.command, cmd.args, { cwd: cmd.cwd, env: cmd.env }, 'Install Eclipse radar maps');
+    if (!port.eclipseMapsInstalled(root)) throw new Error('the installer finished without them');
+  } catch (error) {
+    log(`Eclipse's radar maps were not installed (${error.message}); its own stages have no radar until setup tries again next time.`);
+  }
+}
 
 // The chosen language's pack, when it is missing or not the pinned release. A
 // failed download does not stop the game: it plays in English, and setup tries
@@ -874,6 +889,7 @@ async function build(forceFresh = false) {
   else await updateTextureExtras(root, settings);
   await updateLanguagePack(root, settings);
   if (settings.eclipse && !fs.existsSync(path.join(root, port.ECLIPSE_ISO))) await installEclipse(root);
+  await updateEclipseMaps(root, settings);
   const disc = port.gameDisc(root, rom, settings.eclipse);
   const env = await withBuildCaches(toolEnv(port.buildEnvironment(settings, disc, root)), root);
   env.NINJA_STATUS = '[%f/%t] ';
@@ -972,6 +988,7 @@ async function setupGame() {
   else if (!port.hdVisualsInstalled(config.repo, config.settings)) await installTextures();
   else await updateTextureExtras(config.repo, config.settings);
   await updateLanguagePack(config.repo, config.settings);
+  await updateEclipseMaps(config.repo, config.settings);
   return state();
 }
 
@@ -1214,6 +1231,7 @@ async function launchGame(session = null, update = config.settings.autoUpdate) {
   if (!port.hdVisualsInstalled(config.repo, config.settings)) await installTextures();
   else await updateTextureExtras(config.repo, config.settings);
   await updateLanguagePack(config.repo, config.settings);
+  await updateEclipseMaps(config.repo, config.settings);
   // last checks, with the game as it will run (multiplayer: the network check is done, the host's version matches)
   if (session?.beforePlay) await session.beforePlay();
   return play(null, session);
