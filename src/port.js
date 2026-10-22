@@ -146,12 +146,17 @@ function normalizeSettings(input = {}, platform = process.platform, hostArch = p
     freeCamera: Boolean(input.freeCamera),
     // The C-stick turns (and aims FLUDD in) the close-up camera Y opens, as well as the control stick.
     cstickAim: Boolean(input.cstickAim),
+    // The C-stick's up and down tilts the camera around Mario, as the mouse does, instead of the GameCube's
+    // nearer-or-further; holding the right stick in gives that back. Off unless chosen.
+    cstickOrbit: Boolean(input.cstickOrbit),
     cameraSpeed: numberSetting(input.cameraSpeed, 100, 10, 400),
     // On unless turned off: the default keys are laid out for the mouse (left click jumps).
     mouseCamera: input.mouseCamera !== false,
     // With mouse look, the mouse turns (and aims FLUDD in) the close-up camera Y opens; on unless turned off.
     closeCameraMouse: input.closeCameraMouse !== false,
     mouseSensitivity: numberSetting(input.mouseSensitivity, 100, 5, 1000),
+    // Raw mouse input for mouse look; off follows the system's pointer speed (Windows and X11). On unless turned off.
+    rawMouse: input.rawMouse !== false,
     // Picture: anti-aliasing, texture filtering, sharpening, brightness (percent; 100 unchanged), fit and scaler.
     msaa: [0, 2, 4, 8].includes(Number(input.msaa)) ? Number(input.msaa) : 0,
     fxaa: Boolean(input.fxaa),
@@ -465,10 +470,12 @@ function buildEnvironment(settings, disc, root) {
     SMS_CAMERA_INVERT_Y: settings.invertCameraY ? '1' : '0',
     SMS_FREE_CAMERA: settings.freeCamera ? '1' : '0',
     SMS_CLOSE_CAMERA_CSTICK: settings.cstickAim ? '1' : '0',
+    SMS_CSTICK_ORBIT: settings.cstickOrbit ? '1' : '0',
     SMS_CAMERA_SPEED: String(settings.cameraSpeed ?? 100),
     SMS_MOUSE_CAMERA: settings.mouseCamera === false ? '0' : '1',
     SMS_CLOSE_CAMERA_MOUSE: settings.closeCameraMouse === false ? '0' : '1',
     SMS_MOUSE_SENSITIVITY: String(settings.mouseSensitivity ?? 100),
+    SMS_MOUSE_RAW: settings.rawMouse === false ? '0' : '1',
     SMS_MSAA: String(settings.msaa ?? 0),
     SMS_FXAA: settings.fxaa ? '1' : '0',
     SMS_ANISO: String(settings.anisotropic ?? 0),
