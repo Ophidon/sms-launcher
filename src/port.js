@@ -183,6 +183,8 @@ function normalizeSettings(input = {}, platform = process.platform, hostArch = p
     // HD cutscenes are a separate 5 GB download, off unless chosen.
     cutscenes: Boolean(input.cutscenes),
     eclipse: Boolean(input.eclipse),
+    // In Eclipse, the movies it kept from Sunshine play as Sunshine has them (eclipseMovieEnvironment); on unless turned off.
+    eclipseSunshineMovies: input.eclipseSunshineMovies !== false,
     renderer: choiceSetting(input.renderer, info.renderers, 'opengl'),
     autoUpdate: input.autoUpdate !== false,
     // Anonymous usage heartbeats (versions and OS only); see README Privacy.
@@ -398,7 +400,9 @@ function gameFeatures(root) {
   return { vulkan: has(path.join('platform', 'gx', 'src', 'vk')), appleSilicon: has(path.join('tools', 'gameptr')),
     // keyboard and mouse default keys (bindings.js DEFAULTS); an older game has the classic ones built in
     mouseKeys: mentions('bindings.txt', 'A = MOUSE_LEFT'),
-    eclipseAppleSilicon: mentions(path.join('platform', 'mods', 'eclipse', 'lib', 'CMakeLists.txt'), 'SMS_GAMEPTR_PLUGIN') };
+    eclipseAppleSilicon: mentions(path.join('platform', 'mods', 'eclipse', 'lib', 'CMakeLists.txt'), 'SMS_GAMEPTR_PLUGIN'),
+    // Eclipse plays the movies it kept from Sunshine from the Sunshine disc or the HD cutscenes (eclipseMovieEnvironment)
+    eclipseSunshineMovies: mentions(path.join('platform', 'dvd', 'dvd.cpp'), 'SMS_ECLIPSE_SUNSHINE_MOVIES') };
 }
 
 function hdVisualsInstalled(root, settings) {
@@ -497,6 +501,16 @@ function buildEnvironment(settings, disc, root) {
   if (/^\d+x\d+$/.test(settings.exclusiveResolution || '')) env.SMS_FULLSCREEN_MODE = settings.exclusiveResolution;
   if (settings.display === 'primary') env.SMS_DISPLAY = '0';
   else if (/^monitor\d+$/.test(settings.display || '')) env.SMS_DISPLAY = String(Number(settings.display.slice(7)) - 1);
+  return env;
+}
+
+// Super Mario Eclipse kept ten of Sunshine's movies, re-encoded blurrier. A game that can plays
+// Sunshine's own instead: from the player's disc, or the HD cutscenes' when they are on and installed.
+function eclipseMovieEnvironment(root, settings, rom) {
+  if (!settings.eclipse || !gameFeatures(root).eclipseSunshineMovies) return {};
+  if (settings.eclipseSunshineMovies === false) return { SMS_ECLIPSE_SUNSHINE_MOVIES: '0' };
+  const env = { SMS_ECLIPSE_SUNSHINE_MOVIES: rom };
+  if (settings.cutscenes && settings.textures && cutscenePackInstalled(root)) env.SMS_HD_CUTSCENES = cutscenePackDirectory(root);
   return env;
 }
 
@@ -663,5 +677,5 @@ module.exports = { PORT_URL, ECLIPSE_ISO, platformInfo, isPort, validateRom, nor
   eclipseMapsDirectory, eclipseMapsSupported, eclipseMapsInstalled, eclipseMapsWanted,
   LANGUAGES, LANGUAGE_PACKS, gameLanguage, languagePackDirectory, languagePacksSupported, languageAvailable, languageChoices,
   languagePackInstalled, languagePackWanted,
-  cutscenePackDirectory, cutscenePackInstalled, cutscenePackSupported, cutscenePackRequirements, wantsCutscenes, hdVisualsInstalled, buildEnvironment, gameDisc, binaryPath,
+  cutscenePackDirectory, cutscenePackInstalled, cutscenePackSupported, cutscenePackRequirements, wantsCutscenes, hdVisualsInstalled, buildEnvironment, eclipseMovieEnvironment, gameDisc, binaryPath,
   commandFor, eclipseBuildCommand, eclipseRunCommand, gameRuntimeFolders, playableInstall, windowsPathLimit, longPathProblem };
