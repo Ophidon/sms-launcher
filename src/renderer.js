@@ -103,9 +103,13 @@ $('rumbleStrength').addEventListener('change', () => saveSettings());
 
 function bindingNote() {
   return bindingMode === 'controller'
-    ? 'Choose Change, then press a button on your controller, or hold two together. Esc cancels. The sticks always move the sticks.'
+    ? 'Choose Change, then press a button on your controller, or hold two together, or pick the button from the list. Esc cancels. The sticks always move the sticks.'
     : 'Choose Change, then press a key or click a mouse button. Esc cancels.';
 }
+
+// Whether the launcher sees a controller. Chromium shows one only after a button is pressed on it, and some
+// it never shows (a Switch Pro Controller can be one), though the game reads them.
+function padsSeen() { return [...(navigator.getGamepads ? navigator.getGamepads() : [])].some(Boolean); }
 
 function stopCapture() {
   if (!capture) return;
@@ -137,12 +141,7 @@ function watchPad(baseline, chord = []) {
   }
   const done = chord.length >= 2 || (chord.length === 1 && !held.has(chord[0].entry));
   if (done) {
-    const pad = chord.length >= 2 ? SmsBindings.padCombo(chord[0].pad, chord[1].pad) : chord[0].pad;
-    const { id, add } = capture;
-    const pads = add ? [...SmsBindings.padsFor(padBindings, id).filter(item => item !== pad), pad] : [pad];
-    padBindings = SmsBindings.normalizePads({ ...padBindings, [id]: pads });
-    stopCapture();
-    saveSettings();
+    bindPad(chord.length >= 2 ? SmsBindings.padCombo(chord[0].pad, chord[1].pad) : chord[0].pad);
     return;
   }
   if (chord.length && capture) $('binding-note').textContent = `${SmsBindings.padLabel(chord[0].pad)}: let go, or press another button with it.`;
@@ -151,6 +150,8 @@ function watchPad(baseline, chord = []) {
 }
 
 function captureKey(event) {
+  // The controller button list takes its own keys (arrows, Enter); Esc still cancels.
+  if (event.target?.classList?.contains('pad-choice') && event.code !== 'Escape') return;
   event.preventDefault();
   event.stopPropagation();
   if (event.repeat) return;
@@ -177,6 +178,27 @@ function bindKey(key) {
   saveSettings();
 }
 
+function bindPad(pad) {
+  const { id, add } = capture;
+  const pads = add ? [...SmsBindings.padsFor(padBindings, id).filter(item => item !== pad), pad] : [pad];
+  padBindings = SmsBindings.normalizePads({ ...padBindings, [id]: pads });
+  stopCapture();
+  saveSettings();
+}
+
+// The controller's buttons to pick from while waiting for one, for a controller the launcher can't see.
+function padChoice() {
+  const list = document.createElement('select');
+  list.className = 'pad-choice';
+  list.setAttribute('aria-label', 'Controller button');
+  const option = (value, text) => {
+    const item = document.createElement('option'); item.value = value; item.textContent = text; return item;
+  };
+  list.append(option('', 'or choose…'), ...SmsBindings.PAD_BUTTONS.map(button => option(button.id, button.label)));
+  list.addEventListener('change', () => { if (list.value) bindPad(list.value); });
+  return list;
+}
+
 // A mouse button binds as a key does (the game reads MOUSE_LEFT ... as keys).
 function captureMouse(event) {
   const key = SmsBindings.keyFromMouse(event.button);
@@ -193,8 +215,8 @@ function startCapture(id, add) {
   window.addEventListener('keydown', captureKey, true);
   if (bindingMode === 'keyboard') window.addEventListener('mousedown', captureMouse, true);
   if (bindingMode === 'controller') {
-    if (![...(navigator.getGamepads ? navigator.getGamepads() : [])].some(Boolean))
-      $('binding-note').textContent = 'No controller found yet. Connect one and press any button on it, or press Esc to cancel.';
+    if (!padsSeen())
+      $('binding-note').textContent = 'No controller found yet. Press any button on it, or pick the button from the list. Esc cancels.';
     watchPad(heldPadButtons());
   }
   renderBindings();
@@ -276,8 +298,11 @@ function renderBindings() {
     const items = controller ? SmsBindings.padsFor(padBindings, id).map(SmsBindings.padLabel)
       : SmsBindings.keysFor(keyBindings, id).map(SmsBindings.keyLabel);
     const press = controller ? 'a button' : 'a key or mouse button';
-    if (capture?.id === id) keys.textContent = capture.add ? `Press ${press} to add…` : controller ? 'Press a button, or two together…' : `Press ${press}…`;
-    else if (!items.length) { keys.textContent = 'None'; keys.classList.add('binding-none'); }
+    if (capture?.id === id) {
+      keys.textContent = controller && !padsSeen() ? 'No controller seen yet: press a button on it…'
+        : capture.add ? `Press ${press} to add…` : controller ? 'Press a button, or two together…' : `Press ${press}…`;
+      if (controller) keys.append(padChoice());
+    } else if (!items.length) { keys.textContent = 'None'; keys.classList.add('binding-none'); }
     else keys.replaceChildren(...items.map(text => {
       const item = document.createElement('kbd'); item.textContent = text; return item;
     }));
@@ -296,6 +321,8 @@ function renderBindings() {
     row.append(name, keys, actions);
     return row;
   }));
+  // The button list takes focus, so the keyboard can pick from it too.
+  if (capture && controller) $('binding-list').querySelector('.pad-choice')?.focus();
 }
 
 // GameCube adapter in Wii U mode (src/gc-adapter.js): shown while one is

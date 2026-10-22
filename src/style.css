@@ -247,7 +247,8 @@ pre { height: 120px; margin: 0; padding: 12px; overflow: auto; border-radius: 8p
 .binding-row.changed > span:first-child { color: #17343d; font-weight: 650; }
 .binding-keys { display: flex; flex-wrap: wrap; gap: 5px; }
 .binding-keys kbd { padding: 2px 7px; border: 1px solid #d3dedc; border-bottom-width: 2px; border-radius: 5px; background: #fff; color: #223940; font: 600 11px/1.5 ui-monospace, Consolas, monospace; }
-.binding-row.capturing .binding-keys { color: #17818a; font-weight: 650; }
+.binding-row.capturing .binding-keys { align-items: center; color: #17818a; font-weight: 650; }
+.binding-keys .pad-choice { width: auto; padding: 3px 8px; font-weight: 400; }
 .binding-actions { display: flex; justify-content: flex-end; gap: 6px; }
 .binding-actions button { padding: 4px 10px; font-size: 12px; }
 .binding-modes { display: inline-flex; gap: 4px; margin: 10px 0 6px; padding: 3px; border: 1px solid #dfe9e8; border-radius: 9px; background: #f4f8f7; }
