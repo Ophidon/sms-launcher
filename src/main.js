@@ -1015,8 +1015,8 @@ async function setupGame() {
 }
 
 const PLAYER_SETTINGS = [
-  'volume', 'musicVolume', 'sfxVolume', 'invertCameraX', 'invertCameraY', 'keyBindings', 'padBindings', 'softTrigger', 'rumbleStrength', 'freeCamera', 'cstickAim', 'cameraSpeed', 'mouseCamera', 'closeCameraMouse',
-  'mouseSensitivity', 'skipMovies', 'skipIntro', 'language', 'heatHaze', 'pauseTracker', 'radar', 'autoSave', 'buttonPrompts', 'promptPad', 'hdr', 'hdrCalibration', 'hdrPaperWhite', 'hdrPeak', 'hdrContrast', 'hdrSaturation', 'hdrHighlights', 'overlay', 'fullscreenMode', 'exclusiveResolution', 'display', 'vsync',
+  'volume', 'musicVolume', 'sfxVolume', 'invertCameraX', 'invertCameraY', 'keyBindings', 'padBindings', 'softTrigger', 'rumbleStrength', 'freeCamera', 'cstickAim', 'cstickOrbit', 'cameraSpeed', 'mouseCamera', 'closeCameraMouse',
+  'mouseSensitivity', 'rawMouse', 'skipMovies', 'skipIntro', 'language', 'heatHaze', 'pauseTracker', 'radar', 'autoSave', 'buttonPrompts', 'promptPad', 'hdr', 'hdrCalibration', 'hdrPaperWhite', 'hdrPeak', 'hdrContrast', 'hdrSaturation', 'hdrHighlights', 'overlay', 'fullscreenMode', 'exclusiveResolution', 'display', 'vsync',
   'msaa', 'fxaa', 'anisotropic', 'sharpen', 'fsrMode', 'brightness', 'aspect', 'presentFilter', 'renderer'
 ];
 function promptDirectory() { return path.join(app.getPath('userData'), 'prompts'); }

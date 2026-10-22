@@ -8,8 +8,8 @@ test('every control has game defaults and a label', () => {
   for (const { id, label } of bindings.CONTROLS) {
     assert.ok(label, id);
     assert.ok(Array.isArray(bindings.DEFAULTS[id]), id);
-    // only the soft L press starts unbound
-    if (id !== 'L_SOFT') assert.ok(bindings.DEFAULTS[id].length, id);
+    // only the soft L press and the C-stick's zoom (the mouse wheel zooms) start without a key
+    if (id !== 'L_SOFT' && id !== 'CAMERA_ZOOM') assert.ok(bindings.DEFAULTS[id].length, id);
     assert.ok(Array.isArray(bindings.CLASSIC[id]), id);
   }
 });
