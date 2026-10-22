@@ -9,6 +9,7 @@ const os = require('node:os');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const release = require('./game-release.json');
+const { retrying, GIT_PERMANENT } = require('./retry');
 
 const SHA = /^[a-f0-9]{40}$/;
 const REF = /^[A-Za-z0-9_][A-Za-z0-9._/-]{0,199}$/;
@@ -46,19 +47,19 @@ function pickRef(output, ref) {
   return null;
 }
 
-async function resolveRef({ repository, ref }, { git, capture, env }) {
+async function resolveRef({ repository, ref }, { remote }) {
   if (SHA.test(ref)) return { commit: ref, branch: null };
-  const found = pickRef(await capture(git, ['ls-remote', repository, ref], undefined, env), ref);
+  const found = pickRef(await remote(['ls-remote', repository, ref]), ref);
   if (!found) throw new Error(`Could not find "${ref}" in ${repository}.`);
   return found;
 }
 
 // The decomp commit a port commit pins, from that one commit's trees.
-async function pinnedDecomp(repository, commit, { git, capture, env }) {
+async function pinnedDecomp(repository, commit, { git, capture, env, remote }) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), `sms-source-${crypto.randomBytes(3).toString('hex')}-`));
   try {
     await capture(git, ['init', '-q', directory], undefined, env);
-    await capture(git, ['fetch', '-q', '--depth', '1', '--filter=blob:none', repository, commit], directory, env);
+    await remote(['fetch', '-q', '--depth', '1', '--filter=blob:none', repository, commit], directory);
     const entry = await capture(git, ['ls-tree', commit, 'decomp'], directory, env);
     const sha = entry.match(/^160000 commit ([a-f0-9]{40})\t/)?.[1];
     if (!sha) throw new Error('That game commit has no decomp submodule.');
@@ -71,10 +72,13 @@ async function pinnedDecomp(repository, commit, { git, capture, env }) {
 }
 
 // An override -> a source with this release's fields (see game-version.js).
-async function resolve(override, { git = 'git', capture, env }) {
+async function resolve(override, { git = 'git', capture, env, wait }) {
   if (!override) return release;
   // A private or mistyped repository must fail, not wait for a password nobody can type.
   const tools = { git, capture, env: { ...(env || process.env), GIT_TERMINAL_PROMPT: '0', GCM_INTERACTIVE: 'never' } };
+  // Asking the repository, tried again when the connection drops, not when it isn't there.
+  tools.remote = (args, cwd) => retrying(() => capture(git, args, cwd, tools.env),
+    { wait, permanent: error => GIT_PERMANENT.test(error.message) });
   const port = override.port ? { repository: override.port.repository, ...await resolveRef(override.port, tools) }
     : { repository: release.repository, branch: release.branch, commit: release.commit };
   let decomp, decompRepository = null;

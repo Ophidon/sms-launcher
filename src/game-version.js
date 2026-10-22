@@ -8,6 +8,7 @@ const tools = require('./build-tools');
 const saves = require('./saves');
 const portable = require('./portable');
 const release = require('./game-release.json');
+const { GIT_PERMANENT } = require('./retry');
 
 // A checkout's Git folder, following a submodule's `gitdir:` file.
 function gitDirectory(root) {
@@ -124,7 +125,6 @@ function eclipseSourcesPath(userData, base, paths = path) {
 // player stopped it or what it asked for isn't there. `clear` removes what a
 // failed clone left, since Git won't clone into a folder that isn't empty.
 const DOWNLOAD_TRIES = 3;
-const PERMANENT = /not our ref|couldn't find remote ref|Repository not found|Authentication failed|could not read Username|terminated by/i;
 
 async function download(git, args, options, label, { run, stopped = () => false, wait, clear } = {}) {
   for (let attempt = 1; ; attempt++) {
@@ -133,7 +133,7 @@ async function download(git, args, options, label, { run, stopped = () => false,
       return await run(git, attempt === 1 ? args : ['-c', 'http.version=HTTP/1.1', ...args], options,
         attempt === 1 ? label : `${label} (try ${attempt} of ${DOWNLOAD_TRIES})`);
     } catch (error) {
-      if (attempt >= DOWNLOAD_TRIES || stopped(startedAt) || PERMANENT.test(error.message)) throw error;
+      if (attempt >= DOWNLOAD_TRIES || stopped(startedAt) || GIT_PERMANENT.test(error.message)) throw error;
       await wait(attempt * 3000);
       if (clear) await fs.promises.rm(clear, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
     }

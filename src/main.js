@@ -39,6 +39,7 @@ const marioModel = require('./mario-model');
 const marioColors = require('./mario-colors');
 const marioPack = require('./mario-pack');
 const { relaunchOptions } = require('./relaunch');
+const { retrying, httpError } = require('./retry');
 
 const DISCORD_INVITE = 'https://discord.gg/NvUXmm8dB9';
 // Microsoft's free Windows HDR Calibration app (Microsoft Store product 9N7F2SM5D1LR).
@@ -348,9 +349,11 @@ function windowsSteamPath() {
 // Steam artwork comes straight from SteamGridDB into memory: no-store keeps it
 // out of the launcher's web cache, so the only copy is the one in Steam's folder.
 async function downloadImage(url) {
-  const response = await net.fetch(url, { cache: 'no-store' });
-  if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
-  return Buffer.from(await response.arrayBuffer());
+  return retrying(async () => {
+    const response = await net.fetch(url, { cache: 'no-store' });
+    if (!response.ok) throw httpError(`${url}: HTTP ${response.status}`, response.status);
+    return Buffer.from(await response.arrayBuffer());
+  });
 }
 
 // The file Steam starts: the installed launcher, or the AppImage on Linux.

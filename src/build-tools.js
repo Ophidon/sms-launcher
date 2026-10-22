@@ -11,6 +11,7 @@ const TOOLSET = assets.toolset;
 const macAssets = require('./mac-tool-assets.json');
 const macTools = require('./mac-tools');
 const { prependWindowsPath } = require('./windows-path');
+const { retrying, httpError } = require('./retry');
 let macInspection;
 let macCheck;
 let macCheckedAt = 0;
@@ -244,17 +245,23 @@ function withCertificates(base, msys, target) {
   return { ...result, SSL_CERT_FILE: bundle };
 }
 
-function fetchVerified(url, destination, expected, onProgress = () => {}, redirects = 0) {
-  if (redirects > 8) return Promise.reject(new Error('Too many download redirects.'));
+// A download that drops, stalls or arrives cut short is tried again from the
+// start (twice more); one the server refuses (a 404) is not.
+function fetchVerified(url, destination, expected, onProgress = () => {}, { wait } = {}) {
+  return retrying(() => fetchOnce(url, destination, expected, onProgress), { wait });
+}
+
+function fetchOnce(url, destination, expected, onProgress, redirects = 0) {
+  if (redirects > 8) return Promise.reject(Object.assign(new Error('Too many download redirects.'), { permanent: true }));
   return new Promise((resolve, reject) => {
     const req = https.get(url, { headers: { 'User-Agent': 'sms-launcher-build-tools' } }, response => {
       if ([301, 302, 303, 307, 308].includes(response.statusCode)) {
         response.resume();
-        return resolve(fetchVerified(new URL(response.headers.location, url).href, destination, expected, onProgress, redirects + 1));
+        return resolve(fetchOnce(new URL(response.headers.location, url).href, destination, expected, onProgress, redirects + 1));
       }
       if (response.statusCode !== 200) {
         response.resume();
-        return reject(new Error(`Build tool download returned HTTP ${response.statusCode}.`));
+        return reject(httpError(`Build tool download returned HTTP ${response.statusCode}.`, response.statusCode));
       }
       const part = `${destination}.part`;
       const output = fs.createWriteStream(part, { mode: 0o600 });
@@ -268,9 +275,14 @@ function fetchVerified(url, destination, expected, onProgress = () => {}, redire
         const percent = total ? Math.min(99, Math.floor(100 * received / total)) : null;
         if (percent !== reported) { reported = percent; onProgress(percent); }
       });
-      response.on('error', reject);
+      // Close the part file on a dropped connection, so the next try can replace it.
+      response.on('error', error => { output.destroy(); reject(error); });
       output.on('error', reject);
       output.on('finish', () => {
+        if (total && received !== total) {
+          fs.rmSync(part, { force: true });
+          return reject(new Error(`The build tool download stopped at ${received} of ${total} bytes.`));
+        }
         const actual = hash.digest('hex');
         if (actual !== expected) {
           fs.rmSync(part, { force: true });
