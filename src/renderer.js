@@ -812,7 +812,7 @@ function refresh(data) {
     : data.repoReady && !data.languagesSupported ? 'Update the game to add languages.'
       : chosen && !chosen.available ? `Update the game to play in ${chosen.name}. It plays in English until then.`
         : config.settings.language !== 'en' && !data.languageInstalled ? 'The language pack downloads before the game starts.'
-          : chosen?.community ? `${chosen.name} is a community translation; some menus and pictures stay in English.` : '';
+          : chosen?.community ? chosen.note || `${chosen.name} is a community translation; some menus and pictures stay in English.` : '';
   $('language-note').hidden = !$('language-note').textContent;
   renderDependents(Boolean(data.active));
   renderHdr(Boolean(data.active));

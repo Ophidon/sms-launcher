@@ -335,7 +335,8 @@ function languagePackInstalled(root, code) {
 function languageChoices(root) {
   return LANGUAGES.map(code => code === 'en' ? { code, name: 'English', available: true }
     : { code, name: LANGUAGE_PACKS[code].name, english: LANGUAGE_PACKS[code].english,
-      community: Boolean(LANGUAGE_PACKS[code].community), available: !root || languageAvailable(root, code) });
+      community: Boolean(LANGUAGE_PACKS[code].community), note: LANGUAGE_PACKS[code].note || '',
+      available: !root || languageAvailable(root, code) });
 }
 
 // The language the game plays in. Eclipse has no language packs and its own
