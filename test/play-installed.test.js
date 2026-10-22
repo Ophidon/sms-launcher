@@ -91,6 +91,8 @@ test('skip update launches the older installed game, keeps preferences and saves
   assert.equal(options.env.SMS_TEXTURE_PACKS, '0');
   assert.equal(options.env.SMS_HD_CUTSCENES, '0');
   assert.equal(options.env.SMS_PRESENCE, '1');
+  // the build's version, for the game's window title
+  assert.equal(options.env.SMS_GAME_VERSION, 'older');
   assert.equal(options.env.SMS_SAVE_DIR, f.config.saveDirectory.replaceAll('\\', '/'));
   assert.deepEqual(f.environments, [f.toolRoot]);
   assert.deepEqual(f.backups, ['before-play', 'after-play']);

@@ -1125,6 +1125,9 @@ async function play(installation = null, session = null) {
   if (look) env.SMS_MARIO_LOOK = look;
   // Together, each game paints the others in their own colours (theirs come over the network).
   if (session) Object.assign(env, marioPaintEnvironment(rom, root, settings));
+  // The game puts its version in the window title: the launcher's name for the build being played.
+  const gameVersion = game.installed(root, settings)?.gameVersion;
+  if (gameVersion) env.SMS_GAME_VERSION = String(gameVersion);
   // Mods from the Mods page, beside the game's own mods/ folder.
   Object.assign(env, nativeMods.environment(root, app.getPath('userData')));
   if (session) Object.assign(env, session.env);
