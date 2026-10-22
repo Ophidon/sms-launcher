@@ -154,17 +154,17 @@ test('settings keep only changed, known key bindings', () => {
 test('new settings default to the game as it was, so updating changes nothing until chosen', () => {
   const s = port.normalizeSettings({});
   // except mouse look, which the keyboard and mouse keys need
-  assert.deepEqual([s.freeCamera, s.cstickAim, s.cameraSpeed, s.mouseCamera, s.closeCameraMouse, s.mouseSensitivity],
-    [false, false, 100, true, true, 100]);
+  assert.deepEqual([s.freeCamera, s.cstickAim, s.cstickOrbit, s.cameraSpeed, s.mouseCamera, s.closeCameraMouse, s.mouseSensitivity, s.rawMouse],
+    [false, false, false, 100, true, true, 100, true]);
   assert.deepEqual([s.fullscreenMode, s.exclusiveResolution, s.display, s.vsync, s.skipMovies, s.overlay],
     ['desktop', 'desktop', 'launcher', 'off', false, false]);
   assert.deepEqual([s.msaa, s.fxaa, s.anisotropic, s.sharpen, s.brightness, s.aspect, s.presentFilter],
     [0, false, 0, 0, 100, 'keep', 'bilinear']);
   const env = port.buildEnvironment(s, '/my/disc.iso', '/port');
-  assert.deepEqual([env.SMS_FREE_CAMERA, env.SMS_CLOSE_CAMERA_CSTICK, env.SMS_CAMERA_SPEED, env.SMS_MOUSE_CAMERA, env.SMS_CLOSE_CAMERA_MOUSE,
-    env.SMS_MOUSE_SENSITIVITY], ['0', '0', '100', '1', '1', '100']);
-  const off = port.buildEnvironment(port.normalizeSettings({ mouseCamera: false, closeCameraMouse: false }), '/my/disc.iso', '/port');
-  assert.deepEqual([off.SMS_MOUSE_CAMERA, off.SMS_CLOSE_CAMERA_MOUSE], ['0', '0']);
+  assert.deepEqual([env.SMS_FREE_CAMERA, env.SMS_CLOSE_CAMERA_CSTICK, env.SMS_CSTICK_ORBIT, env.SMS_CAMERA_SPEED, env.SMS_MOUSE_CAMERA,
+    env.SMS_CLOSE_CAMERA_MOUSE, env.SMS_MOUSE_SENSITIVITY, env.SMS_MOUSE_RAW], ['0', '0', '0', '100', '1', '1', '100', '1']);
+  const off = port.buildEnvironment(port.normalizeSettings({ mouseCamera: false, closeCameraMouse: false, rawMouse: false }), '/my/disc.iso', '/port');
+  assert.deepEqual([off.SMS_MOUSE_CAMERA, off.SMS_CLOSE_CAMERA_MOUSE, off.SMS_MOUSE_RAW], ['0', '0', '0']);
   assert.deepEqual([env.SMS_FULLSCREEN, env.SMS_VSYNC, env.SMS_SKIP_MOVIES, env.SMS_OVERLAY], ['0', '0', '0', '0']);
   assert.deepEqual([env.SMS_MSAA, env.SMS_FXAA, env.SMS_ANISO, env.SMS_SHARPEN, env.SMS_GAMMA, env.SMS_ASPECT, env.SMS_PRESENT_FILTER],
     ['0', '0', '0', '0', '1.00', 'keep', 'bilinear']);
@@ -173,12 +173,13 @@ test('new settings default to the game as it was, so updating changes nothing un
 
 test('chosen settings reach the game as its environment variables', () => {
   const env = port.buildEnvironment(port.normalizeSettings({
-    freeCamera: true, cstickAim: true, cameraSpeed: '150', mouseCamera: true, mouseSensitivity: 250,
+    freeCamera: true, cstickAim: true, cstickOrbit: true, cameraSpeed: '150', mouseCamera: true, mouseSensitivity: 250,
     fullscreen: true, fullscreenMode: 'exclusive', exclusiveResolution: '1920x1080', display: 'primary', vsync: 'adaptive',
     skipMovies: true, overlay: true, msaa: 4, fxaa: true, anisotropic: '16', sharpen: 40, brightness: 115,
     aspect: 'integer', presentFilter: 'sharp'
   }), '/my/disc.iso', '/port');
-  assert.deepEqual([env.SMS_FREE_CAMERA, env.SMS_CLOSE_CAMERA_CSTICK, env.SMS_CAMERA_SPEED, env.SMS_MOUSE_CAMERA, env.SMS_MOUSE_SENSITIVITY], ['1', '1', '150', '1', '250']);
+  assert.deepEqual([env.SMS_FREE_CAMERA, env.SMS_CLOSE_CAMERA_CSTICK, env.SMS_CSTICK_ORBIT, env.SMS_CAMERA_SPEED, env.SMS_MOUSE_CAMERA, env.SMS_MOUSE_SENSITIVITY],
+    ['1', '1', '1', '150', '1', '250']);
   assert.deepEqual([env.SMS_FULLSCREEN, env.SMS_FULLSCREEN_MODE, env.SMS_DISPLAY, env.SMS_VSYNC], ['exclusive', '1920x1080', '0', 'adaptive']);
   assert.deepEqual([env.SMS_SKIP_MOVIES, env.SMS_OVERLAY], ['1', '1']);
   assert.deepEqual([env.SMS_MSAA, env.SMS_FXAA, env.SMS_ANISO, env.SMS_SHARPEN, env.SMS_GAMMA, env.SMS_ASPECT, env.SMS_PRESENT_FILTER],
@@ -807,7 +808,7 @@ test('game features come from the game version on disk', () => {
   const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sms-features-'));
   try {
-    const none = { vulkan: false, appleSilicon: false, mouseKeys: false, eclipseAppleSilicon: false };
+    const none = { vulkan: false, appleSilicon: false, mouseKeys: false, eclipseAppleSilicon: false, eclipseSunshineMovies: false };
     assert.deepEqual(port.gameFeatures(root), none);
     assert.deepEqual(port.gameFeatures(null), none);
     fs.mkdirSync(path.join(root, 'platform', 'gx', 'src', 'vk'), { recursive: true });
@@ -815,10 +816,10 @@ test('game features come from the game version on disk', () => {
     const mods = path.join(root, 'platform', 'mods', 'eclipse', 'lib');
     fs.mkdirSync(mods, { recursive: true });
     fs.writeFileSync(path.join(mods, 'CMakeLists.txt'), 'project(sms_eclipse C CXX)\n');
-    assert.deepEqual(port.gameFeatures(root), { vulkan: true, appleSilicon: true, mouseKeys: false, eclipseAppleSilicon: false });
+    assert.deepEqual(port.gameFeatures(root), { ...none, vulkan: true, appleSilicon: true });
     fs.appendFileSync(path.join(mods, 'CMakeLists.txt'), 'if(SMS_GAMEPTR_PLUGIN)\nendif()\n');
     fs.writeFileSync(path.join(root, 'bindings.txt'), '# defaults\nA = MOUSE_LEFT\nB = MOUSE_RIGHT\n');
-    assert.deepEqual(port.gameFeatures(root), { vulkan: true, appleSilicon: true, mouseKeys: true, eclipseAppleSilicon: true });
+    assert.deepEqual(port.gameFeatures(root), { ...none, vulkan: true, appleSilicon: true, mouseKeys: true, eclipseAppleSilicon: true });
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 
@@ -851,4 +852,25 @@ test('settings saved before the keyboard and mouse keys keep a changed layout, e
   // saved since: left as they are, so a later change of mind stays
   const later = load({ arch: '64', cutscenes: false, controlsLayout: 2, keyBindings: { A: ['J'] }, mouseCamera: false, softTrigger: 40 });
   assert.deepEqual([later.keyBindings, later.mouseCamera, later.softTrigger], [{ A: ['J'] }, false, 40]);
+});
+
+test('Eclipse plays the movies it kept from Sunshine from the disc or the HD cutscenes, when the game can', () => {
+  const root = temporary();
+  try {
+    const eclipse = port.normalizeSettings({ eclipse: true }, 'linux');
+    assert.equal(eclipse.eclipseSunshineMovies, true);
+    assert.deepEqual(port.eclipseMovieEnvironment(root, eclipse, '/games/sms.iso'), {}); // an older game
+    fs.mkdirSync(path.join(root, 'platform', 'dvd'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'platform', 'dvd', 'dvd.cpp'), 'getenv("SMS_ECLIPSE_SUNSHINE_MOVIES")');
+    assert.equal(port.gameFeatures(root).eclipseSunshineMovies, true);
+    assert.deepEqual(port.eclipseMovieEnvironment(root, eclipse, '/games/sms.iso'), { SMS_ECLIPSE_SUNSHINE_MOVIES: '/games/sms.iso' });
+    assert.deepEqual(port.eclipseMovieEnvironment(root, { ...eclipse, eclipseSunshineMovies: false }, '/games/sms.iso'),
+      { SMS_ECLIPSE_SUNSHINE_MOVIES: '0' });
+    assert.deepEqual(port.eclipseMovieEnvironment(root, { ...eclipse, eclipse: false }, '/games/sms.iso'), {});
+    // With HD cutscenes on, the pack's, once it is installed (the disc's otherwise).
+    const hd = { ...eclipse, cutscenes: true, textures: true };
+    assert.equal(port.eclipseMovieEnvironment(root, hd, '/games/sms.iso').SMS_HD_CUTSCENES, undefined);
+    // The pack itself stays off for Eclipse's other movies.
+    assert.equal(port.buildEnvironment(hd, '/games/Eclipse.iso', root).SMS_HD_CUTSCENES, '0');
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });

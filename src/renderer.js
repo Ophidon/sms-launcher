@@ -678,7 +678,9 @@ function refresh(data) {
   badge('cutscenes-badge', config.settings.eclipse ? 'Sunshine only' : !config.settings.textures ? 'Needs HD textures'
     : data.cutscenesInstalled ? 'Installed' : 'Not installed',
     data.cutscenesInstalled && !config.settings.eclipse, wantsCutscenes(data) && !data.cutscenesInstalled);
-  $('cutscene-info').textContent = config.settings.eclipse ? 'Eclipse plays its own movies.'
+  $('cutscene-info').textContent = config.settings.eclipse
+    ? data.features?.eclipseSunshineMovies && config.settings.eclipseSunshineMovies && data.cutscenesInstalled && config.settings.cutscenes
+      ? 'Eclipse plays them for the movies it kept from Sunshine.' : 'Eclipse plays its own movies.'
     : config.settings.cutscenes && !config.settings.textures ? 'Turn on HD textures to play HD cutscenes.'
     : data.cutscenesInstalled ? config.settings.cutscenes ? 'HD cutscenes are ready for Sunshine.' : 'Already set up. Turn on to use them.'
       : !config.settings.cutscenes ? ''
@@ -687,6 +689,7 @@ function refresh(data) {
   $('cutscene-info').hidden = !$('cutscene-info').textContent;
   badge('eclipse-badge', data.eclipseInstalled ? 'Installed' : platform.id === 'linux' ? 'Optional' : 'Experimental', data.eclipseInstalled, platform.id !== 'linux');
   $('eclipse-platform-note').textContent = platform.id === 'linux' ? '' : 'Eclipse is still experimental on this computer.';
+  $('eclipse-movies-row').hidden = !config.settings.eclipse || (data.repoReady && !data.features?.eclipseSunshineMovies);
   $('install-eclipse').textContent = data.eclipseInstalled ? 'Reinstall Eclipse' : 'Install Eclipse';
   $('eclipse-note').hidden = !config.settings.eclipse;
   $('install-eclipse').disabled = !data.repoReady || !data.romReady || Boolean(data.active);
@@ -767,7 +770,7 @@ function refresh(data) {
     $(key).value = String(config.settings[key]);
   renderVolume();
   renderRanges();
-  for (const key of ['fullscreen', 'invertCameraX', 'invertCameraY', 'freeCamera', 'cstickAim', 'mouseCamera', 'closeCameraMouse', 'skipMovies', 'skipIntro', 'pauseTracker', 'radar', 'autoSave', 'heatHaze', 'overlay', 'fxaa', 'hudEdges', 'textures', 'shaderWarmup', 'cutscenes', 'eclipse', 'autoUpdate', 'shareUsage', 'discordPresence', 'darkMode']) $(key).checked = config.settings[key];
+  for (const key of ['fullscreen', 'invertCameraX', 'invertCameraY', 'freeCamera', 'cstickAim', 'cstickOrbit', 'mouseCamera', 'closeCameraMouse', 'rawMouse', 'skipMovies', 'skipIntro', 'pauseTracker', 'radar', 'autoSave', 'heatHaze', 'overlay', 'fxaa', 'hudEdges', 'textures', 'shaderWarmup', 'cutscenes', 'eclipse', 'eclipseSunshineMovies', 'autoUpdate', 'shareUsage', 'discordPresence', 'darkMode']) $(key).checked = config.settings[key];
   renderTheme();
   keyBindings = config.settings.keyBindings || {};
   padBindings = config.settings.padBindings || {};
@@ -795,7 +798,7 @@ function refresh(data) {
   $('update-channel-field').hidden = data.portable;
   $('update-channel-note').hidden = data.portable;
   renderGameSource(data);
-  for (const key of ['arch', 'widescreen', 'resolution', 'volume', 'musicVolume', 'sfxVolume', 'frameRate', 'language', 'vsync', 'skipMovies', 'skipIntro', 'pauseTracker', 'radar', 'autoSave', 'heatHaze', 'overlay', 'fullscreen', 'fullscreenMode', 'exclusiveResolution', 'display', 'invertCameraX', 'invertCameraY', 'freeCamera', 'cstickAim', 'cameraSpeed', 'mouseCamera', 'closeCameraMouse', 'mouseSensitivity', 'msaa', 'fxaa', 'anisotropic', 'sharpen', 'brightness', 'aspect', 'presentFilter', 'hudEdges', 'textures', 'textureLoading', 'shaderWarmup', 'cutscenes', 'eclipse', 'autoUpdate', 'shareUsage', 'discordPresence', 'darkMode', 'updateChannel', 'buttonPrompts', 'promptPad', 'graphicsPreset', 'fsrMode', 'renderer', 'appleSilicon'])
+  for (const key of ['arch', 'widescreen', 'resolution', 'volume', 'musicVolume', 'sfxVolume', 'frameRate', 'language', 'vsync', 'skipMovies', 'skipIntro', 'pauseTracker', 'radar', 'autoSave', 'heatHaze', 'overlay', 'fullscreen', 'fullscreenMode', 'exclusiveResolution', 'display', 'invertCameraX', 'invertCameraY', 'freeCamera', 'cstickAim', 'cstickOrbit', 'cameraSpeed', 'mouseCamera', 'closeCameraMouse', 'mouseSensitivity', 'rawMouse', 'msaa', 'fxaa', 'anisotropic', 'sharpen', 'brightness', 'aspect', 'presentFilter', 'hudEdges', 'textures', 'textureLoading', 'shaderWarmup', 'cutscenes', 'eclipse', 'eclipseSunshineMovies', 'autoUpdate', 'shareUsage', 'discordPresence', 'darkMode', 'updateChannel', 'buttonPrompts', 'promptPad', 'graphicsPreset', 'fsrMode', 'renderer', 'appleSilicon'])
     $(key).disabled = Boolean(data.active);
   // Turning one off stays possible once on, whatever the game version.
   if (!platform.arches.includes('arm64') || rosettaEclipse || !features.appleSilicon && config.settings.arch !== 'arm64')
@@ -1085,6 +1088,7 @@ function renderDependents(busy = false) {
   $('exclusiveResolution').disabled = busy || !$('fullscreen').checked || $('fullscreenMode').value !== 'exclusive';
   $('mouseSensitivity').disabled = busy || !$('mouseCamera').checked;
   $('closeCameraMouse').disabled = busy || !$('mouseCamera').checked;
+  $('rawMouse').disabled = busy || !$('mouseCamera').checked;
   // FSR 1's quality sets the internal resolution, in place of Picture sharpness
   const fsr = ['fsr', 'nis'].includes($('presentFilter').value);
   $('fsrMode-field').hidden = !fsr;
@@ -1105,14 +1109,15 @@ function settingsValue() {
     frameRate: Number($('frameRate').value), language: $('language').value, fullscreen: $('fullscreen').checked, fullscreenMode: $('fullscreenMode').value,
     exclusiveResolution: $('exclusiveResolution').value, display: $('display').value, vsync: $('vsync').value,
     skipMovies: $('skipMovies').checked, skipIntro: $('skipIntro').checked, pauseTracker: $('pauseTracker').checked, radar: $('radar').checked, autoSave: $('autoSave').checked, heatHaze: $('heatHaze').checked, overlay: $('overlay').checked,
-    freeCamera: $('freeCamera').checked, cstickAim: $('cstickAim').checked, cameraSpeed: Number($('cameraSpeed').value),
+    freeCamera: $('freeCamera').checked, cstickAim: $('cstickAim').checked, cstickOrbit: $('cstickOrbit').checked, cameraSpeed: Number($('cameraSpeed').value),
     mouseCamera: $('mouseCamera').checked, closeCameraMouse: $('closeCameraMouse').checked, mouseSensitivity: Number($('mouseSensitivity').value),
+    rawMouse: $('rawMouse').checked,
     msaa: Number($('msaa').value), fxaa: $('fxaa').checked, anisotropic: Number($('anisotropic').value),
     sharpen: Number($('sharpen').value), brightness: Number($('brightness').value), aspect: $('aspect').value,
     presentFilter: $('presentFilter').value, fsrMode: $('fsrMode').value, renderer: $('renderer').value,
     invertCameraX: $('invertCameraX').checked, invertCameraY: $('invertCameraY').checked, hudEdges: $('hudEdges').checked, textures: $('textures').checked, cutscenes: $('cutscenes').checked,
     textureLoading: $('textureLoading').value, shaderWarmup: $('shaderWarmup').checked,
-    eclipse: $('eclipse').checked, autoUpdate: $('autoUpdate').checked, shareUsage: $('shareUsage').checked, discordPresence: $('discordPresence').checked, darkMode: $('darkMode').checked, updateChannel: $('updateChannel').value,
+    eclipse: $('eclipse').checked, eclipseSunshineMovies: $('eclipseSunshineMovies').checked, autoUpdate: $('autoUpdate').checked, shareUsage: $('shareUsage').checked, discordPresence: $('discordPresence').checked, darkMode: $('darkMode').checked, updateChannel: $('updateChannel').value,
     keyBindings, padBindings, softTrigger: Number($('softTrigger').value),
     rumbleStrength: Number($('rumbleStrength').value), buttonPrompts: $('buttonPrompts').value,
     promptPad: $('promptPad').value, graphicsPreset: $('graphicsPreset').value,
@@ -2008,7 +2013,7 @@ $('import-save-state').addEventListener('click', async () => {
   } catch (error) { $('save-state-result').textContent = errorText(error); }
 });
 $('open-save-states').addEventListener('click', () => window.sms.openSaveStates().catch(showError));
-for (const key of ['arch', 'widescreen', 'resolution', 'volume', 'musicVolume', 'sfxVolume', 'frameRate', 'language', 'vsync', 'skipMovies', 'skipIntro', 'pauseTracker', 'radar', 'autoSave', 'heatHaze', 'overlay', 'fullscreen', 'fullscreenMode', 'exclusiveResolution', 'display', 'invertCameraX', 'invertCameraY', 'freeCamera', 'cstickAim', 'cameraSpeed', 'mouseCamera', 'closeCameraMouse', 'mouseSensitivity', 'msaa', 'fxaa', 'anisotropic', 'sharpen', 'brightness', 'aspect', 'presentFilter', 'hudEdges', 'textures', 'textureLoading', 'shaderWarmup', 'cutscenes', 'eclipse', 'autoUpdate', 'shareUsage', 'discordPresence', 'darkMode', 'updateChannel', 'buttonPrompts', 'promptPad', 'hdr', 'hdrCalibration', 'hdrPaperWhite', 'hdrPeak', 'hdrContrast', 'hdrSaturation', 'hdrHighlights', 'fsrMode', 'renderer', 'appleSilicon'])
+for (const key of ['arch', 'widescreen', 'resolution', 'volume', 'musicVolume', 'sfxVolume', 'frameRate', 'language', 'vsync', 'skipMovies', 'skipIntro', 'pauseTracker', 'radar', 'autoSave', 'heatHaze', 'overlay', 'fullscreen', 'fullscreenMode', 'exclusiveResolution', 'display', 'invertCameraX', 'invertCameraY', 'freeCamera', 'cstickAim', 'cstickOrbit', 'cameraSpeed', 'mouseCamera', 'closeCameraMouse', 'mouseSensitivity', 'rawMouse', 'msaa', 'fxaa', 'anisotropic', 'sharpen', 'brightness', 'aspect', 'presentFilter', 'hudEdges', 'textures', 'textureLoading', 'shaderWarmup', 'cutscenes', 'eclipse', 'eclipseSunshineMovies', 'autoUpdate', 'shareUsage', 'discordPresence', 'darkMode', 'updateChannel', 'buttonPrompts', 'promptPad', 'hdr', 'hdrCalibration', 'hdrPaperWhite', 'hdrPeak', 'hdrContrast', 'hdrSaturation', 'hdrHighlights', 'fsrMode', 'renderer', 'appleSilicon'])
   $(key).addEventListener('change', saveSettings);
 for (const key of ['volume', 'musicVolume', 'sfxVolume']) $(key).addEventListener('input', renderVolume);
 for (const key of ['cameraSpeed', 'mouseSensitivity', 'sharpen', 'brightness']) $(key).addEventListener('input', renderRanges);

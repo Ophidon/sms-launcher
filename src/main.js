@@ -1015,9 +1015,9 @@ async function setupGame() {
 }
 
 const PLAYER_SETTINGS = [
-  'volume', 'musicVolume', 'sfxVolume', 'invertCameraX', 'invertCameraY', 'keyBindings', 'padBindings', 'softTrigger', 'rumbleStrength', 'freeCamera', 'cstickAim', 'cameraSpeed', 'mouseCamera', 'closeCameraMouse',
-  'mouseSensitivity', 'skipMovies', 'skipIntro', 'language', 'heatHaze', 'pauseTracker', 'radar', 'autoSave', 'buttonPrompts', 'promptPad', 'hdr', 'hdrCalibration', 'hdrPaperWhite', 'hdrPeak', 'hdrContrast', 'hdrSaturation', 'hdrHighlights', 'overlay', 'fullscreenMode', 'exclusiveResolution', 'display', 'vsync',
-  'msaa', 'fxaa', 'anisotropic', 'sharpen', 'fsrMode', 'brightness', 'aspect', 'presentFilter', 'renderer'
+  'volume', 'musicVolume', 'sfxVolume', 'invertCameraX', 'invertCameraY', 'keyBindings', 'padBindings', 'softTrigger', 'rumbleStrength', 'freeCamera', 'cstickAim', 'cstickOrbit', 'cameraSpeed', 'mouseCamera', 'closeCameraMouse',
+  'mouseSensitivity', 'rawMouse', 'skipMovies', 'skipIntro', 'language', 'heatHaze', 'pauseTracker', 'radar', 'autoSave', 'buttonPrompts', 'promptPad', 'hdr', 'hdrCalibration', 'hdrPaperWhite', 'hdrPeak', 'hdrContrast', 'hdrSaturation', 'hdrHighlights', 'overlay', 'fullscreenMode', 'exclusiveResolution', 'display', 'vsync',
+  'msaa', 'fxaa', 'anisotropic', 'sharpen', 'fsrMode', 'brightness', 'aspect', 'presentFilter', 'renderer', 'eclipseSunshineMovies'
 ];
 function promptDirectory() { return path.join(app.getPath('userData'), 'prompts'); }
 
@@ -1105,6 +1105,7 @@ async function play(installation = null, session = null) {
   const env = recordedTools
     ? buildTools.environmentAtRoot(recordedTools, { ...port.buildEnvironment(settings, disc, root), SMS_SAVE_DIR: saveDir })
     : toolEnv({ ...port.buildEnvironment(settings, disc, root), SMS_SAVE_DIR: saveDir });
+  Object.assign(env, port.eclipseMovieEnvironment(root, settings, rom));
   shieldGame(root, settings, env);
   // Changed keys go to a file of the launcher's own, so a bindings.txt kept by hand in the game folder is left alone.
   // A game older than the keyboard and mouse keys gets the whole layout the Controls page shows that way too.
