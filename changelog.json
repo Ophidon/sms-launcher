@@ -12,7 +12,8 @@
       "Keyboard and mouse: the default keys are now laid out for the mouse, with mouse look on. WASD moves, the mouse turns the camera, left click jumps, right click dives, Q switches the nozzle, E opens the close-up camera, middle click sprays FLUDD gently so you can spray on the move and Space sprays it fully, Left Shift ground pounds and sidesteps, Tab opens the map and Enter pauses. Controllers keep their layout.",
       "Soft L and Soft R now press as deep as a trigger goes without clicking (95%) by default, instead of 40%; Soft press depth under Controls still changes it.",
       "The radar and its full map work in Super Mario Eclipse's own stages, show its Shine Sprites past the first 120 as collected or not, and name its areas on the full map.",
-      "Fixed a crashed game on Windows leaving a helper running in the background that kept an old game version's files open, so they couldn't be deleted."
+      "Fixed a crashed game on Windows leaving a helper running in the background that kept an old game version's files open, so they couldn't be deleted.",
+      "Mods: native mods can now decide which FLUDD nozzles Mario has (refusing or changing a nozzle switch or swap, leaving nozzle boxes out of a stage, choosing the nozzle a stage starts with), take FLUDD away or give it back, and put on or take off his aloha shirt, sunglasses and diving helmet (mod API 1.5 beta 1)."
     ]
   },
   "releases": [
