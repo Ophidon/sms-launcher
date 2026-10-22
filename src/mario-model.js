@@ -13,6 +13,8 @@ const IDLE = 'bck/ma_wait.bck';
 
 // The body model's Shine shirt, shown only once Mario has it (TMario::thinkAloha).
 const ALOHA_SHAPE = 10;
+// His sunglasses, which the game hangs off his M_head joint (TMarioCap).
+const SUNGLASSES = 'bmd/ma_glass1.bmd';
 
 // Which part of Mario a shape is, from the joint it hangs off or its material.
 function partOf(shape, model, index) {
@@ -66,6 +68,26 @@ function fluddShapes(model, packTexture) {
   });
 }
 
+// The sunglasses: a frame drawn from an intensity/alpha texture between two
+// TEV colours (the alpha cutting its shape out), and see-through lenses
+// coloured by their vertices. Nothing on them takes Mario's colours.
+function loadSunglasses(files, model, textureFor) {
+  if (!files.has(SUNGLASSES)) return null;
+  const glasses = j3d.parseBmd(files.get(SUNGLASSES));
+  return rig(glasses, glasses.shapes.map(shape => {
+    const material = glasses.materials[shape.material], source = glasses.textures[material.textures[0]];
+    let texture = -1;
+    if (source) {
+      const [dark, light] = material.tevColors, rgba = new Uint8Array(source.rgba);
+      for (let i = 0; i < rgba.length; i += 4) for (let c = 0; c < 3; c++)
+        rgba[i + c] = Math.round(dark[c] + (light[c] - dark[c]) * source.rgba[i] / 255);
+      texture = textureFor({ ...source, rgba }, 'sunglasses');
+    }
+    return { ...shape, part: 'sunglasses', texture, doubleSided: material.cull === 0, translucent: material.mode === 4,
+      alphaTest: material.alphaTest?.comp0 === 6 ? material.alphaTest.ref0 / 255 : 0 };
+  }), { joint: jointIndex(model, 'M_head') });
+}
+
 function loadMario(rom) {
   const disc = new Disc(rom);
   let files, fluddArchive;
@@ -110,6 +132,8 @@ function loadMario(rom) {
       [id, fluddRig(data, { joint: jointIndex(pack, 'nozzle_center') })])),
   };
 
+  const sunglasses = loadSunglasses(files, model, textureFor);
+
   for (const texture of textures) {
     texture.mask = colors.PARTS[texture.part]
       ? colors.classify(texture.rgba, texture.width, texture.height, texture.part, texture.covered)
@@ -122,7 +146,7 @@ function loadMario(rom) {
   // The game's toon ramp: its darkest and brightest grey shade the cel bands.
   const toon = model.textures.find(t => /toon/i.test(t.name));
   return {
-    ...mario, fludd, textures, references,
+    ...mario, fludd, sunglasses, textures, references,
     toon: toon ? toonBands(toon) : [0.72, 1],
     idle: bake(idle, model.joints),
   };
@@ -139,8 +163,8 @@ function jointIndex(model, name) {
 function rig(model, shapes, attach = null) {
   return {
     joints: model.joints, draw: model.draw, envelopes: model.envelopes, inverseBind: model.inverseBind, attach,
-    shapes: shapes.map(({ position, normal, uv, color, hasColor, drawIndex, index, part, texture, doubleSided, translucent = false }) =>
-      ({ position, normal, uv, color: texture < 0 && hasColor ? color : null, drawIndex, index, part, texture, doubleSided, translucent })),
+    shapes: shapes.map(({ position, normal, uv, color, hasColor, drawIndex, index, part, texture, doubleSided, translucent = false, alphaTest = 0 }) =>
+      ({ position, normal, uv, color: texture < 0 && hasColor ? color : null, drawIndex, index, part, texture, doubleSided, translucent, alphaTest })),
   };
 }
 
@@ -163,4 +187,4 @@ function toonBands({ rgba }) {
   return [low / 255, high / 255];
 }
 
-module.exports = { loadMario, partOf, bake, fluddFiles, loadFludd, fluddShapes, NOZZLES, FLUDD };
+module.exports = { loadMario, partOf, bake, fluddFiles, loadFludd, fluddShapes, loadSunglasses, NOZZLES, FLUDD, SUNGLASSES };

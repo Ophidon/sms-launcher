@@ -9,7 +9,7 @@ const { Disc, parseFst } = require('../src/disc');
 const { yaz0, rarc } = require('../src/archive');
 const j3d = require('../src/j3d');
 const colors = require('../src/mario-colors');
-const { partOf, bake, fluddFiles, NOZZLES, FLUDD } = require('../src/mario-model');
+const { partOf, bake, fluddFiles, loadSunglasses, NOZZLES, FLUDD, SUNGLASSES } = require('../src/mario-model');
 
 // A file system table: root, data/, data/mario.szs, opening.bnr.
 function fst(files) {
@@ -154,6 +154,38 @@ test("FLUDD comes from Mario's archive, or Eclipse's common one", () => {
   assert.throws(() => fluddFiles(disc, without), /read data\/common\.szs/);
 });
 
+test("the sunglasses hang off Mario's head: a frame between its two TEV colours, cut out by alpha, and see-through lenses", t => {
+  const shape = extra => ({ position: new Float32Array(3), normal: new Float32Array(3), uv: new Float32Array(2), index: new Uint16Array(1),
+    drawIndex: new Uint8Array(1), color: new Float32Array([0, 0, 0.2, 0.9]), ...extra });
+  const glasses = {
+    joints: [{ name: 'sunglass_A', parent: -1 }], draw: [{ weighted: false, index: 0 }], envelopes: [], inverseBind: [],
+    textures: [{ name: 'H_mario_sunglass_flame_ia4', width: 1, height: 2, rgba: Uint8Array.from([0, 0, 0, 255, 255, 255, 255, 0]) }],
+    materials: [
+      { name: '_mat_sunglass_A_flame', mode: 1, cull: 0, textures: [0], tevColors: [[84, 80, 230, 255], [238, 255, 255, 255]], alphaTest: { comp0: 6, ref0: 128 } },
+      { name: '_mat_sunglass_A_lens', mode: 4, cull: 0, textures: [-1], tevColors: [[255, 255, 255, 255], [255, 255, 255, 255]], alphaTest: { comp0: 7, ref0: 0 } },
+    ],
+    shapes: [shape({ material: 0, hasColor: false }), shape({ material: 1, hasColor: true })],
+  };
+  t.mock.method(j3d, 'parseBmd', () => glasses);
+  const mario = { joints: [{ name: 'jnt_root' }, { name: 'M_head' }] }, made = [];
+  const textureFor = (source, part) => made.push({ source, part }) - 1;
+  assert.equal(loadSunglasses(new Map(), mario, textureFor), null, 'a disc without them has none');
+  const rig = loadSunglasses(new Map([[SUNGLASSES, Buffer.alloc(0)]]), mario, textureFor);
+  assert.deepEqual(rig.attach, { joint: 1 });
+  const [frame, lens] = rig.shapes;
+  assert.equal(frame.part, 'sunglasses');
+  assert.equal(frame.translucent, false);
+  assert.ok(Math.abs(frame.alphaTest - 128 / 255) < 1e-9);
+  assert.equal(frame.color, null);
+  assert.deepEqual(Array.from(made[frame.texture].source.rgba), [84, 80, 230, 255, 238, 255, 255, 0]);
+  assert.equal(made[frame.texture].part, 'sunglasses');
+  assert.equal(lens.texture, -1);
+  assert.equal(lens.translucent, true);
+  assert.equal(lens.alphaTest, 0);
+  assert.ok(lens.color, 'the lenses keep their vertex colours');
+  assert.ok(!colors.PARTS.sunglasses, 'nothing on them takes Mario\'s colours');
+});
+
 test('shapes are told apart by the joint they hang off or their material', () => {
   const model = {
     joints: [{ name: 'mdl1' }, { name: 'M_head_cap1' }, { name: 'M_head' }, { name: 'M_hand1_L' }, { name: 'M_foot_R' }],
@@ -258,9 +290,11 @@ test('border texels blend the two regions they sit between', () => {
 
 test('saved looks keep only known regions, #rrggbb colours and real nozzles', () => {
   assert.deepEqual(colors.normalizeLook({ colors: { hat: '#00FF00', shirt: 'green', cape: '#ffffff' }, aloha: 'yes', fludd: 1, nozzle: 'yoshi' }),
-    { colors: { hat: '#00ff00' }, inGame: true, aloha: false, fludd: false, nozzle: 'spray' });
-  assert.deepEqual(colors.normalizeLook(undefined), { colors: {}, inGame: true, aloha: false, fludd: false, nozzle: 'spray' });
-  assert.deepEqual(colors.normalizeLook({ aloha: true, fludd: true, nozzle: 'hover' }), { colors: {}, inGame: true, aloha: true, fludd: true, nozzle: 'hover' });
+    { colors: { hat: '#00ff00' }, inGame: true, aloha: false, sunglasses: false, fludd: false, nozzle: 'spray' });
+  assert.deepEqual(colors.normalizeLook(undefined), { colors: {}, inGame: true, aloha: false, sunglasses: false, fludd: false, nozzle: 'spray' });
+  assert.deepEqual(colors.normalizeLook({ aloha: true, fludd: true, nozzle: 'hover' }), { colors: {}, inGame: true, aloha: true, sunglasses: false, fludd: true, nozzle: 'hover' });
+  assert.equal(colors.normalizeLook({ sunglasses: true }).sunglasses, true);
+  assert.equal(colors.normalizeLook({ sunglasses: 'yes' }).sunglasses, false, 'only an explicit true puts them on');
   assert.equal(colors.normalizeLook({ inGame: false }).inGame, false);
   assert.equal(colors.normalizeLook({ inGame: 'no' }).inGame, true, 'only an explicit false turns it off');
   for (const preset of colors.PRESETS) assert.deepEqual(colors.normalize(preset.colors), preset.colors, preset.id);
