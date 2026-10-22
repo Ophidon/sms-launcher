@@ -222,11 +222,35 @@ function contains(parent, child) {
   return relative === '' || (!path.isAbsolute(relative) && relative !== '..' && !relative.startsWith(`..${path.sep}`));
 }
 
+// Remove a folder an entry at a time, so `shouldStop` can end it partway: a game
+// version holds tens of thousands of files, which Windows can take minutes to
+// delete. Links are removed, never followed (lstat sees a Windows junction as
+// one). A file another program has open stays; the rest is still removed and
+// the first such error is thrown at the end, with the folder left for next time.
+async function removeTree(folder, shouldStop) {
+  let failure = null, stopped = false;
+  // Whether `item` is gone. A folder whose files weren't all removed stays.
+  const remove = async item => {
+    if (stopped || (stopped = shouldStop())) return false;
+    const stats = fs.lstatSync(item, { throwIfNoEntry: false });
+    let empty = true;
+    if (stats?.isDirectory() && !stats.isSymbolicLink())
+      for (const name of fs.readdirSync(item)) empty = await remove(path.join(item, name)) && empty;
+    if (!empty) return false;
+    try { await fs.promises.rm(item, { recursive: true, force: true, maxRetries: 3 }); return true; }
+    catch (error) { failure ||= error; return false; }
+  };
+  const gone = await remove(folder);
+  if (failure) throw failure;
+  return gone;
+}
+
 // Each update checks the new game out beside the last one in <base>.releases.
 // Remove the versions `keep` doesn't name, unless one holds a `protect` path
 // (a memory card or disc file). A kept version's HD packs may be linked from
 // an old one (carryUserFiles), so move those into the kept version first.
-async function pruneSnapshots(base, keep, protect = [], onError = () => {}) {
+// `shouldStop` ends it early, leaving the rest for next time.
+async function pruneSnapshots(base, keep, protect = [], onError = () => {}, shouldStop = () => false) {
   const releases = `${base}.releases`;
   let names;
   try { names = fs.readdirSync(releases); } catch (_) { return []; }
@@ -235,6 +259,7 @@ async function pruneSnapshots(base, keep, protect = [], onError = () => {}) {
   const moved = new Map();
   const removed = [];
   for (const name of names) {
+    if (shouldStop()) break;
     const candidate = path.join(releases, name);
     try {
       if (!fs.lstatSync(candidate).isDirectory()) continue;
@@ -259,8 +284,7 @@ async function pruneSnapshots(base, keep, protect = [], onError = () => {}) {
         const link = path.join(candidate, 'mods', folder);
         if (fs.lstatSync(link, { throwIfNoEntry: false })?.isSymbolicLink()) fs.unlinkSync(link);
       }
-      await fs.promises.rm(candidate, { recursive: true, force: true, maxRetries: 3 });
-      removed.push(candidate);
+      if (await removeTree(candidate, shouldStop)) removed.push(candidate);
     } catch (error) { onError(error, candidate); }
   }
   return removed;
