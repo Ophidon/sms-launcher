@@ -20,6 +20,10 @@ case "$(uname -s)" in
 esac
 bdir="build/$os-$arch-eclipse"
 cmake_args=(-DSMS_ARCH="$arch" -DSMS_ECLIPSE=ON -DSMS_BUNDLE_DISC= -DSMS_GX_BUILD_TESTS=OFF)
+# The Vulkan backend, as build.sh does: on Windows the launcher sets it ON for a
+# player who picks Vulkan, and without it an Eclipse build never had it, so the
+# launcher saw the game as needing that build again after every build.
+[[ -z "${SMS_GX_VULKAN:-}" ]] || cmake_args+=(-DSMS_GX_VULKAN="$SMS_GX_VULKAN")
 if [[ "$os" == windows ]]; then
   cmake_args+=(-G Ninja -DPython3_EXECUTABLE="$(cygpath -m "$(command -v python)")")
 fi

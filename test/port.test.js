@@ -510,14 +510,21 @@ test('Eclipse builder uses its own CMake tree without bundling the patched disc'
       fs.chmodSync(file, 0o755);
     }
     const callLog = path.join(dir, 'calls.txt');
-    const result = spawnSync(path.join(__dirname, '..', 'scripts', 'build-eclipse.sh'), [repo, '64'], {
-      env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, CALL_LOG: callLog }, encoding: 'utf8'
-    });
-    assert.equal(result.status, 0, result.stderr);
-    const calls = fs.readFileSync(callLog, 'utf8');
+    const run = (vulkan = {}) => {
+      fs.rmSync(callLog, { force: true });
+      const env = { ...process.env, PATH: `${bin}:${process.env.PATH}`, CALL_LOG: callLog, ...vulkan };
+      if (!('SMS_GX_VULKAN' in vulkan)) delete env.SMS_GX_VULKAN;
+      const result = spawnSync(path.join(__dirname, '..', 'scripts', 'build-eclipse.sh'), [repo, '64'], { env, encoding: 'utf8' });
+      assert.equal(result.status, 0, result.stderr);
+      return fs.readFileSync(callLog, 'utf8');
+    };
+    const calls = run();
     assert.match(calls, /-DSMS_ECLIPSE=ON/);
     assert.match(calls, /-DSMS_BUNDLE_DISC=/);
     assert.match(calls, /build\/linux-64-eclipse/);
+    // The game's own default unless the launcher asks (Vulkan picked on Windows).
+    assert.doesNotMatch(calls, /SMS_GX_VULKAN/);
+    assert.match(run({ SMS_GX_VULKAN: 'ON' }), /-DSMS_GX_VULKAN=ON/);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
