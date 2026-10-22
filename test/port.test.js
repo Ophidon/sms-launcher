@@ -807,7 +807,7 @@ test('game features come from the game version on disk', () => {
   const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sms-features-'));
   try {
-    const none = { vulkan: false, appleSilicon: false, mouseKeys: false, eclipseAppleSilicon: false };
+    const none = { vulkan: false, appleSilicon: false, mouseKeys: false, eclipseAppleSilicon: false, eclipseSunshineMovies: false };
     assert.deepEqual(port.gameFeatures(root), none);
     assert.deepEqual(port.gameFeatures(null), none);
     fs.mkdirSync(path.join(root, 'platform', 'gx', 'src', 'vk'), { recursive: true });
@@ -815,10 +815,10 @@ test('game features come from the game version on disk', () => {
     const mods = path.join(root, 'platform', 'mods', 'eclipse', 'lib');
     fs.mkdirSync(mods, { recursive: true });
     fs.writeFileSync(path.join(mods, 'CMakeLists.txt'), 'project(sms_eclipse C CXX)\n');
-    assert.deepEqual(port.gameFeatures(root), { vulkan: true, appleSilicon: true, mouseKeys: false, eclipseAppleSilicon: false });
+    assert.deepEqual(port.gameFeatures(root), { ...none, vulkan: true, appleSilicon: true });
     fs.appendFileSync(path.join(mods, 'CMakeLists.txt'), 'if(SMS_GAMEPTR_PLUGIN)\nendif()\n');
     fs.writeFileSync(path.join(root, 'bindings.txt'), '# defaults\nA = MOUSE_LEFT\nB = MOUSE_RIGHT\n');
-    assert.deepEqual(port.gameFeatures(root), { vulkan: true, appleSilicon: true, mouseKeys: true, eclipseAppleSilicon: true });
+    assert.deepEqual(port.gameFeatures(root), { ...none, vulkan: true, appleSilicon: true, mouseKeys: true, eclipseAppleSilicon: true });
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 
@@ -851,4 +851,25 @@ test('settings saved before the keyboard and mouse keys keep a changed layout, e
   // saved since: left as they are, so a later change of mind stays
   const later = load({ arch: '64', cutscenes: false, controlsLayout: 2, keyBindings: { A: ['J'] }, mouseCamera: false, softTrigger: 40 });
   assert.deepEqual([later.keyBindings, later.mouseCamera, later.softTrigger], [{ A: ['J'] }, false, 40]);
+});
+
+test('Eclipse plays the movies it kept from Sunshine from the disc or the HD cutscenes, when the game can', () => {
+  const root = temporary();
+  try {
+    const eclipse = port.normalizeSettings({ eclipse: true }, 'linux');
+    assert.equal(eclipse.eclipseSunshineMovies, true);
+    assert.deepEqual(port.eclipseMovieEnvironment(root, eclipse, '/games/sms.iso'), {}); // an older game
+    fs.mkdirSync(path.join(root, 'platform', 'dvd'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'platform', 'dvd', 'dvd.cpp'), 'getenv("SMS_ECLIPSE_SUNSHINE_MOVIES")');
+    assert.equal(port.gameFeatures(root).eclipseSunshineMovies, true);
+    assert.deepEqual(port.eclipseMovieEnvironment(root, eclipse, '/games/sms.iso'), { SMS_ECLIPSE_SUNSHINE_MOVIES: '/games/sms.iso' });
+    assert.deepEqual(port.eclipseMovieEnvironment(root, { ...eclipse, eclipseSunshineMovies: false }, '/games/sms.iso'),
+      { SMS_ECLIPSE_SUNSHINE_MOVIES: '0' });
+    assert.deepEqual(port.eclipseMovieEnvironment(root, { ...eclipse, eclipse: false }, '/games/sms.iso'), {});
+    // With HD cutscenes on, the pack's, once it is installed (the disc's otherwise).
+    const hd = { ...eclipse, cutscenes: true, textures: true };
+    assert.equal(port.eclipseMovieEnvironment(root, hd, '/games/sms.iso').SMS_HD_CUTSCENES, undefined);
+    // The pack itself stays off for Eclipse's other movies.
+    assert.equal(port.buildEnvironment(hd, '/games/Eclipse.iso', root).SMS_HD_CUTSCENES, '0');
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
