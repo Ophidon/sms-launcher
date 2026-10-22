@@ -299,7 +299,13 @@ async function exclusive(label, callback, newLog = false) {
   }
   operation = { label, detail: 'Starting…', percent: null, startedAt: Date.now() };
   broadcast('activity', operation);
-  try { return await callback(); }
+  try {
+    if (removingOldVersions) {
+      removingOldVersions.stop = true;
+      await removingOldVersions.done;
+    }
+    return await callback();
+  }
   catch (error) {
     if (!error.activityLogged) {
       log(`✕ ${label}: ${error.message}`);
@@ -973,12 +979,28 @@ async function removeOldBuildTools() {
 }
 
 // Keep the current and previous game versions; older ones only take up space.
-async function removeOldVersions() {
+async function removeOldVersions(shouldStop) {
   if (!config.installRoot || !binaryReady()) return;
   const removed = await game.pruneSnapshots(config.installRoot, [config.repo, config.previousInstall?.repo],
     [currentSaveDirectory(), config.previousInstall?.saveDirectory, config.rom, config.previousInstall?.rom],
-    (error, folder) => log(`Could not remove old game version ${folder}: ${error.message}`));
+    (error, folder) => log(['EBUSY', 'EPERM', 'EACCES'].includes(error.code) && error.path
+      ? `Could not remove all of old game version ${folder}: another program has ` +
+        `${path.basename(error.path)} open. The launcher tries again the next time it starts.`
+      : `Could not remove old game version ${folder}: ${error.message}`), shouldStop);
   if (removed.length) log(`Removed ${removed.length} old game version${removed.length === 1 ? '' : 's'} to free up disk space.`);
+}
+
+// At startup old game versions are removed beside the window rather than as a
+// task: on Windows that can take minutes, and Play or Update & play would have
+// to wait for it. A task stops it after the file it is on (exclusive); the rest
+// goes after the next update or start.
+let removingOldVersions = null;
+function removeOldVersionsInBackground() {
+  const job = { stop: false };
+  job.done = removeOldVersions(() => job.stop)
+    .catch(error => log(`Could not remove old game versions: ${error.message}`))
+    .finally(() => { if (removingOldVersions === job) removingOldVersions = null; });
+  removingOldVersions = job;
 }
 
 async function setupGame() {
@@ -2087,7 +2109,7 @@ if (ownsInstance) app.whenReady().then(async () => {
   syncDiscord();
   // Only with the window: a launcher update installs on quit, which `--play` does as the game closes.
   setupAppUpdater();
-  exclusive('Remove old game versions', removeOldVersions).catch(() => {});
+  removeOldVersionsInBackground();
   // The bundled manifest is the update check. Source downloads and builds
   // start with Update & play, so opening the launcher never changes a game.
 });

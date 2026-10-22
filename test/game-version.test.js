@@ -168,6 +168,46 @@ test('old game versions are removed, keeping the current and previous ones and H
   assert.deepEqual(await game.pruneSnapshots(path.join(home, 'missing'), [current]), []);
 });
 
+test('an old game version with a file another program has open loses everything else, and pruning can stop partway', async t => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'sms prune locked-'));
+  t.after(() => fs.rmSync(home, { recursive: true, force: true }));
+  const base = path.join(home, 'sms-pc-port');
+  const current = path.join(`${base}.releases`, 'c-current');
+  fs.mkdirSync(current, { recursive: true });
+  const version = name => {
+    const root = path.join(`${base}.releases`, name);
+    for (const folder of ['build', path.join('mods', 'eclipse')]) fs.mkdirSync(path.join(root, folder), { recursive: true });
+    fs.writeFileSync(path.join(root, 'build', 'sms.exe'), name);
+    fs.writeFileSync(path.join(root, port.ECLIPSE_ISO), name);
+    return root;
+  };
+  const locked = version('a-locked');
+  const later = version('b-later');
+  // Windows refuses to delete a file another program opened without sharing delete.
+  const rm = fs.promises.rm;
+  t.after(() => { fs.promises.rm = rm; });
+  fs.promises.rm = async (item, options) => {
+    if (item === path.join(locked, port.ECLIPSE_ISO))
+      throw Object.assign(new Error(`EBUSY: resource busy or locked, unlink '${item}'`), { code: 'EBUSY', path: item });
+    return rm(item, options);
+  };
+  const errors = [];
+  assert.deepEqual(await game.pruneSnapshots(base, [current], [], (error, folder) => errors.push([error.code, folder])), [later]);
+  assert.deepEqual(errors, [['EBUSY', locked]]);
+  assert.equal(fs.existsSync(path.join(locked, port.ECLIPSE_ISO)), true);
+  assert.equal(fs.existsSync(path.join(locked, 'build')), false);
+  assert.equal(fs.existsSync(later), false);
+
+  // A task the player starts stops it; what's left goes next time.
+  fs.promises.rm = rm;
+  const stopped = version('b-later');
+  let checks = 0;
+  assert.deepEqual(await game.pruneSnapshots(base, [current], [], () => {}, () => ++checks > 3), []);
+  assert.equal(fs.existsSync(stopped), true);
+  assert.deepEqual((await game.pruneSnapshots(base, [current])).sort(), [locked, stopped].sort());
+  assert.equal(fs.existsSync(current), true);
+});
+
 test('each OS and Mac architecture has its own tool version without changing existing archive hashes', () => {
   for (const [platform, arch] of [['linux','x64'],['win32','x64'],['darwin','x64'],['darwin','arm64']])
     assert.equal(tools.toolsetFor(platform, arch), tools.assetFor(platform, arch).toolset);
