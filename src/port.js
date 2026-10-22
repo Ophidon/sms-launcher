@@ -11,6 +11,8 @@ const { describe } = require('./disc');
 
 const PORT_URL = 'https://github.com/chasem-dev/sms-pc-port.git';
 const ECLIPSE_ISO = path.join('mods', 'eclipse', 'Super Mario Eclipse v1.1.0.iso');
+// The keyboard layout saved key bindings are changes from: 2 is the keyboard and mouse one (savedControls).
+const CONTROLS_LAYOUT = 2;
 
 // renderers: the game's graphics APIs the launcher offers. On a Mac with
 // Apple Silicon, arm64 is the native build (the Apple Silicon setting) and the
@@ -145,7 +147,10 @@ function normalizeSettings(input = {}, platform = process.platform, hostArch = p
     // The C-stick turns (and aims FLUDD in) the close-up camera Y opens, as well as the control stick.
     cstickAim: Boolean(input.cstickAim),
     cameraSpeed: numberSetting(input.cameraSpeed, 100, 10, 400),
-    mouseCamera: Boolean(input.mouseCamera),
+    // On unless turned off: the default keys are laid out for the mouse (left click jumps).
+    mouseCamera: input.mouseCamera !== false,
+    // With mouse look, the mouse turns (and aims FLUDD in) the close-up camera Y opens; on unless turned off.
+    closeCameraMouse: input.closeCameraMouse !== false,
     mouseSensitivity: numberSetting(input.mouseSensitivity, 100, 5, 1000),
     // Picture: anti-aliasing, texture filtering, sharpening, brightness (percent; 100 unchanged), fit and scaler.
     msaa: [0, 2, 4, 8].includes(Number(input.msaa)) ? Number(input.msaa) : 0,
@@ -185,8 +190,11 @@ function normalizeSettings(input = {}, platform = process.platform, hostArch = p
     keyBindings: bindings.normalize(input.keyBindings),
     // Controller buttons the player changed in Settings → Controls.
     padBindings: bindings.normalizePads(input.padBindings),
-    // How far the soft L / R bindings press the trigger, in percent (the game caps it below the click).
-    softTrigger: numberSetting(input.softTrigger, 40, 5, 95),
+    // How far the soft L / R bindings press the trigger, in percent (the game caps it below the click): by
+    // default as far as a trigger goes without the click.
+    softTrigger: numberSetting(input.softTrigger, 95, 5, 95),
+    // The keyboard layout these bindings are changes from (savedSettings moves older ones over).
+    controlsLayout: CONTROLS_LAYOUT,
     // Controller rumble in percent of the slider: 0 turns it off and 50, the default, is the console's rumble.
     // The game's own strength is twice it (rumbleGameStrength): above 100 it runs the motor more often.
     rumbleStrength: numberSetting(input.rumbleStrength, 50, 0, 100),
@@ -318,8 +326,22 @@ function cutscenePackSupported(root) {
 
 // Settings from preferences.json. Before HD cutscenes had their own setting, HD
 // textures brought them: players who already have the movie pack keep it.
+// Settings saved before the keyboard and mouse layout (controlsLayout 2) kept the keys a player changed as
+// changes from the classic keyboard layout. A player who changed some keeps that whole layout. One who changed
+// none gets the new one, which needs mouse look, and the deeper soft press, unless they had bound soft L / R
+// themselves and so chose a depth.
+function savedControls(saved) {
+  if (saved.controlsLayout >= CONTROLS_LAYOUT) return saved;
+  const keys = saved.keyBindings && typeof saved.keyBindings === 'object' ? saved.keyBindings : {};
+  if (bindings.CONTROLS.some(({ id }) => Array.isArray(keys[id])))
+    return { ...saved, keyBindings: bindings.fromClassic(keys) };
+  const pads = bindings.normalizePads(saved.padBindings);
+  return { ...saved, mouseCamera: true, softTrigger: pads.L_SOFT || pads.R_SOFT ? saved.softTrigger : 95 };
+}
+
 function savedSettings(saved, repo) {
   if (!saved) return { textures: true };
+  saved = savedControls(saved);
   // Settings saved without an arch built the x86_64 game, before Apple Silicon was the default.
   if (!('arch' in saved)) saved = { ...saved, arch: '64' };
   if ('cutscenes' in saved) return saved;
@@ -343,6 +365,8 @@ function gameFeatures(root) {
     try { return Boolean(root) && fs.readFileSync(path.join(root, file), 'utf8').includes(text); } catch { return false; }
   };
   return { vulkan: has(path.join('platform', 'gx', 'src', 'vk')), appleSilicon: has(path.join('tools', 'gameptr')),
+    // keyboard and mouse default keys (bindings.js DEFAULTS); an older game has the classic ones built in
+    mouseKeys: mentions('bindings.txt', 'A = MOUSE_LEFT'),
     eclipseAppleSilicon: mentions(path.join('platform', 'mods', 'eclipse', 'lib', 'CMakeLists.txt'), 'SMS_GAMEPTR_PLUGIN') };
 }
 
@@ -390,7 +414,7 @@ function buildEnvironment(settings, disc, root) {
     SMS_SKIP_MOVIES: settings.skipMovies ? '1' : '0',
     SMS_SKIP_INTRO: settings.skipIntro ? '1' : '0',
     SMS_LANGUAGE: root && !languageAvailable(root, gameLanguage(settings)) ? 'en' : gameLanguage(settings),
-    SMS_SOFT_TRIGGER: String(settings.softTrigger ?? 40),
+    SMS_SOFT_TRIGGER: String(settings.softTrigger ?? 95),
     SMS_RUMBLE: settings.rumbleStrength === 0 ? '0' : '1',
     SMS_RUMBLE_STRENGTH: String(rumbleGameStrength(settings.rumbleStrength)),
     SMS_HEAT_HAZE: settings.heatHaze === false ? '0' : '1',
@@ -412,7 +436,8 @@ function buildEnvironment(settings, disc, root) {
     SMS_FREE_CAMERA: settings.freeCamera ? '1' : '0',
     SMS_CLOSE_CAMERA_CSTICK: settings.cstickAim ? '1' : '0',
     SMS_CAMERA_SPEED: String(settings.cameraSpeed ?? 100),
-    SMS_MOUSE_CAMERA: settings.mouseCamera ? '1' : '0',
+    SMS_MOUSE_CAMERA: settings.mouseCamera === false ? '0' : '1',
+    SMS_CLOSE_CAMERA_MOUSE: settings.closeCameraMouse === false ? '0' : '1',
     SMS_MOUSE_SENSITIVITY: String(settings.mouseSensitivity ?? 100),
     SMS_MSAA: String(settings.msaa ?? 0),
     SMS_FXAA: settings.fxaa ? '1' : '0',

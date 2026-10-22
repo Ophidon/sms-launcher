@@ -14,30 +14,39 @@
     { id: 'STICK_UP', label: 'Move forward' }, { id: 'STICK_DOWN', label: 'Move back' },
     { id: 'STICK_LEFT', label: 'Move left' }, { id: 'STICK_RIGHT', label: 'Move right' },
     { id: 'HALF_TILT', label: 'Walk (half tilt)' },
-    { id: 'A', label: 'A button' }, { id: 'B', label: 'B button' }, { id: 'X', label: 'X button' },
-    { id: 'Y', label: 'Y button' }, { id: 'Z', label: 'Z button' }, { id: 'L', label: 'L trigger' },
-    { id: 'R', label: 'R trigger' }, { id: 'START', label: 'Start' },
+    { id: 'A', label: 'A button (jump)' }, { id: 'B', label: 'B button (dive, talk)' },
+    { id: 'X', label: 'X button (switch nozzle)' }, { id: 'Y', label: 'Y button (close-up camera)' },
+    { id: 'Z', label: 'Z button (map)' }, { id: 'L', label: 'L trigger (ground pound, sidestep)' },
+    { id: 'R', label: 'R trigger (spray FLUDD)' }, { id: 'START', label: 'Start (pause)' },
     { id: 'CSTICK_UP', label: 'Camera up' }, { id: 'CSTICK_DOWN', label: 'Camera down' },
     { id: 'CSTICK_LEFT', label: 'Camera left' }, { id: 'CSTICK_RIGHT', label: 'Camera right' },
     { id: 'DPAD_UP', label: 'D-pad up' }, { id: 'DPAD_DOWN', label: 'D-pad down' },
     { id: 'DPAD_LEFT', label: 'D-pad left' }, { id: 'DPAD_RIGHT', label: 'D-pad right' },
     { id: 'QUIT', label: 'Quit the game' },
-    { id: 'L_SOFT', label: 'Soft L press' }, { id: 'R_SOFT', label: 'Soft R press' },
+    { id: 'L_SOFT', label: 'Soft L press' }, { id: 'R_SOFT', label: 'Soft R press (spray on the move)' },
     // The port's save states (platform/savestate in the game), not GameCube buttons.
     { id: 'SAVE_STATE', label: 'Save a state' }, { id: 'LOAD_STATE', label: 'Load the newest state' },
     // The radar's full map (src/radar.cpp in the game), with the Radar setting on.
     { id: 'MAP', label: 'Open the map' }
   ];
-  // The game's built-in defaults (kDefaultBindings in platform/pad/pad.cpp).
+  // The game's built-in defaults (kDefaultBindings in platform/pad/pad.cpp), laid out for keyboard and mouse
+  // with mouse look: WASD moves, left click jumps, right click dives, Q switches the nozzle, E is the close-up
+  // camera, middle click sprays FLUDD softly and Space fully, Left Shift is L and Tab the map (Z).
   const DEFAULTS = {
-    A: ['SPACE', 'X'], B: ['LSHIFT', 'RSHIFT', 'C'], X: ['V'], Y: ['F'], Z: ['Z'], L: ['Q'], R: ['E'],
+    A: ['MOUSE_LEFT'], B: ['MOUSE_RIGHT'], X: ['Q'], Y: ['E'], Z: ['TAB'], L: ['LSHIFT'], R: ['SPACE'],
     START: ['ENTER'], DPAD_UP: ['1', 'KP_8'], DPAD_DOWN: ['2', 'KP_2'], DPAD_LEFT: ['3', 'KP_4'],
-    DPAD_RIGHT: ['4', 'KP_6'], STICK_UP: ['UP', 'W'], STICK_DOWN: ['DOWN', 'S'], STICK_LEFT: ['LEFT', 'A'],
-    STICK_RIGHT: ['RIGHT', 'D'], CSTICK_UP: ['I'], CSTICK_DOWN: ['K'], CSTICK_LEFT: ['J'], CSTICK_RIGHT: ['L'],
+    DPAD_RIGHT: ['4', 'KP_6'], STICK_UP: ['W', 'UP'], STICK_DOWN: ['S', 'DOWN'], STICK_LEFT: ['A', 'LEFT'],
+    STICK_RIGHT: ['D', 'RIGHT'], CSTICK_UP: ['I'], CSTICK_DOWN: ['K'], CSTICK_LEFT: ['J'], CSTICK_RIGHT: ['L'],
     HALF_TILT: ['LCTRL'], QUIT: ['ESCAPE'],
-    // a light L or R press without the click (L_SOFT / R_SOFT in pad.cpp); unbound by default
-    L_SOFT: [], R_SOFT: [],
+    // a light L or R press without the click (L_SOFT / R_SOFT in pad.cpp)
+    L_SOFT: [], R_SOFT: ['MOUSE_MIDDLE'],
     SAVE_STATE: ['F5'], LOAD_STATE: ['F6'], MAP: ['M']
+  };
+  // The keyboard-only layout the game had before (Space jumps, Shift dives, Q and E are L and R): what keys a
+  // player changed back then were kept against, and the Controls page's Classic keys.
+  const CLASSIC = {
+    ...DEFAULTS,
+    A: ['SPACE', 'X'], B: ['LSHIFT', 'RSHIFT', 'C'], X: ['V'], Y: ['F'], Z: ['Z'], L: ['Q'], R: ['E'], R_SOFT: []
   };
   // KeyboardEvent.code to the key names the game knows (kKeys in pad.cpp).
   const CODES = {
@@ -116,6 +125,10 @@
 
   function keysFor(bindings, id) { return (bindings && bindings[id]) || DEFAULTS[id]; }
 
+  // Keys a player changed, saved against the classic defaults, as changes from today's: every control they
+  // left alone keeps its classic keys, so the layout they played with stays as it was.
+  function fromClassic(changed) { return normalize({ ...CLASSIC, ...(changed || {}) }); }
+
   // Only the controls whose controller buttons differ from the defaults, each a non-empty list of known buttons.
   function normalizePads(input) {
     const result = {};
@@ -140,7 +153,7 @@
     return `${lines.join('\n')}\n`;
   }
 
-  return { CONTROLS, DEFAULTS, PAD_BUTTONS, PAD_DEFAULTS, MOUSE_BUTTONS, keyFromCode, keyFromMouse, isMouse, keyLabel,
+  return { CONTROLS, DEFAULTS, CLASSIC, fromClassic, PAD_BUTTONS, PAD_DEFAULTS, MOUSE_BUTTONS, keyFromCode, keyFromMouse, isMouse, keyLabel,
     normalize, keysFor, fileText,
     padFromIndex, padLabel, padCombo, normalizePads, padsFor };
 });

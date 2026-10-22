@@ -147,19 +147,24 @@ test('usage sharing is on unless turned off', () => {
 
 test('settings keep only changed, known key bindings', () => {
   assert.deepEqual(port.normalizeSettings({}).keyBindings, {});
-  const settings = port.normalizeSettings({ keyBindings: { A: ['J'], B: ['LSHIFT', 'RSHIFT', 'C'], R: ['NOPE', 'K', 'K'], JUMP: ['A'] } });
+  const settings = port.normalizeSettings({ keyBindings: { A: ['J'], B: ['MOUSE_RIGHT'], R: ['NOPE', 'K', 'K'], JUMP: ['A'] } });
   assert.deepEqual(settings.keyBindings, { A: ['J'], R: ['K'] });
 });
 
 test('new settings default to the game as it was, so updating changes nothing until chosen', () => {
   const s = port.normalizeSettings({});
-  assert.deepEqual([s.freeCamera, s.cstickAim, s.cameraSpeed, s.mouseCamera, s.mouseSensitivity], [false, false, 100, false, 100]);
+  // except mouse look, which the keyboard and mouse keys need
+  assert.deepEqual([s.freeCamera, s.cstickAim, s.cameraSpeed, s.mouseCamera, s.closeCameraMouse, s.mouseSensitivity],
+    [false, false, 100, true, true, 100]);
   assert.deepEqual([s.fullscreenMode, s.exclusiveResolution, s.display, s.vsync, s.skipMovies, s.overlay],
     ['desktop', 'desktop', 'launcher', 'off', false, false]);
   assert.deepEqual([s.msaa, s.fxaa, s.anisotropic, s.sharpen, s.brightness, s.aspect, s.presentFilter],
     [0, false, 0, 0, 100, 'keep', 'bilinear']);
   const env = port.buildEnvironment(s, '/my/disc.iso', '/port');
-  assert.deepEqual([env.SMS_FREE_CAMERA, env.SMS_CLOSE_CAMERA_CSTICK, env.SMS_CAMERA_SPEED, env.SMS_MOUSE_CAMERA, env.SMS_MOUSE_SENSITIVITY], ['0', '0', '100', '0', '100']);
+  assert.deepEqual([env.SMS_FREE_CAMERA, env.SMS_CLOSE_CAMERA_CSTICK, env.SMS_CAMERA_SPEED, env.SMS_MOUSE_CAMERA, env.SMS_CLOSE_CAMERA_MOUSE,
+    env.SMS_MOUSE_SENSITIVITY], ['0', '0', '100', '1', '1', '100']);
+  const off = port.buildEnvironment(port.normalizeSettings({ mouseCamera: false, closeCameraMouse: false }), '/my/disc.iso', '/port');
+  assert.deepEqual([off.SMS_MOUSE_CAMERA, off.SMS_CLOSE_CAMERA_MOUSE], ['0', '0']);
   assert.deepEqual([env.SMS_FULLSCREEN, env.SMS_VSYNC, env.SMS_SKIP_MOVIES, env.SMS_OVERLAY], ['0', '0', '0', '0']);
   assert.deepEqual([env.SMS_MSAA, env.SMS_FXAA, env.SMS_ANISO, env.SMS_SHARPEN, env.SMS_GAMMA, env.SMS_ASPECT, env.SMS_PRESENT_FILTER],
     ['0', '0', '0', '0', '1.00', 'keep', 'bilinear']);
@@ -637,13 +642,15 @@ test('older installed games remain playable with HD cutscenes on until updated',
   assert.equal(port.hdVisualsInstalled(root, { ...settings, eclipse: true }), true);
 });
 
-test('soft L / R bindings start unbound and their depth reaches the game as SMS_SOFT_TRIGGER', () => {
-  assert.equal(port.normalizeSettings({}).softTrigger, 40);
+test('soft L / R presses go as deep as a trigger goes without the click, and reach the game as SMS_SOFT_TRIGGER', () => {
+  assert.equal(port.normalizeSettings({}).softTrigger, 95);
   assert.equal(port.normalizeSettings({ softTrigger: 300 }).softTrigger, 95);
-  assert.equal(port.normalizeSettings({ softTrigger: 'deep' }).softTrigger, 40);
+  assert.equal(port.normalizeSettings({ softTrigger: 'deep' }).softTrigger, 95);
   assert.equal(port.buildEnvironment(port.normalizeSettings({ softTrigger: 30 }), '/my/disc.iso', '/port').SMS_SOFT_TRIGGER, '30');
   assert.deepEqual(port.normalizeSettings({ keyBindings: { R_SOFT: ['K'] } }).keyBindings, { R_SOFT: ['K'] });
-  assert.deepEqual(port.normalizeSettings({ keyBindings: { R_SOFT: [] } }).keyBindings, {});
+  // soft R is middle click unless changed; clearing it is a change
+  assert.deepEqual(port.normalizeSettings({ keyBindings: { R_SOFT: ['MOUSE_MIDDLE'] } }).keyBindings, {});
+  assert.deepEqual(port.normalizeSettings({ keyBindings: { R_SOFT: [] } }).keyBindings, { R_SOFT: [] });
 });
 
 test('the rumble slider reaches the game at twice its value, 50% the console\'s, and 0 turns rumble off', () => {
@@ -759,7 +766,7 @@ test('game features come from the game version on disk', () => {
   const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sms-features-'));
   try {
-    const none = { vulkan: false, appleSilicon: false, eclipseAppleSilicon: false };
+    const none = { vulkan: false, appleSilicon: false, mouseKeys: false, eclipseAppleSilicon: false };
     assert.deepEqual(port.gameFeatures(root), none);
     assert.deepEqual(port.gameFeatures(null), none);
     fs.mkdirSync(path.join(root, 'platform', 'gx', 'src', 'vk'), { recursive: true });
@@ -767,9 +774,10 @@ test('game features come from the game version on disk', () => {
     const mods = path.join(root, 'platform', 'mods', 'eclipse', 'lib');
     fs.mkdirSync(mods, { recursive: true });
     fs.writeFileSync(path.join(mods, 'CMakeLists.txt'), 'project(sms_eclipse C CXX)\n');
-    assert.deepEqual(port.gameFeatures(root), { vulkan: true, appleSilicon: true, eclipseAppleSilicon: false });
+    assert.deepEqual(port.gameFeatures(root), { vulkan: true, appleSilicon: true, mouseKeys: false, eclipseAppleSilicon: false });
     fs.appendFileSync(path.join(mods, 'CMakeLists.txt'), 'if(SMS_GAMEPTR_PLUGIN)\nendif()\n');
-    assert.deepEqual(port.gameFeatures(root), { vulkan: true, appleSilicon: true, eclipseAppleSilicon: true });
+    fs.writeFileSync(path.join(root, 'bindings.txt'), '# defaults\nA = MOUSE_LEFT\nB = MOUSE_RIGHT\n');
+    assert.deepEqual(port.gameFeatures(root), { vulkan: true, appleSilicon: true, mouseKeys: true, eclipseAppleSilicon: true });
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 
@@ -786,4 +794,20 @@ test('a monitor chosen in the game is kept and reaches it as SMS_DISPLAY', () =>
   assert.equal(port.normalizeSettings({ display: 'monitor3' }).display, 'monitor3');
   assert.equal(port.buildEnvironment(port.normalizeSettings({ display: 'monitor3' }), '/d', '/port').SMS_DISPLAY, '2');
   for (const display of ['monitor1', 'monitor17', 'monitor', 'Monitor2']) assert.equal(port.normalizeSettings({ display }).display, 'launcher', display);
+});
+
+test('settings saved before the keyboard and mouse keys keep a changed layout, else move to the new one', () => {
+  const load = saved => port.normalizeSettings(port.savedSettings(saved, null));
+  // nothing changed: the new keys, with mouse look and the deep soft press they are made for
+  const fresh = load({ arch: '64', cutscenes: false, keyBindings: {}, mouseCamera: false, softTrigger: 40 });
+  assert.deepEqual([fresh.keyBindings, fresh.mouseCamera, fresh.softTrigger, fresh.controlsLayout], [{}, true, 95, 2]);
+  // a soft binding of their own keeps the depth they chose
+  assert.equal(load({ arch: '64', cutscenes: false, padBindings: { R_SOFT: ['PAD_RB'] }, softTrigger: 40 }).softTrigger, 40);
+  // changed keys: the whole classic layout around them, and the mouse as it was
+  const kept = load({ arch: '64', cutscenes: false, keyBindings: { A: ['J'] }, mouseCamera: false, softTrigger: 40 });
+  assert.deepEqual([kept.keyBindings.A, kept.keyBindings.B, kept.keyBindings.R, kept.mouseCamera, kept.softTrigger],
+    [['J'], ['LSHIFT', 'RSHIFT', 'C'], ['E'], false, 40]);
+  // saved since: left as they are, so a later change of mind stays
+  const later = load({ arch: '64', cutscenes: false, controlsLayout: 2, keyBindings: { A: ['J'] }, mouseCamera: false, softTrigger: 40 });
+  assert.deepEqual([later.keyBindings, later.mouseCamera, later.softTrigger], [{ A: ['J'] }, false, 40]);
 });
