@@ -858,6 +858,11 @@ function renderGameSource(data) {
   for (const id of ['apply-game-source', 'reset-game-source', ...Object.values(sourceFields).flat()])
     $(id).disabled = Boolean(data.active);
   $('reset-game-source').hidden = !chosen;
+  // Under Play, so nobody plays a chosen source thinking it is this launcher's release.
+  const ref = chosen?.override?.port?.ref || chosen?.override?.decomp?.ref || '';
+  const commit = String(chosen?.version || '').replace(/^custom /, '');
+  $('play-source').hidden = !chosen;
+  $('play-source-detail').textContent = [ref, commit !== ref && commit].filter(Boolean).join(' · ');
 }
 function gameSourceValue() {
   const value = {};
@@ -871,6 +876,12 @@ async function setGameSource(value) {
   catch (error) { showError(error); }
 }
 $('apply-game-source').addEventListener('click', () => setGameSource(gameSourceValue()));
+$('play-source').addEventListener('click', () => {
+  showPage('settings');
+  showSettingsTab('manage');
+  $('game-source').open = true;
+  $('game-source').scrollIntoView({ block: 'center' });
+});
 $('reset-game-source').addEventListener('click', () => {
   for (const id of Object.values(sourceFields).flat()) $(id).value = '';
   setGameSource(null);
