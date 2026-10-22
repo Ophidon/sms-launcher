@@ -13,7 +13,12 @@
       "Soft L and Soft R now press as deep as a trigger goes without clicking (95%) by default, instead of 40%; Soft press depth under Controls still changes it.",
       "The radar and its full map work in Super Mario Eclipse's own stages, show its Shine Sprites past the first 120 as collected or not, and name its areas on the full map.",
       "Fixed a crashed game on Windows leaving a helper running in the background that kept an old game version's files open, so they couldn't be deleted.",
-      "Mods: native mods can now decide which FLUDD nozzles Mario has (refusing or changing a nozzle switch or swap, leaving nozzle boxes out of a stage, choosing the nozzle a stage starts with), take FLUDD away or give it back, and put on or take off his aloha shirt, sunglasses and diving helmet (mod API 1.5 beta 1)."
+      "Mods: native mods can now decide which FLUDD nozzles Mario has (refusing or changing a nozzle switch or swap, leaving nozzle boxes out of a stage, choosing the nozzle a stage starts with), take FLUDD away or give it back, and put on or take off his aloha shirt, sunglasses and diving helmet (mod API 1.5 beta 1).",
+      "The game's window title, and the performance overlay, now show which version you're playing, like Super Mario Sunshine 2026.10.21.1 (f5b6846), with Super Mario Eclipse named when it's on.",
+      "Fixed LOAD SAVE STATE and SETTINGS being hidden under the life meter when you paused while hurt or under water: they now move next to the meter. With screen icons at the edges, SETTINGS also lines up with LOAD SAVE STATE at the right edge.",
+      "Super Mario Eclipse: the speedrun timer no longer shows a broken \"Overclock: -2147483648\" next to it; overclocking only meant something on a console or Dolphin.",
+      "Sound effects are muffled under water again, as on the GameCube: when the camera dips below the surface, Mario and everything around him sound dull until it comes back up.",
+      "Fixed Hotel Delfino rising out of the sand in Sirena Beach with no sound: its rumble plays again."
     ]
   },
   "releases": [
