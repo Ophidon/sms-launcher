@@ -375,6 +375,37 @@ test('texture extras are downloaded again only when the port pins another releas
       [progressScript, path.join(root, 'tools', 'mods', 'get.py'), 'extras', '--if-outdated']);
 });
 
+test('Eclipse radar maps are downloaded for Eclipse with the radar, again only for another pinned release', t => {
+  const root = temporary(); t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const on = port.normalizeSettings({ eclipse: true, radar: true });
+  const pin = md5 => {
+    fs.mkdirSync(path.join(root, 'tools', 'mods'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'tools', 'mods', 'eclipse-maps.json'), JSON.stringify({ md5 }));
+  };
+  const record = md5 => {
+    fs.mkdirSync(port.eclipseMapsDirectory(root), { recursive: true });
+    fs.writeFileSync(path.join(port.eclipseMapsDirectory(root), '.release'), JSON.stringify({ md5 }));
+  };
+  // An older port without them: nothing to download.
+  assert.equal(port.eclipseMapsSupported(root), false);
+  assert.equal(port.eclipseMapsWanted(root, on), false);
+  pin('9352b8c1462182ca1a5493eef4062f1e');
+  assert.equal(port.eclipseMapsWanted(root, on), true);  // an Eclipse install from before them
+  assert.equal(port.eclipseMapsWanted(root, port.normalizeSettings({ eclipse: true, radar: false })), false);
+  assert.equal(port.eclipseMapsWanted(root, port.normalizeSettings({ eclipse: false, radar: true })), false);
+  record('9352b8c1462182ca1a5493eef4062f1e');
+  assert.equal(port.eclipseMapsInstalled(root), true);
+  assert.equal(port.eclipseMapsWanted(root, on), false);
+  pin('0123456789abcdef0123456789abcdef');                  // a newer release pinned
+  assert.equal(port.eclipseMapsWanted(root, on), true);
+  fs.writeFileSync(path.join(port.eclipseMapsDirectory(root), '.release'), 'not json');
+  assert.equal(port.eclipseMapsWanted(root, on), true);
+  const progressScript = path.resolve(__dirname, '..', 'scripts', 'texture-progress.py');
+  for (const platform of ['linux', 'darwin'])
+    assert.deepEqual(port.commandFor(root, 'eclipse-maps', [], platform).args,
+      [progressScript, path.join(root, 'tools', 'mods', 'get.py'), 'eclipse-maps', '--if-outdated']);
+});
+
 // A game folder whose tools/mods/language-packs.json says what it plays.
 function gameWithLanguages(t, list) {
   const root = temporary(); t.after(() => fs.rmSync(root, { recursive: true, force: true }));
@@ -548,6 +579,9 @@ test('Windows command passes an image path as data to MSYS2 Bash', () => {
     const extras = port.commandFor('C:\\port', 'texture-extras', [], 'win32', { PATH: 'C:\\Windows', MSYS2_ROOT: dir });
     assert.match(extras.args[1], /tools\/mods\/get\.py extras --if-outdated$/);
     assert.equal(extras.args[4], path.resolve(__dirname, '..', 'scripts', 'texture-progress.py'));
+    const maps = port.commandFor('C:\\port', 'eclipse-maps', [], 'win32', { PATH: 'C:\\Windows', MSYS2_ROOT: dir });
+    assert.match(maps.args[1], /tools\/mods\/get\.py eclipse-maps --if-outdated$/);
+    assert.equal(maps.args[4], path.resolve(__dirname, '..', 'scripts', 'texture-progress.py'));
     const language = port.commandFor('C:\\port', 'language', ['es'], 'win32', { PATH: 'C:\\Windows', MSYS2_ROOT: dir });
     assert.match(language.args[1], /python "\$\(cygpath -u "\$2"\)" "\$\(cygpath -u "\$3"\)" "\$\{@:4\}"$/);
     const es = port.LANGUAGE_PACKS.es;
