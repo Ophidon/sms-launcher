@@ -422,7 +422,7 @@ test('the game plays in English unless another language is chosen', t => {
   const root = gameWithLanguages(t, ANY);
   assert.equal(port.normalizeSettings({}).language, 'en');
   assert.equal(port.normalizeSettings({ language: 'klingon' }).language, 'en');
-  assert.deepEqual(port.LANGUAGES, ['en', 'fr', 'de', 'es', 'it', 'pl']);
+  assert.deepEqual(port.LANGUAGES, ['en', 'fr', 'de', 'es', 'it', 'pl', 'pt-br']);
   for (const code of port.LANGUAGES) {
     const settings = port.normalizeSettings({ language: code });
     assert.equal(settings.language, code);
@@ -442,13 +442,15 @@ test('Eclipse always plays in English and keeps the chosen language for Super Ma
 
 test('the catalog lists every language with a release to install', () => {
   for (const [code, pack] of Object.entries(port.LANGUAGE_PACKS)) {
-    assert.match(code, /^[a-z]{2,3}$/);
+    assert.match(code, /^[a-z]{2,3}(-[a-z]{2,4})?$/);
     assert.ok(pack.name && pack.english, code);
     assert.match(pack.url, /^https:\/\/github\.com\/chasem-dev\/sms-hd-texture-extras\/releases\/download\//);
     assert.match(pack.md5, /^[0-9a-f]{32}$/);
     assert.ok(Number.isInteger(pack.size) && pack.size > 0, code);
   }
   assert.equal(port.LANGUAGE_PACKS.pl.community, true);
+  assert.equal(port.LANGUAGE_PACKS['pt-br'].community, true);
+  assert.match(port.LANGUAGE_PACKS['pt-br'].note, /Spanish/);
 });
 
 test('a language plays only in a game that has it, and older games stay in English', t => {
@@ -465,7 +467,9 @@ test('a language plays only in a game that has it, and older games stay in Engli
   assert.equal(port.buildEnvironment(french, '/my/disc.iso', older).SMS_LANGUAGE, 'en');
   assert.equal(port.languagePackWanted(first, polish), false);                  // nothing to download for it
   assert.deepEqual(port.languageChoices(first).map(l => [l.code, l.available]),
-    [['en', true], ['fr', true], ['de', true], ['es', true], ['it', true], ['pl', false]]);
+    [['en', true], ['fr', true], ['de', true], ['es', true], ['it', true], ['pl', false], ['pt-br', false]]);
+  assert.equal(port.languageAvailable(any, 'pt-br'), true);
+  assert.equal(port.languageChoices(any).find(l => l.code === 'pt-br').note, port.LANGUAGE_PACKS['pt-br'].note);
   assert.ok(port.languageChoices(null).every(l => l.available));               // before setup: offer them all
 });
 

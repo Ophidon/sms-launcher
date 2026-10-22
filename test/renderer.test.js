@@ -336,6 +336,12 @@ test('the Language list comes from the catalog, and a language the game lacks as
   data.languages[2].available = true; data.languageInstalled = true;
   await ui.refresh(); await new Promise(setImmediate);
   assert.match(ui.elements.get('language-note').textContent, /Polski is a community translation/);
+  data.languages.push({ code: 'pt-br', name: 'Português (Brasil)', community: true, available: true,
+    note: 'Português (Brasil) is a community translation, made for Super Mario 3D All-Stars; some pictures stay in Spanish.' });
+  data.config.settings = port.normalizeSettings({ language: 'pt-br' });
+  await ui.refresh(); await new Promise(setImmediate);
+  assert.equal(ui.elements.get('language-note').textContent,
+    'Português (Brasil) is a community translation, made for Super Mario 3D All-Stars; some pictures stay in Spanish.');
   ui.elements.get('language').value = 'fr';
   ui.elements.get('language').dispatch('change');
   await new Promise(setImmediate);
