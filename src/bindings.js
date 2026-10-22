@@ -27,7 +27,9 @@
     // The port's save states (platform/savestate in the game), not GameCube buttons.
     { id: 'SAVE_STATE', label: 'Save a state' }, { id: 'LOAD_STATE', label: 'Load the newest state' },
     // The radar's full map (src/radar.cpp in the game), with the Radar setting on.
-    { id: 'MAP', label: 'Open the map' }
+    { id: 'MAP', label: 'Open the map' },
+    // Held with Tilt with the C-stick on: the C-stick's up and down zoom as on the GameCube (CAMERA_ZOOM in pad.cpp).
+    { id: 'CAMERA_ZOOM', label: 'Zoom with the C-stick (hold, with Tilt with the C-stick on)' }
   ];
   // The game's built-in defaults (kDefaultBindings in platform/pad/pad.cpp), laid out for keyboard and mouse
   // with mouse look: WASD moves, left click jumps, right click dives, Q switches the nozzle, E is the close-up
@@ -40,7 +42,9 @@
     HALF_TILT: ['LCTRL'], QUIT: ['ESCAPE'],
     // a light L or R press without the click (L_SOFT / R_SOFT in pad.cpp)
     L_SOFT: [], R_SOFT: ['MOUSE_MIDDLE'],
-    SAVE_STATE: ['F5'], LOAD_STATE: ['F6'], MAP: ['M']
+    SAVE_STATE: ['F5'], LOAD_STATE: ['F6'], MAP: ['M'],
+    // no key: the mouse wheel zooms
+    CAMERA_ZOOM: []
   };
   // The keyboard-only layout the game had before (Space jumps, Shift dives, Q and E are L and R): what keys a
   // player changed back then were kept against, and the Controls page's Classic keys.
@@ -86,7 +90,7 @@
   const PAD_DEFAULTS = {
     A: ['PAD_A'], B: ['PAD_B'], X: ['PAD_X'], Y: ['PAD_Y'], Z: ['PAD_RB'], L: ['PAD_LT'], R: ['PAD_RT'],
     START: ['PAD_START'], DPAD_UP: ['PAD_DPUP'], DPAD_DOWN: ['PAD_DPDOWN'], DPAD_LEFT: ['PAD_DPLEFT'],
-    DPAD_RIGHT: ['PAD_DPRIGHT'], SAVE_STATE: ['PAD_LB+PAD_RB'], MAP: ['PAD_BACK']
+    DPAD_RIGHT: ['PAD_DPRIGHT'], SAVE_STATE: ['PAD_LB+PAD_RB'], MAP: ['PAD_BACK'], CAMERA_ZOOM: ['PAD_RSTICK']
   };
 
   // The controller button for a standard-mapping Gamepad API button index, or null.
