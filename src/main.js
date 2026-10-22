@@ -52,6 +52,7 @@ let preparingTools = false;
 let operation = null;
 // When the player last stopped a task (Stop), so a stopped build isn't tried again.
 let stoppedAt = 0;
+const wasStopped = since => stoppedAt >= since;
 let appUpdate = { state: 'idle', message: '' };
 let updater = null;
 // Before anything reads userData: the single-instance lock is keyed on it too,
@@ -780,7 +781,7 @@ async function installPort() {
       throw new Error('That folder is not empty. Choose another download location.');
     fs.rmdirSync(destination);
   }
-  await game.checkout(destination, { run: launch, capture, env: toolEnv(), source: currentSource() });
+  await game.checkout(destination, { run: launch, capture, env: toolEnv(), source: currentSource(), stopped: wasStopped });
   return { ok: true };
 }
 
@@ -880,7 +881,7 @@ async function build(forceFresh = false) {
   if (forceFresh || (!game.isCurrent(root, settings, source) && !freshPinnedSource)) {
     root = game.snapshotPath(config.installRoot || original, settings, source);
     if (forceFresh || (fs.existsSync(root) && !game.matchesSource(root, source))) root += `.fresh-${Date.now()}`;
-    if (!fs.existsSync(root)) await game.checkout(root, { run: launch, capture, env: toolEnv(), reference: original, source });
+    if (!fs.existsSync(root)) await game.checkout(root, { run: launch, capture, env: toolEnv(), reference: original, source, stopped: wasStopped });
     if (!game.matchesSource(root, source))
       throw new Error('The update folder has changed. Choose another setup location in Settings and try again.');
     game.carryUserFiles(original, root);

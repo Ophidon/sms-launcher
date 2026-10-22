@@ -118,7 +118,31 @@ function eclipseSourcesPath(userData, base, paths = path) {
   return !base || drive(base) === drive(userData) ? shared : `${base}.eclipse-sources`;
 }
 
-async function checkout(root, { git = 'git', run, capture, env, source = release, reference } = {}) {
+// GitHub sometimes drops a long download partway ("RPC failed; curl 92 HTTP/2
+// stream 11 reset by server", "early EOF"). A download that fails is tried
+// again over HTTP/1.1, which those stream resets don't happen on, unless the
+// player stopped it or what it asked for isn't there. `clear` removes what a
+// failed clone left, since Git won't clone into a folder that isn't empty.
+const DOWNLOAD_TRIES = 3;
+const PERMANENT = /not our ref|couldn't find remote ref|Repository not found|Authentication failed|could not read Username|terminated by/i;
+
+async function download(git, args, options, label, { run, stopped = () => false, wait, clear } = {}) {
+  for (let attempt = 1; ; attempt++) {
+    const startedAt = Date.now();
+    try {
+      return await run(git, attempt === 1 ? args : ['-c', 'http.version=HTTP/1.1', ...args], options,
+        attempt === 1 ? label : `${label} (try ${attempt} of ${DOWNLOAD_TRIES})`);
+    } catch (error) {
+      if (attempt >= DOWNLOAD_TRIES || stopped(startedAt) || PERMANENT.test(error.message)) throw error;
+      await wait(attempt * 3000);
+      if (clear) await fs.promises.rm(clear, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+    }
+  }
+}
+
+async function checkout(root, { git = 'git', run, capture, env, source = release, reference,
+  stopped, wait = ms => new Promise(resolve => setTimeout(resolve, ms)) } = {}) {
+  const fetch = (args, options, label, clear) => download(git, args, options, label, { run, stopped, wait, clear });
   const parent = path.dirname(root);
   if (!fs.existsSync(parent)) fs.mkdirSync(parent, { recursive: true });
   const temporary = `${root}.download-${crypto.randomUUID()}`;
@@ -128,8 +152,8 @@ async function checkout(root, { git = 'git', run, capture, env, source = release
     if (reference && fs.existsSync(path.join(reference, '.git')))
       args.push('--reference-if-able', reference, '--dissociate');
     args.push(source.repository, temporary);
-    await run(git, args, { env }, 'Download port source');
-    await run(git, ['fetch', 'origin', source.commit], { cwd: temporary, env }, 'Get game release');
+    await fetch(args, { env }, 'Download port source', temporary);
+    await fetch(['fetch', 'origin', source.commit], { cwd: temporary, env }, 'Get game release');
     await run(git, ['checkout', '--detach', source.commit], { cwd: temporary, env }, 'Select game release');
     const actual = await capture(git, ['rev-parse', 'HEAD'], temporary, env);
     const tree = await capture(git, ['ls-tree', 'HEAD', 'decomp'], temporary, env);
@@ -146,7 +170,7 @@ async function checkout(root, { git = 'git', run, capture, env, source = release
     const url = source.decompRepository || await capture(git, ['config', '--file', '.gitmodules', 'submodule.decomp.url'], root, env);
     if (/^\.\.?\//.test(url)) {
       // A fork's relative URL: let Git resolve it against the port's remote.
-      await run(git, ['-c', 'core.longpaths=true', 'submodule', 'update', '--init', '--recursive'], { cwd: root, env }, 'Prepare game release');
+      await fetch(['-c', 'core.longpaths=true', 'submodule', 'update', '--init', '--recursive'], { cwd: root, env }, 'Prepare game release');
     } else {
       const decompPath = path.join(root, 'decomp');
       // Borrow objects from the previous install's decomp by its resolved Git
@@ -156,8 +180,8 @@ async function checkout(root, { git = 'git', run, capture, env, source = release
       const clone = ['clone', '--config', 'core.longpaths=true', '--no-checkout'];
       if (previous && fs.existsSync(path.join(previous, 'objects')))
         clone.push('--reference-if-able', previous, '--dissociate');
-      await run(git, [...clone, url, decompPath], { env }, 'Download decomp source');
-      await run(git, ['fetch', 'origin', source.decomp], { cwd: decompPath, env }, 'Get decomp release');
+      await fetch([...clone, url, decompPath], { env }, 'Download decomp source', decompPath);
+      await fetch(['fetch', 'origin', source.decomp], { cwd: decompPath, env }, 'Get decomp release');
       await run(git, ['checkout', '--detach', source.decomp], { cwd: decompPath, env }, 'Select decomp release');
       await run(git, ['config', 'submodule.decomp.url', url], { cwd: root, env }, 'Prepare game release');
     }
