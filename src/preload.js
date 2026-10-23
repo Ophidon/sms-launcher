@@ -64,6 +64,8 @@ contextBridge.exposeInMainWorld('sms', {
   saveStates: () => ipcRenderer.invoke('save-states'),
   achievements: () => ipcRenderer.invoke('achievements'),
   achievementIcons: () => ipcRenderer.invoke('achievement-icons'),
+  downloadAchievementIcons: () => ipcRenderer.invoke('download-achievement-icons'),
+  markAchievementsSeen: () => ipcRenderer.invoke('achievements-seen'),
   importSaveState: () => ipcRenderer.invoke('import-save-state'),
   showSaveState: name => ipcRenderer.invoke('show-save-state', name),
   deleteSaveState: name => ipcRenderer.invoke('delete-save-state', name),

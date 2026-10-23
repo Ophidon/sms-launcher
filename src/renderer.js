@@ -16,7 +16,8 @@ function closeModal() {
 }
 
 // --- Pages: the tabs along the top pick one; Play is the home page. Each page can run code as it
-// shows and hides (Customize Mario's module registers through window.smsOnPage).
+// shows and hides (Customize Mario's module registers through window.smsOnPage), and an `open` hook
+// returning false keeps the page closed (Achievements asks for its icons first).
 const pages = {
   play: { section: 'page-home', nav: 'nav-play' }, multiplayer: { section: 'multiplayer', nav: 'open-multiplayer' },
   mario: { section: 'mario-look', nav: 'customize-mario' },
@@ -30,6 +31,7 @@ function onPage(name, hooks) { pageHooks[name] = { ...pageHooks[name], ...hooks 
 window.smsOnPage = onPage;
 function showPage(name) {
   if (!pages[name]) return;
+  if (name !== page && pageHooks[name]?.open?.() === false) return;
   const previous = page;
   if (name !== previous) {
     page = name;
@@ -1401,12 +1403,14 @@ async function showChangelog() {
   try { renderChangelog(await window.sms.changelog(), false); }
   catch (_) { changelogStatus("The changelog couldn't be loaded. Try again later."); }
 }
-onPage('changelog', { show: showChangelog });
+onPage('changelog', { show() { $('changelog-new').hidden = true; showChangelog(); } });
 // Opens once per update. Away from Play, over another window or during a running task it waits for the next start.
 async function showWhatsNew() {
   try {
     const data = await window.sms.changelog();
     if (data.unseen.length || data.beta?.unseen) {
+      // Not opened now: the What's new button keeps a dot until it is.
+      $('changelog-new').hidden = page === 'changelog';
       if (current?.active || page !== 'play' || [...document.querySelectorAll('.launcher-modal')].some(dialog => dialog.open)) return;
       renderChangelog(data, true);
       changelogUnseen = true;
