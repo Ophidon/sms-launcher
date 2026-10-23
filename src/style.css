@@ -725,6 +725,13 @@ pre { height: 120px; margin: 0; padding: 12px; overflow: auto; border-radius: 8p
 .path-steps { margin: 12px 0 0 20px; display: grid; gap: 3px; line-height: 1.45; }
 .path-why { margin-top: 10px; color: #637980; font-size: 12px; line-height: 1.5; }
 .path-actions { justify-content: flex-end; margin-top: 12px; }
+.achievements-get-progress { display: grid; gap: 7px; margin-top: 14px; color: #637980; font-size: 12px; }
+.achievements-get-progress[hidden] { display: none; }
+.achievements-get-progress i { height: 8px; overflow: hidden; border-radius: 999px; background: #dfe9e8; }
+.achievements-get-progress b { display: block; width: 0; height: 100%; border-radius: inherit; background: #e9a93a; transition: width .3s; }
+.achievements-get-progress.indeterminate b { width: 30%; animation: achievements-get-slide 1.2s ease-in-out infinite alternate; }
+@keyframes achievements-get-slide { to { transform: translateX(233%); } }
+.achievements-get-error { margin-top: 12px; color: #b4383f; font-size: 13px; line-height: 1.45; }
 .dark .path-box { border-color: #8a3b35; background: #0a1b27; }
 .dark .path-box mark { background: #7a2a24; color: #ffd9d4; }
 .dark .path-legend { color: #ffb4aa; }
@@ -742,12 +749,24 @@ pre { height: 120px; margin: 0; padding: 12px; overflow: auto; border-radius: 8p
 .nav-icon { position: relative; display: flex; }
 .nav-online { position: absolute; top: -7px; left: 8px; display: grid; place-items: center; min-width: 15px; height: 15px; padding: 0 4px; border-radius: 999px; background: #3fbf6f; color: #04261a; box-shadow: 0 0 0 2px #072a40; font-size: 9.5px; font-style: normal; font-weight: 900; font-variant-numeric: tabular-nums; line-height: 1; white-space: nowrap; }
 .nav-spacer { flex: 1; }
-.nav-link { display: flex; align-items: center; gap: 9px; padding: 6px 10px; border: 0; border-radius: 9px; background: transparent; color: #c4dfe6; font-size: 12.5px; font-weight: 650; }
-.nav-link:hover { background: #ffffff10; color: #fff; }
-.nav-link-logo { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 7px; background: #5865f2; }
-.nav-link-logo svg { width: 15px; height: 15px; fill: #fff; }
-.nav-link-arrow { color: #ffda91; font-weight: 800; }
-@media (max-width: 1000px) { .nav-bar { padding: 0 14px; gap: 2px; } .nav-tab { padding: 0 10px; font-size: 13px; } .nav-link > span:not(.nav-link-logo) { display: none; } }
+.nav-new { background: #ffc75a; color: #3a2600; }
+/* Achievements stands out until it is first opened (main.js: achievementsSeen). */
+.nav-tab.spotlight { color: #ffe2a3; }
+.nav-tab.spotlight::after { content: ""; position: absolute; inset: 7px 3px; border-radius: 10px; box-shadow: 0 0 0 1px #ffc75a66, 0 0 14px #ffc75a40; pointer-events: none; animation: nav-spotlight 2.4s ease-in-out infinite; }
+@keyframes nav-spotlight { 50% { box-shadow: 0 0 0 1px #ffc75aaa, 0 0 22px #ffc75a70; } }
+@media (prefers-reduced-motion: reduce) { .nav-tab.spotlight::after { animation: none; } }
+@media (max-width: 1000px) { .nav-bar { padding: 0 14px; gap: 2px; } .nav-tab { padding: 0 10px; font-size: 13px; } }
+/* What's new and Discord sit in the title bar, beside the versions they describe and the window's buttons. */
+.topbar-chip { position: relative; display: flex; align-items: center; gap: 7px; height: 32px; margin-left: auto; padding: 0 12px; border: 1px solid #ffffff2f; border-radius: 999px; background: #ffffff12; color: #e5f6f9; font-size: 12.5px; font-weight: 650; white-space: nowrap; -webkit-app-region: no-drag; }
+.topbar-chip:hover { background: #ffffff2c; }
+.topbar-chip.active { border-color: #ffc75a; background: #ffc75a24; color: #ffe2a3; }
+.topbar-chip svg { flex: none; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.topbar-chip ~ .online-pill, .topbar-chip ~ .platform-pill { margin-left: 0; }
+.topbar-dot { width: 7px; height: 7px; border-radius: 50%; background: #ffc75a; }
+.topbar-dot[hidden] { display: none; }
+.topbar-discord { display: grid; place-items: center; width: 34px; height: 32px; padding: 0; border: 0; border-radius: 8px; background: #5865f2; -webkit-app-region: no-drag; }
+.topbar-discord:hover { background: #6d78f5; }
+.topbar-discord svg { width: 18px; height: 18px; fill: #fff; }
 
 /* The room this launcher hosts, under Play. */
 .play-room { display: flex; align-items: center; gap: 8px; width: max-content; max-width: 100%; margin: 12px auto 0; padding: 4px 5px 4px 12px; border: 1px solid #6eddb366; border-radius: 999px; background: #48bb9b22; color: #e6fbf3; font-size: 12px; font-weight: 600; }
@@ -825,4 +844,4 @@ pre { height: 120px; margin: 0; padding: 12px; overflow: auto; border-radius: 8p
 .achievement-stages { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); padding-right: 24px; }
 /* With Achievements, the tabs need a little less room each to keep Settings and Discord on the bar at the narrowest window. */
 @media (max-width: 1000px) { .nav-tab { gap: 6px; padding: 0 8px; } }
-@media (max-width: 900px) { .nav-tab { font-size: 12.5px; } #settings-cog > span { display: none; } }
+@media (max-width: 900px) { .nav-tab { font-size: 12.5px; } }

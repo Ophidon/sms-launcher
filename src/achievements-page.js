@@ -1,12 +1,13 @@
 'use strict';
 
 // The Achievements page (src/achievements.js): every achievement by stage, the
-// player's unlocks, and each new one marked as the game announces it.
+// player's unlocks, and each new one marked as the game announces it. Opened before
+// the icons are downloaded, the tab offers to download just those first.
 (() => {
   // Game order; the list's own stages come after any not named here.
   const STAGE_ORDER = ['Delfino Airstrip', 'Delfino Plaza', 'Bianco Hills', 'Ricco Harbor', 'Gelato Beach', 'Pinna Park',
     'Sirena Beach', 'Noki Bay', 'Pianta Village', 'Corona Mountain', 'Anywhere'];
-  let state = { supported: false, achievements: [], unlocked: 0, total: 0 };
+  let state = { supported: false, achievements: [], unlocked: 0, total: 0, iconsNeeded: false, seen: true };
   let icons = {}, iconsLoaded = false, filter = 'all', loadedFor = null;
   const fresh = new Set();
 
@@ -91,9 +92,12 @@
       : 'Every achievement is unlocked. Nice work!';
   }
 
+  const ready = () => state.supported && !state.iconsNeeded;
+
   async function load() {
     try { state = await window.sms.achievements(); } catch (_) { return; }
-    $('nav-achievements').hidden = !state.supported;
+    $('nav-achievements').classList.toggle('spotlight', !state.seen);
+    $('achievements-new').hidden = state.seen;
     if (!state.supported && page === 'achievements') showPage('play');
     if (state.supported && !iconsLoaded) {
       iconsLoaded = true;
@@ -106,7 +110,77 @@
     filter = button.dataset.achievementFilter;
     render();
   });
-  onPage('achievements', { show: () => { render(); load(); }, hide: () => fresh.clear() });
+  // The tab stands out until it is first opened.
+  function markSeen() {
+    if (state.seen) return;
+    state.seen = true;
+    $('nav-achievements').classList.remove('spotlight');
+    $('achievements-new').hidden = true;
+    window.sms.markAchievementsSeen().catch(() => {});
+  }
+
+  // Without its icons the page waits: a popup offers to download them, then shows it.
+  const dialog = $('achievements-get');
+  let busy = false;
+  async function offerIcons() {
+    await load();
+    if (ready()) { showPage('achievements'); return; }
+    if (!busy) {
+      $('achievements-get-error').hidden = true;
+      $('achievements-get-go').textContent = 'Download icons';
+      $('achievements-get-cancel').textContent = 'Not now';
+    }
+    dialog.showModal();
+  }
+  function progress(percent, detail) {
+    const bar = $('achievements-get-progress');
+    bar.hidden = false;
+    bar.classList.toggle('indeterminate', !Number.isFinite(percent));
+    $('achievements-get-bar').style.width = Number.isFinite(percent) ? `${percent}%` : '';
+    $('achievements-get-detail').textContent = detail || 'Downloading…';
+  }
+  async function downloadIcons() {
+    const from = page;
+    busy = true;
+    $('achievements-get-go').disabled = true;
+    $('achievements-get-go').textContent = 'Downloading…';
+    $('achievements-get-cancel').textContent = 'Hide';
+    $('achievements-get-error').hidden = true;
+    progress(null, 'Starting…');
+    try {
+      await window.sms.downloadAchievementIcons();
+      busy = false;
+      // Hidden and gone to another page meanwhile: the page waits for the tab.
+      const show = dialog.open || page === from;
+      if (dialog.open) dialog.close();
+      await load();
+      if (show && ready()) showPage('achievements');
+    } catch (error) {
+      busy = false;
+      $('achievements-get-error').textContent = `${errorText(error).replace(/\.$/, '')}.`;
+      $('achievements-get-error').hidden = false;
+      $('achievements-get-go').textContent = 'Try again';
+      $('achievements-get-cancel').textContent = 'Not now';
+      if (!dialog.open) setMessage(errorText(error), true);
+    } finally {
+      $('achievements-get-go').disabled = false;
+      $('achievements-get-progress').hidden = true;
+    }
+  }
+  // Anything unexpected lands in the message bar, not an unhandled rejection.
+  const guarded = task => Promise.resolve().then(task).catch(error => { busy = false; setMessage(errorText(error), true); });
+  $('achievements-get-go').addEventListener('click', () => guarded(downloadIcons));
+  window.sms.onActivity(activity => { if (busy && activity) progress(activity.percent, activity.detail); });
+
+  onPage('achievements', {
+    open() {
+      markSeen();
+      if (ready()) return true;
+      guarded(offerIcons);
+      return false;
+    },
+    show: () => { render(); load(); }, hide: () => fresh.clear()
+  });
 
   // The game folder or Eclipse switch decides the list.
   window.smsAchievementsRefresh = data => {

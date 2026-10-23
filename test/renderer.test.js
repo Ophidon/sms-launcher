@@ -22,7 +22,9 @@ function host(platform) {
   return [{ linux: 'linux', macos: 'darwin', windows: 'win32' }[platform.id], platform.arches.includes('arm64') ? 'arm64' : 'x64'];
 }
 
-async function renderer(data = state(), copyError = null, notes = { releases: [], unseen: [], current: '0.1.39' }, steam = {}) {
+// `achievements`, when given, also loads the Achievements page over that state: { list, update } where
+// update(name) changes the list as the main process would after `name` (downloadAchievementIcons, updatePort).
+async function renderer(data = state(), copyError = null, notes = { releases: [], unseen: [], current: '0.1.39' }, steam = {}, achievements = null) {
   const importResult = { imported: [{ name: 'GMSE04_super_mario_sunshine', game: 'eclipse', title: 'Super Mario Eclipse',
     shines: [3, null, 1], file: '04-GMSE-super_mario_sunshine.gci' }],
   skipped: [{ file: '01-GMSE-super_mario_sunshine.gci', reason: 'Super Mario Sunshine save with no saved progress' },
@@ -32,7 +34,7 @@ async function renderer(data = state(), copyError = null, notes = { releases: []
   const text = node => node.textContent + node.children.map(text).join(' ');
   function element(classes = '') {
     const names = new Set(classes.split(' ')), listeners = new Map();
-    return { hidden: false, disabled: false, textContent: '', value: '', style: {}, open: false,
+    return { hidden: false, disabled: false, textContent: '', value: '', style: { setProperty() {} }, open: false,
       classList: { contains: name => names.has(name), add: name => names.add(name), remove: name => names.delete(name), toggle(name, enabled) {
         if (enabled) names.add(name); else names.delete(name);
       } },
@@ -69,7 +71,10 @@ async function renderer(data = state(), copyError = null, notes = { releases: []
     changelog: async () => notes, markChangelogSeen: async () => { changelogSeen.push(true); },
     play: async () => { calls.push('play'); }, launchGame: async () => { calls.push('launchGame'); },
     updateAndPlay: async () => { calls.push('updateAndPlay'); },
-    updatePort: async () => { calls.push('updatePort'); data.game = { ...data.game, needsUpdate: false, installedVersion: data.game.availableVersion }; },
+    updatePort: async () => {
+      calls.push('updatePort'); data.game = { ...data.game, needsUpdate: false, installedVersion: data.game.availableVersion };
+      achievements?.update?.('updatePort');
+    },
     checkNat: async () => ({ label: 'Open', type: 'open', text: 'You can host and join.' }), publicGames: async () => [],
     nativeMods: async () => ({ folder: '/mods', gameApi: '1.4', mods: [] }), nativeModsLatest: async () => ({}),
     copyText: async text => { calls.push(['copyText', text]); },
@@ -84,12 +89,31 @@ async function renderer(data = state(), copyError = null, notes = { releases: []
       addEventListener() {}, removeEventListener() {} }, document: {
     getElementById(id) { assert.ok(elements.has(id), `Missing HTML element ${id}`); return elements.get(id); },
     querySelectorAll(selector) {
-      const modals = ['steam-add', 'mac-tools-help', 'apple-silicon-switched'].map(id => elements.get(id));
+      const modals = ['steam-add', 'mac-tools-help', 'apple-silicon-switched', 'achievements-get'].map(id => elements.get(id));
       return selector === '.launcher-modal' ? modals : selector === '.launcher-modal[open]' ? modals.filter(modal => modal.open) : [];
     }, createElement: () => element()
   } });
   vm.runInContext(fs.readFileSync(path.resolve(__dirname, '../src/renderer.js'), 'utf8'), context);
+  if (achievements) {
+    Object.assign(sms, {
+      achievements: async () => ({ ...achievements.list }), achievementIcons: async () => ({}), onAchievement() {},
+      onActivity(callback) { achievements.activity = callback; },
+      markAchievementsSeen: async () => { calls.push('markAchievementsSeen'); achievements.list.seen = true; },
+      downloadAchievementIcons: async () => {
+        calls.push('downloadAchievementIcons');
+        if (achievements.hold) await new Promise(resolve => { achievements.release = resolve; });
+        if (achievements.error) throw new Error(achievements.error);
+        achievements.update?.('downloadAchievementIcons');
+        return { ...achievements.list };
+      }
+    });
+    vm.runInContext(fs.readFileSync(path.resolve(__dirname, '../src/achievements-page.js'), 'utf8'), context);
+  }
   await new Promise(setImmediate);
+  if (achievements) {
+    vm.runInContext('window.smsAchievementsRefresh(current)', context);
+    await new Promise(setImmediate);
+  }
   return { elements, calls, droppedFiles, listeners, changelogSeen, gamepad,
     async emitLog(entry) { logCallback(entry); await new Promise(setImmediate); },
     async resetLog(sequence) { resetCallback(sequence); await new Promise(setImmediate); },
@@ -770,4 +794,92 @@ test('the Apple Silicon switch and the Renderer list wait for a game version tha
   const onUi = await renderer(on);
   assert.equal(onUi.elements.get('appleSilicon').disabled, false);
   assert.equal(onUi.elements.get('renderer').disabled, false);
+});
+
+// The game's list as the main process sends it (main.js: achievementsState).
+function achievementList(fields = {}) {
+  return { supported: true, achievements: [{ id: 1, title: 'Paint Job', description: 'Get the first Shine.', stage: 'Delfino Airstrip', unlockedAt: null }],
+    unlocked: 0, total: 1, iconsNeeded: false, seen: true, ...fields };
+}
+const pageShown = (ui, name) => !ui.elements.get(name).hidden;
+
+test('the Achievements tab glows until it is first opened, and opens straight away when it has everything', async () => {
+  const ui = await renderer(state(), null, undefined, {}, { list: achievementList({ seen: false }) });
+  const tab = ui.elements.get('nav-achievements');
+  assert.equal(tab.hidden, false);
+  assert.equal(tab.classList.contains('spotlight'), true);
+  assert.equal(ui.elements.get('achievements-new').hidden, false);
+  await ui.click('nav-achievements');
+  assert.deepEqual(ui.calls, ['markAchievementsSeen']);
+  assert.equal(tab.classList.contains('spotlight'), false);
+  assert.equal(ui.elements.get('achievements-new').hidden, true);
+  assert.equal(pageShown(ui, 'page-achievements'), true);
+  assert.equal(ui.elements.get('achievements-get').open, false);
+});
+
+test('without its icons the Achievements tab offers just those, then shows the page', async () => {
+  const achievements = { list: achievementList({ iconsNeeded: true }), update(name) { if (name === 'downloadAchievementIcons') this.list.iconsNeeded = false; } };
+  const ui = await renderer(state(), null, undefined, {}, achievements);
+  assert.equal(ui.elements.get('nav-achievements').hidden, false);
+  assert.equal(ui.elements.get('nav-achievements').classList.contains('spotlight'), false);
+  await ui.click('nav-achievements');
+  assert.equal(pageShown(ui, 'page-achievements'), false);
+  assert.equal(ui.elements.get('achievements-get').open, true);
+  await ui.click('achievements-get-go');
+  assert.deepEqual(ui.calls, ['downloadAchievementIcons']);
+  assert.equal(ui.elements.get('achievements-get').open, false);
+  assert.equal(pageShown(ui, 'page-achievements'), true);
+  assert.equal(ui.elements.get('nav-achievements').classList.contains('active'), true);
+});
+
+test('the popup shows the download and its retries, and the page waits for it', async () => {
+  const achievements = { list: achievementList({ iconsNeeded: true }), hold: true, update(name) { if (name === 'downloadAchievementIcons') this.list.iconsNeeded = false; } };
+  const ui = await renderer(state(), null, undefined, {}, achievements);
+  await ui.click('nav-achievements');
+  await ui.click('achievements-get-go');
+  assert.equal(ui.elements.get('achievements-get-go').disabled, true);
+  assert.equal(ui.elements.get('achievements-get-go').textContent, 'Downloading…');
+  assert.equal(ui.elements.get('achievements-get-cancel').textContent, 'Hide');
+  assert.equal(ui.elements.get('achievements-get-progress').hidden, false);
+  achievements.activity({ label: 'Install achievement icons', detail: 'Download failed, trying again in 2 s (try 2 of 3)…', percent: null });
+  assert.match(ui.elements.get('achievements-get-detail').textContent, /try 2 of 3/);
+  assert.equal(ui.elements.get('achievements-get-progress').classList.contains('indeterminate'), true);
+  achievements.activity({ label: 'Install achievement icons', detail: 'Downloading', percent: 40 });
+  assert.equal(ui.elements.get('achievements-get-bar').style.width, '40%');
+  assert.equal(pageShown(ui, 'page-achievements'), false);
+  achievements.release();
+  await new Promise(setImmediate);
+  assert.equal(ui.elements.get('achievements-get').open, false);
+  assert.equal(pageShown(ui, 'page-achievements'), true);
+});
+
+test('a failed icon download says why in the popup, keeps the page closed, and Try again downloads again', async () => {
+  const achievements = { list: achievementList({ iconsNeeded: true }), error: "The icons didn't download: Install achievement icons failed with code 1 (tried 3 times). Check your internet connection and try again; the activity log has the details",
+    update(name) { if (name === 'downloadAchievementIcons') this.list.iconsNeeded = false; } };
+  const ui = await renderer(state(), null, undefined, {}, achievements);
+  await ui.click('nav-achievements');
+  await ui.click('achievements-get-go');
+  assert.equal(ui.elements.get('achievements-get').open, true);
+  assert.equal(ui.elements.get('achievements-get-error').hidden, false);
+  assert.match(ui.elements.get('achievements-get-error').textContent, /failed with code 1 \(tried 3 times\)\. Check your internet connection/);
+  assert.equal(ui.elements.get('achievements-get-go').textContent, 'Try again');
+  assert.equal(ui.elements.get('achievements-get-go').disabled, false);
+  assert.equal(pageShown(ui, 'page-achievements'), false);
+  achievements.error = null;
+  await ui.click('achievements-get-go');
+  assert.deepEqual(ui.calls.filter(call => call === 'downloadAchievementIcons').length, 2);
+  assert.equal(ui.elements.get('achievements-get-error').hidden, true);
+  assert.equal(pageShown(ui, 'page-achievements'), true);
+});
+
+test('the Achievements tab is always there: without achievements in the game its popup says so instead of downloading', async () => {
+  const ui = await renderer(state(), null, undefined, {}, { list: achievementList({ supported: false, achievements: [], total: 0, seen: false }),
+    error: 'Your game version has no achievements yet. Update the game on Play, then try again' });
+  assert.equal(ui.elements.get('nav-achievements').hidden, false);
+  assert.equal(ui.elements.get('nav-achievements').classList.contains('spotlight'), true);
+  await ui.click('nav-achievements');
+  assert.equal(ui.elements.get('achievements-get').open, true);
+  await ui.click('achievements-get-go');
+  assert.match(ui.elements.get('achievements-get-error').textContent, /^Your game version has no achievements yet\. Update the game on Play, then try again\.$/);
+  assert.equal(pageShown(ui, 'page-achievements'), false);
 });

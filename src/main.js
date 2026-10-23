@@ -257,6 +257,8 @@ function loadConfig() {
     // for the game and once more for Super Mario Eclipse, whose game versions gained it later.
     appleSiliconSwitched: Boolean(saved.appleSiliconSwitched),
     eclipseAppleSiliconSwitched: Boolean(saved.eclipseAppleSiliconSwitched),
+    // Whether the player has opened the Achievements tab, which is highlighted until then.
+    achievementsSeen: Boolean(saved.achievementsSeen),
     // Customize Mario: the colours the player chose and the Shine shirt.
     marioLook: marioColors.normalizeLook(saved.marioLook),
     // The Multiplayer window's fields, as last used.
@@ -835,16 +837,51 @@ async function updateEclipseMaps(root, settings) {
 // player. A failed download does not stop the game: it plays without them, and setup tries again next time.
 async function updateAchievementIcons(root, settings) {
   if (!port.achievementIconsWanted(root, settings)) return;
-  try {
+  try { await installAchievementIcons(root, { tries: 2 }); }
+  catch (error) {
+    log(`The achievement icons were not installed (${error.message}); achievements still unlock, and setup tries again next time.`);
+  }
+}
+// The installer resumes a dropped connection itself; a run that still fails is tried again
+// a few times (not after Stop), each retry shown as the task's detail.
+const ACHIEVEMENT_ICON_TRIES = 3;
+async function installAchievementIcons(root, { tries = ACHIEVEMENT_ICON_TRIES } = {}) {
+  const startedAt = Date.now();
+  let attempts = 0;
+  await retrying(async () => {
+    attempts++;
     await ensureBuildTools();
     const cmd = port.commandFor(root, 'achievement-icons', [], process.platform, toolEnv());
     await launch(cmd.command, cmd.args, { cwd: cmd.cwd, env: cmd.env }, 'Install achievement icons');
     if (!port.achievementIconsInstalled(root)) throw new Error('the installer finished without them');
-    achievementIconCache.clear();
-    broadcast('achievement', null);
-  } catch (error) {
-    log(`The achievement icons were not installed (${error.message}); achievements still unlock, and setup tries again next time.`);
+  }, { tries, permanent: () => wasStopped(startedAt), onRetry(error, n) {
+    const seconds = n * 2;
+    log(`The achievement icons didn't download (${error.message}); trying again in ${seconds} s (try ${n + 1} of ${tries}).`);
+    if (operation) {
+      Object.assign(operation, { detail: `Download failed, trying again in ${seconds} s (try ${n + 1} of ${tries})…`, percent: null });
+      broadcast('activity', activityState());
+    }
+  } }).catch(error => {
+    if (attempts > 1) error.message += ` (tried ${attempts} times)`;
+    throw error;
+  });
+  achievementIconCache.clear();
+  broadcast('achievement', null);
+}
+// The Achievements tab's Download icons, when its page opens without them: only the icons, then the page.
+async function downloadAchievementIcons() {
+  requireRepo();
+  // Nothing to download them for: said in the popup, before any download.
+  if (!achievements.supported(config.repo, config.settings)) throw new Error(config.settings.eclipse
+    ? 'Super Mario Eclipse has no achievements. Turn Eclipse off under Settings to see them'
+    : 'Your game version has no achievements yet. Update the game on Play, then try again');
+  if (!port.achievementIconsWanted(config.repo, config.settings)) return achievementsState();
+  try { await installAchievementIcons(config.repo); }
+  catch (error) {
+    if (!operation || wasStopped(operation.startedAt)) throw error;
+    throw new Error(`The icons didn't download: ${error.message.replace(/\.$/, '')}. Check your internet connection and try again; the activity log has the details`);
   }
+  return achievementsState();
 }
 
 // The chosen language's pack, when it is missing or not the pinned release. A
@@ -1249,11 +1286,20 @@ function playtime() {
   } catch (_) { return 0; }
 }
 
-// The Achievements page: every achievement of the game folder's list, and the player's unlocks.
+// The Achievements page: every achievement of the game folder's list, and the player's unlocks;
+// without the icons, the tab offers to download them first.
 function achievementsState() {
   const root = config.repo && fs.existsSync(config.repo) ? config.repo : null;
-  if (!root) return { supported: false, achievements: [], unlocked: 0, total: 0 };
-  return achievements.state(root, config.settings, app.getPath('userData'));
+  const seen = config.achievementsSeen;
+  if (!root) return { supported: false, achievements: [], unlocked: 0, total: 0, iconsNeeded: false, seen };
+  return { ...achievements.state(root, config.settings, app.getPath('userData')),
+    iconsNeeded: port.achievementIconsWanted(root, config.settings), seen };
+}
+// The Achievements tab stands out until it is first opened.
+function markAchievementsSeen() {
+  if (config.achievementsSeen) return;
+  config.achievementsSeen = true;
+  saveConfig();
 }
 
 // Small copies of the icons for the page (the files are 512 px), made once each.
@@ -2093,6 +2139,8 @@ function registerHandlers() {
   });
   ipcMain.handle('achievements', () => achievementsState());
   ipcMain.handle('achievement-icons', () => achievementIcons());
+  ipcMain.handle('download-achievement-icons', () => exclusive('Install achievement icons', downloadAchievementIcons));
+  ipcMain.handle('achievements-seen', () => markAchievementsSeen());
   ipcMain.handle('save-states', () => ({ directory: stateDirectory(), states: savestates.listStates(stateDirectory()) }));
   ipcMain.handle('open-save-states', () => {
     fs.mkdirSync(stateDirectory(), { recursive: true });
