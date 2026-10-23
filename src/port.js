@@ -295,6 +295,29 @@ function eclipseMapsWanted(root, settings) {
   return Boolean(settings.eclipse && settings.radar) && eclipseMapsSupported(root) && !eclipseMapsInstalled(root);
 }
 
+// The achievements' icons (1.png to 148.png), published with the texture
+// extras. The port pins their release in tools/mods/achievement-icons.json,
+// installs them in assets/achievements/ (get.py achievement-icons) and records
+// the one it installed there in .release, as for the extras; every player gets
+// them, whatever the texture settings. Eclipse has no achievements.
+function achievementIconsDirectory(root) { return path.join(root, 'assets', 'achievements'); }
+
+function achievementIconsSupported(root) {
+  return fs.existsSync(path.join(root, 'tools', 'mods', 'achievement-icons.json'));
+}
+
+function achievementIconsInstalled(root) {
+  try {
+    const pinned = JSON.parse(fs.readFileSync(path.join(root, 'tools', 'mods', 'achievement-icons.json'), 'utf8'));
+    const installed = JSON.parse(fs.readFileSync(path.join(achievementIconsDirectory(root), '.release'), 'utf8'));
+    return typeof pinned.md5 === 'string' && /^[0-9a-f]{32}$/.test(pinned.md5) && installed.md5 === pinned.md5;
+  } catch (_) { return false; }
+}
+
+function achievementIconsWanted(root, settings) {
+  return !settings.eclipse && achievementIconsSupported(root) && !achievementIconsInstalled(root);
+}
+
 // Languages other than the disc's English come from language packs (the
 // European release's four and community translations, published with the
 // texture extras). The launcher's own catalog, language-packs.json, says
@@ -598,11 +621,12 @@ function commandFor(root, action, args = [], platform = process.platform, enviro
   if (action === 'language' && !pack) throw new Error(`There is no language pack "${args[0]}".`);
   const packArgs = pack ? [args[0], pack.name, pack.url, pack.md5, String(pack.size)] : [];
   if (platform !== 'win32') {
-    const file = ['python', 'textures', 'texture-extras', 'eclipse-maps', 'language', 'cutscenes'].includes(action) ? 'python3' : path.join(root, `${action}.sh`);
+    const file = ['python', 'textures', 'texture-extras', 'eclipse-maps', 'achievement-icons', 'language', 'cutscenes'].includes(action) ? 'python3' : path.join(root, `${action}.sh`);
     const commandArgs = action === 'python' ? [textureProgress, path.join(root, 'tools', 'mods', 'get.py'), 'eclipse', '--iso', ...args]
       : action === 'textures' ? [textureProgress, path.join(root, 'tools', 'mods', 'get.py')]
         : action === 'texture-extras' ? [textureProgress, path.join(root, 'tools', 'mods', 'get.py'), 'extras', '--if-outdated']
         : action === 'eclipse-maps' ? [textureProgress, path.join(root, 'tools', 'mods', 'get.py'), 'eclipse-maps', '--if-outdated']
+        : action === 'achievement-icons' ? [textureProgress, path.join(root, 'tools', 'mods', 'get.py'), 'achievement-icons', '--if-outdated']
         : action === 'language' ? [textureProgress, installLanguage, ...packArgs]
         : action === 'cutscenes' ? [resumeDownloads, 'tools/media/install_cutscenes.py', '--iso', ...args] : args;
     return { command: file, args: commandArgs, cwd: root, env: environment };
@@ -620,6 +644,8 @@ function commandFor(root, action, args = [], platform = process.platform, enviro
       ? 'cd "$(cygpath -u "$1")" && python "$(cygpath -u "$2")" tools/mods/get.py extras --if-outdated'
     : action === 'eclipse-maps'
       ? 'cd "$(cygpath -u "$1")" && python "$(cygpath -u "$2")" tools/mods/get.py eclipse-maps --if-outdated'
+    : action === 'achievement-icons'
+      ? 'cd "$(cygpath -u "$1")" && python "$(cygpath -u "$2")" tools/mods/get.py achievement-icons --if-outdated'
     : action === 'language'
       ? 'cd "$(cygpath -u "$1")" && python "$(cygpath -u "$2")" "$(cygpath -u "$3")" "${@:4}"'
     : action === 'clean'
@@ -627,7 +653,7 @@ function commandFor(root, action, args = [], platform = process.platform, enviro
       : `cd "$(cygpath -u "$1")" && ./${action}.sh "$(cygpath -u "$2")"`;
   return {
     command: bash,
-    args: ['-c', script, 'sms-launcher', root, ...(action === 'textures' || action === 'texture-extras' || action === 'eclipse-maps' ? [textureProgress]
+    args: ['-c', script, 'sms-launcher', root, ...(action === 'textures' || action === 'texture-extras' || action === 'eclipse-maps' || action === 'achievement-icons' ? [textureProgress]
       : action === 'language' ? [textureProgress, installLanguage, ...packArgs]
       : action === 'python' ? [textureProgress, args[0]]
       : action === 'cutscenes' ? [resumeDownloads, args[0]] : args)], cwd: root,
@@ -680,6 +706,7 @@ function eclipseRunCommand(...args) { return gameRunCommand(...args); }
 module.exports = { PORT_URL, ECLIPSE_ISO, platformInfo, isPort, validateRom, normalizeSettings, savedSettings, gameFeatures,
   texturePackDirectory, texturePackInstalled, textureExtrasDirectory, textureExtrasSupported, textureExtrasInstalled, textureExtrasWanted,
   eclipseMapsDirectory, eclipseMapsSupported, eclipseMapsInstalled, eclipseMapsWanted,
+  achievementIconsDirectory, achievementIconsSupported, achievementIconsInstalled, achievementIconsWanted,
   LANGUAGES, LANGUAGE_PACKS, gameLanguage, languagePackDirectory, languagePacksSupported, languageAvailable, languageChoices,
   languagePackInstalled, languagePackWanted,
   cutscenePackDirectory, cutscenePackInstalled, cutscenePackSupported, cutscenePackRequirements, wantsCutscenes, hdVisualsInstalled, buildEnvironment, eclipseMovieEnvironment, gameDisc, binaryPath,
