@@ -135,6 +135,15 @@ test('a look goes to other players as its chosen regions in order, only real reg
   assert.equal(pack.lookText(null), '');
 });
 
+test('the Shine shirt and the sunglasses go to the game each on its own, while Use in the game is on', () => {
+  assert.deepEqual(pack.outfitEnvironment({ aloha: true }), { SMS_MARIO_SHIRT: '1' });
+  assert.deepEqual(pack.outfitEnvironment({ sunglasses: true }), { SMS_MARIO_SUNGLASSES: '1' });
+  assert.deepEqual(pack.outfitEnvironment({ aloha: true, sunglasses: true, colors: {} }), { SMS_MARIO_SHIRT: '1', SMS_MARIO_SUNGLASSES: '1' });
+  assert.deepEqual(pack.outfitEnvironment({ aloha: true, sunglasses: true, inGame: false }), {}, 'Use in the game off: Mario as usual');
+  assert.deepEqual(pack.outfitEnvironment({ aloha: 'yes', fludd: true }), {});
+  assert.deepEqual(pack.outfitEnvironment(undefined), {});
+});
+
 test("FLUDD's colours go to other players after Mario's", () => {
   assert.equal(pack.lookText({ colors: { fluddTrim: '#ff0000', hat: '#2fa846', fluddBody: '#123456' } }),
     'hat=2fa846;fluddBody=123456;fluddTrim=ff0000');

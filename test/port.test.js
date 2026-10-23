@@ -664,12 +664,12 @@ test('HD movies have their own setting and only complete packs are recognized', 
   assert.equal(port.buildEnvironment({ ...settings, cutscenes: false, textures: true }, '/my/disc.iso', root).SMS_HD_CUTSCENES, '0');
   assert.equal(port.buildEnvironment({ ...settings, eclipse: true }, '/my/disc.iso', root).SMS_HD_CUTSCENES, '0');
   for (const platform of ['linux', 'darwin']) assert.deepEqual(port.commandFor(root, 'cutscenes', ['/my/disc.iso'], platform).args,
-    ['tools/media/install_cutscenes.py', '--iso', '/my/disc.iso']);
+    [path.resolve(__dirname, '..', 'scripts', 'resume_downloads.py'), 'tools/media/install_cutscenes.py', '--iso', '/my/disc.iso']);
   const msys = path.join(root, 'MSYS2');fs.mkdirSync(path.join(msys, 'usr', 'bin'), { recursive: true });
   fs.writeFileSync(path.join(msys, 'usr', 'bin', 'bash.exe'), '');
   const cmd = port.commandFor(root, 'cutscenes', ['C:\\own game.iso'], 'win32', { MSYS2_ROOT: msys });
   assert.match(cmd.args[1], /install_cutscenes.py --iso/);
-  assert.equal(cmd.args.at(-1), 'C:\\own game.iso');
+  assert.deepEqual(cmd.args.slice(-2), [path.resolve(__dirname, '..', 'scripts', 'resume_downloads.py'), 'C:\\own game.iso']);
 });
 
 
@@ -877,4 +877,10 @@ test('Eclipse plays the movies it kept from Sunshine from the disc or the HD cut
     // The pack itself stays off for Eclipse's other movies.
     assert.equal(port.buildEnvironment(hd, '/games/Eclipse.iso', root).SMS_HD_CUTSCENES, '0');
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test('every helper script the installers run is packaged with the launcher', () => {
+  const packaged = require('../package.json').build.extraResources.find(item => item.from === 'scripts').filter;
+  for (const script of ['texture-progress.py', 'install-language.py', 'resume_downloads.py'])
+    assert.ok(packaged.includes(script), `${script} is not in package.json's extraResources`);
 });

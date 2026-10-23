@@ -156,6 +156,30 @@ test('the newest release is downloaded from GitHub and installed', async t => {
   await assert.rejects(mods.latestRelease(ENTRY, async () => ({ ok: false, status: 404 })), /no release yet/);
 });
 
+test('GitHub briefly down or a dropped download is asked again; a missing release is not', async t => {
+  const userData = temporary(t);
+  const asked = [];
+  const fetch = async url => {
+    asked.push(url);
+    const tries = asked.filter(seen => seen === url).length;
+    if (url.startsWith('https://api.github.com/')) {
+      if (tries === 1) return { ok: false, status: 502 };
+      return { ok: true, status: 200, json: async () => ({ tag_name: 'v1.2.0', assets: [{ name: 'seamless-episodes-1.2.0.zip', size: 100, browser_download_url: 'https://example.invalid/se.zip' }] }) };
+    }
+    if (tries === 1) throw new TypeError('fetch failed');
+    const data = releaseZip(MOD_INI.replace('1.0.0', '1.2.0'));
+    return { ok: true, status: 200, arrayBuffer: async () => data.buffer.slice(data.byteOffset, data.byteOffset + data.length) };
+  };
+  const waits = [];
+  const done = await mods.download(userData, ENTRY, fetch, { wait: async ms => waits.push(ms) });
+  assert.equal(done.version, '1.2.0');
+  assert.equal(asked.length, 4);
+  assert.equal(waits.length, 2);
+  let calls = 0;
+  await assert.rejects(mods.latestRelease(ENTRY, async () => { calls++; return { ok: false, status: 404 }; }, { wait: async () => {} }), /no release yet/);
+  assert.equal(calls, 1);
+});
+
 test('the Mods page lists the catalog with what is installed, on, and runnable', t => {
   const userData = temporary(t);
   const data = temporary(t);

@@ -10,7 +10,9 @@
       "Tilt with the C-stick and Raw mouse input, under Settings → Gameplay. Tilt with the C-stick (off by default) makes up and down on the C-stick tilt the camera over or under Mario, as the mouse does, instead of moving it nearer or further; hold the right stick in to zoom. Turn Raw mouse input off if mouse look feels too slow, as on some laptops: the mouse then follows your system's pointer speed (Windows and Linux with X11). The game's settings menu has both too.",
       "Sunshine's movies in Eclipse, on by default under Settings → Gameplay while Super Mario Eclipse is on: the ten movies Eclipse kept from Sunshine but made blurrier play from your own Sunshine disc instead, or as HD cutscenes when you have those on.",
       "A Custom Game Source tag under Play now says when your game is built from a game source you chose under Settings → Manage, with its branch and commit, instead of this launcher's release; click it to change it.",
-      "Language: Português (Brasil) joins the list, a community translation made for Super Mario 3D All-Stars with all of the game's text and the menus, pause menu and Yes/No in Portuguese; its other pictures stay in Spanish. It needs a game version that plays any language pack."
+      "Language: Português (Brasil) joins the list, a community translation made for Super Mario 3D All-Stars with all of the game's text and the menus, pause menu and Yes/No in Portuguese; its other pictures stay in Spanish. It needs a game version that plays any language pack.",
+      "Fixed downloads failing when the connection dropped or stalled partway through: the game's source (\"RPC failed; curl 92 HTTP/2 stream reset\", \"early EOF\"), the build tools, mods and Steam artwork are now tried again by themselves, and HD textures, HD cutscenes, Super Mario Eclipse, Eclipse's maps and language packs carry on from where they stopped instead of starting over or failing."
+      "Customize Mario: Always wear the Shine shirt and Always wear sunglasses, each on its own. Mario wears them in the 3D view and in every stage of the game, from the start, while Use in the game is on, in Super Mario Eclipse too."
     ],
     "game": [
       "Keyboard and mouse: the default keys are now laid out for the mouse, with mouse look on. WASD moves, the mouse turns the camera, left click jumps, right click dives, Q switches the nozzle, E opens the close-up camera, middle click sprays FLUDD gently so you can spray on the move and Space sprays it fully, Left Shift ground pounds and sidesteps, Tab opens the map and Enter pauses. Controllers keep their layout.",
@@ -28,6 +30,7 @@
       "Fixed Hotel Delfino rising out of the sand in Sirena Beach with no sound: its rumble plays again.",
       "Super Mario Eclipse: choosing Score on the file select no longer crashes the game when a file has 210 or more Shines, and the total shows the right number from 200 Shines on.",
       "Fixed the game refusing to save (\"Unable to save to Memory Card in Slot A\"), with auto save failing too, after you loaded a save state from before your last save: it now saves over your latest save as usual, so resetting no longer loses the Shines and blue coins you got since."
+      "Mario can wear his Shine shirt, his sunglasses, or both in every stage, without visiting the sunglasses stand, when Customize Mario in the launcher asks for them. In Super Mario Eclipse every character wears them."
     ]
   },
   "releases": [

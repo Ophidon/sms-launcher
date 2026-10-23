@@ -84,3 +84,76 @@ print('Installed 1 textures in mods/textures/GMS.', flush=True)
     assert.match(extras.stdout, /Texture download: \d+\/\d+ bytes/);
     assert.equal(fs.readFileSync(path.join(root, 'installed.flag'), 'utf8'), checksum);
   });
+
+test('a game download that drops, stalls or meets a busy server carries on from where it stopped',
+  { skip: !pythonReady && 'Python is needed to exercise the download wrapper' }, async t => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sms resume downloads '));
+    t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    const payload = crypto.randomBytes(1024 * 1024);
+    const checksum = crypto.createHash('sha256').update(payload).digest('hex');
+    const half = payload.length / 2;
+    const requests = [];
+    const server = http.createServer((req, res) => {
+      const route = req.url.slice(1);
+      const range = req.headers.range?.match(/^bytes=(\d+)-$/);
+      const first = !requests.some(seen => seen.route === route);
+      requests.push({ route, range: req.headers.range || null, ifRange: req.headers['if-range'] || null });
+      if (route === 'missing') { res.writeHead(404); res.end(); return; }
+      if (route === 'busy' && first) { res.writeHead(503); res.end(); return; }
+      if (range && route !== 'no-range') {
+        const start = Number(range[1]);
+        res.writeHead(206, { 'Content-Length': payload.length - start, ETag: '"v1"',
+          'Content-Range': `bytes ${start}-${payload.length - 1}/${payload.length}` });
+        res.end(payload.subarray(start));
+        return;
+      }
+      res.writeHead(200, { 'Content-Length': payload.length, ETag: '"v1"' });
+      if (!first || route === 'busy') { res.end(payload); return; }
+      // The first try sends half the file, then drops the connection or goes quiet.
+      res.write(payload.subarray(0, half), () => {
+        if (route !== 'stall') setTimeout(() => res.socket.destroy(), 50);
+      });
+    });
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    t.after(() => { server.closeAllConnections(); return new Promise(resolve => server.close(resolve)); });
+    const driver = path.join(root, 'driver.py');
+    fs.writeFileSync(driver, `import hashlib, sys, urllib.request
+sys.path.insert(0, ${JSON.stringify(path.resolve(__dirname, '..', 'scripts'))})
+import resume_downloads
+resume_downloads.TIMEOUT = 1
+resume_downloads.pause = lambda attempt: None
+resume_downloads.install()
+request = urllib.request.Request(sys.argv[1], headers={'User-Agent': 'test'})
+try:
+    with urllib.request.urlopen(request) as response:
+        digest = hashlib.sha256()
+        while True:
+            chunk = response.read(65536)
+            if not chunk:
+                break
+            digest.update(chunk)
+except OSError as error:
+    sys.exit('failed: %s' % error)
+print(digest.hexdigest())
+`);
+    const run = route => promisify(execFile)(python, [driver, `http://127.0.0.1:${server.address().port}/${route}`],
+      { cwd: root, timeout: 20000 });
+    const routeRequests = route => requests.filter(seen => seen.route === route);
+
+    for (const route of ['drop', 'stall']) {
+      const { stdout } = await run(route);
+      assert.equal(stdout.trim().split('\n').at(-1), checksum, route);
+      assert.match(stdout, /download stopped at .*resuming \(try 2 of 5\)/, route);
+      assert.deepEqual(routeRequests(route).map(seen => seen.range), [null, `bytes=${half}-`], route);
+      assert.equal(routeRequests(route)[1].ifRange, '"v1"');
+    }
+    // A server that can't resume sends the whole file again: the part already had is skipped.
+    assert.equal((await run('no-range')).stdout.trim().split('\n').at(-1), checksum);
+    // A server that is briefly down is asked again.
+    const busy = await run('busy');
+    assert.equal(busy.stdout.trim().split('\n').at(-1), checksum);
+    assert.match(busy.stdout, /could not connect \(HTTP Error 503.*trying again \(2 of 5\)/);
+    // A file that isn't there fails at once.
+    await assert.rejects(run('missing'), /HTTP Error 404/);
+    assert.equal(routeRequests('missing').length, 1);
+  });

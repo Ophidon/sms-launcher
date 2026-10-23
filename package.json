@@ -34,7 +34,8 @@
         "filter": [
           "build-eclipse.sh",
           "texture-progress.py",
-          "install-language.py"
+          "install-language.py",
+          "resume_downloads.py"
         ]
       }
     ],

@@ -306,6 +306,58 @@ test('an update reuses an older install\'s submodule decomp and a fork\'s relati
   assert.equal(game.matchesSource(forked, relative), true);
 });
 
+test('a download GitHub drops partway is tried again over HTTP/1.1, unless the player stopped it', async t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sms checkout retry-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const env = { ...process.env, GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'protocol.file.allow', GIT_CONFIG_VALUE_0: 'always' };
+  const git = (cwd, args) => execFileSync('git', args, { cwd, env, encoding: 'utf8', stdio: ['ignore','pipe','pipe'] }).trim();
+  function repo(name) {
+    const dir = path.join(root, name); fs.mkdirSync(dir);
+    git(dir, ['init', '-b', game.release.branch]);
+    git(dir, ['config','user.name','CI']); git(dir, ['config','user.email','ci@example.invalid']);
+    fs.writeFileSync(path.join(dir,'file.txt'),'one'); git(dir,['add','.']); git(dir,['commit','-m','first']);
+    return dir;
+  }
+  const decomp = repo('decomp');
+  const origin = repo('origin');
+  git(origin, ['submodule','add',decomp,'decomp']); git(origin,['commit','-am','pin decomp']);
+  const source = { ...game.release, repository: origin, commit: git(origin,['rev-parse','HEAD']), decomp: git(decomp,['rev-parse','HEAD']) };
+  const capture = async (command,args,cwd,environment) => execFileSync(command,args,{cwd,env:environment,encoding:'utf8',stdio:['ignore','pipe','pipe']}).trim();
+  const waits = [], wait = async ms => { waits.push(ms); };
+  // Each clone fails once after leaving a partial folder behind, as Git does.
+  function flaky(calls) {
+    const failed = new Set();
+    return async (command, args, options, label) => {
+      calls.push({ args, label });
+      if (args.includes('clone') && !failed.has(args.at(-1))) {
+        failed.add(args.at(-1));
+        fs.mkdirSync(path.join(args.at(-1), '.git'), { recursive: true });
+        throw new Error(`${label} exited with code 128: fatal: fetch-pack: invalid index-pack output. See the activity log.`);
+      }
+      return capture(command, args, options.cwd, options.env);
+    };
+  }
+  const calls = [];
+  const destination = path.join(root, 'installed');
+  await game.checkout(destination, { source, env, run: flaky(calls), capture, wait });
+  assert.equal(game.matchesSource(destination, source), true);
+  const retried = calls.filter(call => call.label.includes('(try 2 of 3)'));
+  assert.deepEqual(retried.map(call => call.label), ['Download port source (try 2 of 3)', 'Download decomp source (try 2 of 3)']);
+  for (const call of retried) assert.deepEqual(call.args.slice(0, 3), ['-c', 'http.version=HTTP/1.1', 'clone']);
+  assert.equal(calls.filter(call => !call.label.includes('(try')).some(call => call.args.includes('http.version=HTTP/1.1')), false);
+  assert.deepEqual(waits, [3000, 3000]);
+
+  // Stopped, or still failing on the last try: the error stands, with nothing left behind.
+  const stoppedCalls = [];
+  const stopped = path.join(root, 'stopped');
+  await assert.rejects(game.checkout(stopped, { source, env, run: flaky(stoppedCalls), capture, wait, stopped: () => true }), /invalid index-pack/);
+  assert.equal(stoppedCalls.length, 1);
+  const always = async (command, args, options, label) => { throw new Error(`${label} exited with code 128: fatal: early EOF`); };
+  const broken = path.join(root, 'broken');
+  await assert.rejects(game.checkout(broken, { source, env, run: always, capture, wait }), /\(try 3 of 3\) exited with code 128: fatal: early EOF/);
+  assert.deepEqual(fs.readdirSync(root).filter(name => name.startsWith('stopped') || name.startsWith('broken')), []);
+});
+
 test('a decomp from another fork and commit survives the port\'s own submodule update', async t => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sms checkout fork-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));

@@ -13,6 +13,7 @@ const zlib = require('zlib');
 const crypto = require('crypto');
 
 const CATALOG = require('./native-mods.json');
+const { retrying, httpError } = require('./retry');
 const MAX_SIZE = 64 << 20; // far beyond a mod's zip: a larger one is not a mod
 const ID = /^[A-Za-z0-9._-]+$/;
 
@@ -132,12 +133,15 @@ function newer(a, b) {
 }
 
 // A mod's newest release: its tag, version and the zip to download.
-async function latestRelease(entry, fetch) {
-  const response = await fetch(`https://api.github.com/repos/${entry.repository}/releases/latest`,
-    { headers: { Accept: 'application/vnd.github+json' }, cache: 'no-store', signal: AbortSignal.timeout(15000) });
-  if (response.status === 404) throw new Error(`${entry.name} has no release yet.`);
-  if (!response.ok) throw new Error(`GitHub did not answer about ${entry.name} (${response.status}).`);
-  const release = await response.json();
+// Both ask GitHub again when the connection fails or it is briefly down.
+async function latestRelease(entry, fetch, { wait } = {}) {
+  const release = await retrying(async () => {
+    const response = await fetch(`https://api.github.com/repos/${entry.repository}/releases/latest`,
+      { headers: { Accept: 'application/vnd.github+json' }, cache: 'no-store', signal: AbortSignal.timeout(15000) });
+    if (response.status === 404) throw httpError(`${entry.name} has no release yet.`, 404);
+    if (!response.ok) throw httpError(`GitHub did not answer about ${entry.name} (${response.status}).`, response.status);
+    return response.json();
+  }, { wait });
   const zips = (release.assets || []).filter(asset => /\.zip$/i.test(asset.name));
   const asset = zips.find(item => item.name.startsWith(`${entry.id}-`)) || zips[0];
   if (!asset) throw new Error(`${entry.name}'s newest release has no zip.`);
@@ -202,12 +206,14 @@ function installZip(userData, entry, data, release = {}) {
   }
 }
 
-async function download(userData, entry, fetch) {
-  const release = await latestRelease(entry, fetch);
+async function download(userData, entry, fetch, { wait } = {}) {
+  const release = await latestRelease(entry, fetch, { wait });
   if (release.size > MAX_SIZE) throw new Error(`${entry.name}'s download is too large to be a mod.`);
-  const response = await fetch(release.url, { cache: 'no-store', signal: AbortSignal.timeout(120000) });
-  if (!response.ok) throw new Error(`Could not download ${entry.name} (${response.status}).`);
-  const data = Buffer.from(await response.arrayBuffer());
+  const data = await retrying(async () => {
+    const response = await fetch(release.url, { cache: 'no-store', signal: AbortSignal.timeout(120000) });
+    if (!response.ok) throw httpError(`Could not download ${entry.name} (${response.status}).`, response.status);
+    return Buffer.from(await response.arrayBuffer());
+  }, { wait });
   if (data.length > MAX_SIZE) throw new Error(`${entry.name}'s download is too large to be a mod.`);
   return installZip(userData, entry, data, release);
 }

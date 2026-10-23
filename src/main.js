@@ -39,6 +39,7 @@ const marioModel = require('./mario-model');
 const marioColors = require('./mario-colors');
 const marioPack = require('./mario-pack');
 const { relaunchOptions } = require('./relaunch');
+const { retrying, httpError } = require('./retry');
 
 const DISCORD_INVITE = 'https://discord.gg/NvUXmm8dB9';
 // Microsoft's free Windows HDR Calibration app (Microsoft Store product 9N7F2SM5D1LR).
@@ -52,6 +53,7 @@ let preparingTools = false;
 let operation = null;
 // When the player last stopped a task (Stop), so a stopped build isn't tried again.
 let stoppedAt = 0;
+const wasStopped = since => stoppedAt >= since;
 let appUpdate = { state: 'idle', message: '' };
 let updater = null;
 // Before anything reads userData: the single-instance lock is keyed on it too,
@@ -347,9 +349,11 @@ function windowsSteamPath() {
 // Steam artwork comes straight from SteamGridDB into memory: no-store keeps it
 // out of the launcher's web cache, so the only copy is the one in Steam's folder.
 async function downloadImage(url) {
-  const response = await net.fetch(url, { cache: 'no-store' });
-  if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
-  return Buffer.from(await response.arrayBuffer());
+  return retrying(async () => {
+    const response = await net.fetch(url, { cache: 'no-store' });
+    if (!response.ok) throw httpError(`${url}: HTTP ${response.status}`, response.status);
+    return Buffer.from(await response.arrayBuffer());
+  });
 }
 
 // The file Steam starts: the installed launcher, or the AppImage on Linux.
@@ -780,7 +784,7 @@ async function installPort() {
       throw new Error('That folder is not empty. Choose another download location.');
     fs.rmdirSync(destination);
   }
-  await game.checkout(destination, { run: launch, capture, env: toolEnv(), source: currentSource() });
+  await game.checkout(destination, { run: launch, capture, env: toolEnv(), source: currentSource(), stopped: wasStopped });
   return { ok: true };
 }
 
@@ -880,7 +884,7 @@ async function build(forceFresh = false) {
   if (forceFresh || (!game.isCurrent(root, settings, source) && !freshPinnedSource)) {
     root = game.snapshotPath(config.installRoot || original, settings, source);
     if (forceFresh || (fs.existsSync(root) && !game.matchesSource(root, source))) root += `.fresh-${Date.now()}`;
-    if (!fs.existsSync(root)) await game.checkout(root, { run: launch, capture, env: toolEnv(), reference: original, source });
+    if (!fs.existsSync(root)) await game.checkout(root, { run: launch, capture, env: toolEnv(), reference: original, source, stopped: wasStopped });
     if (!game.matchesSource(root, source))
       throw new Error('The update folder has changed. Choose another setup location in Settings and try again.');
     game.carryUserFiles(original, root);
@@ -1123,6 +1127,7 @@ async function play(installation = null, session = null) {
   if (config.settings.discordPresence) env.SMS_PRESENCE = '1';
   const look = marioLookPack(rom, disc, root, settings);
   if (look) env.SMS_MARIO_LOOK = look;
+  Object.assign(env, marioPack.outfitEnvironment(config.marioLook));
   // Together, each game paints the others in their own colours (theirs come over the network).
   if (session) Object.assign(env, marioPaintEnvironment(rom, root, settings));
   // The game puts its version in the window title: the launcher's name for the build being played.
