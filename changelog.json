@@ -32,7 +32,11 @@
       "Fixed Hotel Delfino rising out of the sand in Sirena Beach with no sound: its rumble plays again.",
       "Super Mario Eclipse: choosing Score on the file select no longer crashes the game when a file has 210 or more Shines, and the total shows the right number from 200 Shines on.",
       "Fixed the game refusing to save (\"Unable to save to Memory Card in Slot A\"), with auto save failing too, after you loaded a save state from before your last save: it now saves over your latest save as usual, so resetting no longer loses the Shines and blue coins you got since.",
-      "Mario can wear his Shine shirt, his sunglasses, or both in every stage, without visiting the sunglasses stand, when Customize Mario in the launcher asks for them. In Super Mario Eclipse every character wears them."
+      "Mario can wear his Shine shirt, his sunglasses, or both in every stage, without visiting the sunglasses stand, when Customize Mario in the launcher asks for them. In Super Mario Eclipse every character wears them.",
+      "Multiplayer: you hear the players near you, their steps, jumps, ground pounds and voices, a little quieter than your own Mario, and a manhole lid in Delfino Plaza that one of them ground pounds open flips for everyone.",
+      "Mods: mod API 1.5 beta 2 lets every kind of mod react to what happens in the game, such as Mario getting hurt or healed and what hurt him, enemies and bosses defeated, Shines appearing and collected, Yoshi and Blooper rides, talks, cutscenes, music and saves.",
+      "Fixed a one-pixel line at the right and bottom edges of the screen staying bright behind the settings and save state menus.",
+      "The settings menu's Hold X Preview hint now shows your controller's button, like Square on a PlayStation controller, instead of the letter X."
     ]
   },
   "releases": [
