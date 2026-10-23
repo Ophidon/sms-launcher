@@ -60,7 +60,8 @@ function fixture(t, { metadata = true, textures = false, eclipse = false, discor
       if (name === './discord') return { ...nativeRequire('./discord'),
         createPresence: () => ({ set: activity => activities.push(activity), stop() {}, listen() {}, reply() {} }) };
       if (name === './mario-model') return { loadMario: () => ({ references: ['disc references'] }) };
-      if (name === './mario-pack') return { bake(options) { bakes.push(options); return bake ? bake(options) : options.directory; } };
+      if (name === './mario-pack') return { outfitEnvironment: nativeRequire('./mario-pack').outfitEnvironment,
+        bake(options) { bakes.push(options); return bake ? bake(options) : options.directory; } };
       if (name === './saves') return {
         backupRoot: () => path.join(directory, 'backups'),
         backupSaves(_saves, _backups, reason) { backups.push(reason); return { empty: true, message: 'No saves yet' }; },
@@ -191,7 +192,7 @@ test('--play opens the launcher after the game fails so its log is visible', asy
 });
 
 test('chosen Mario colours reach the game as a look pack, from the HD pack when HD textures are on', async t => {
-  const look = { colors: { hat: '#00ff00' }, inGame: true, aloha: false, fludd: false, nozzle: 'spray' };
+  const look = { colors: { hat: '#00ff00' }, inGame: true, aloha: false, sunglasses: false, fludd: false, nozzle: 'spray' };
   const hd = fixture(t, { textures: true, marioLook: look });
   await hd.play();
   assert.equal(hd.bakes.length, 1);
@@ -214,6 +215,30 @@ test('with Eclipse, Mario is painted from the Eclipse disc the game plays', asyn
   assert.equal(eclipse.bakes[0].rom, path.join(eclipse.root, port.ECLIPSE_ISO));
   assert.deepEqual(JSON.parse(JSON.stringify(eclipse.bakes[0].references)), ['disc references'], 'the preview\'s colours, from the player\'s disc');
   assert.equal(eclipse.starts[0].options.env.SMS_MARIO_LOOK, path.join(eclipse.directory, 'mario-look'));
+});
+
+test('the Shine shirt and the sunglasses reach the game each on its own, with or without chosen colours, in Eclipse too', async t => {
+  const shirt = fixture(t, { marioLook: { colors: {}, aloha: true } });
+  await shirt.play();
+  assert.equal(shirt.starts[0].options.env.SMS_MARIO_SHIRT, '1');
+  assert.equal(shirt.starts[0].options.env.SMS_MARIO_SUNGLASSES, undefined);
+  assert.deepEqual(shirt.bakes, [], 'no colours to paint');
+
+  const both = fixture(t, { marioLook: { colors: { hat: '#00ff00' }, aloha: true, sunglasses: true } });
+  await both.play();
+  assert.equal(both.starts[0].options.env.SMS_MARIO_SHIRT, '1');
+  assert.equal(both.starts[0].options.env.SMS_MARIO_SUNGLASSES, '1');
+  assert.equal(both.starts[0].options.env.SMS_MARIO_LOOK, path.join(both.directory, 'mario-look'));
+
+  const eclipse = fixture(t, { eclipse: true, marioLook: { colors: {}, aloha: true, sunglasses: true } });
+  await eclipse.play();
+  assert.equal(eclipse.starts[0].options.env.SMS_MARIO_SHIRT, '1', 'Super Mario Eclipse gets them too');
+  assert.equal(eclipse.starts[0].options.env.SMS_MARIO_SUNGLASSES, '1');
+
+  const off = fixture(t, { marioLook: { aloha: true, sunglasses: true, inGame: false } });
+  await off.play();
+  assert.equal(off.starts[0].options.env.SMS_MARIO_SHIRT, undefined, 'Use in the game off: Mario as usual');
+  assert.equal(off.starts[0].options.env.SMS_MARIO_SUNGLASSES, undefined);
 });
 
 test('without chosen colours, or when painting fails, Mario plays as he is', async t => {

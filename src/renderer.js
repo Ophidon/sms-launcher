@@ -494,8 +494,8 @@ function needsTextureDownload(data) {
 }
 
 function wantsCutscenes(data) {
-  const { cutscenes, textures, eclipse } = data.config.settings;
-  return cutscenes && textures && !eclipse && (!data.repoReady || data.cutscenesSupported);
+  const { cutscenes, eclipse } = data.config.settings;
+  return cutscenes && !eclipse && (!data.repoReady || data.cutscenesSupported);
 }
 
 function requiredStep(data) {
@@ -702,13 +702,13 @@ function refresh(data) {
   const movies = data.cutsceneRequirements;
   $('cutscenes-description').textContent =
     `Sharper Sunshine movies, made from your own disc. About ${movies ? gb(movies.downloadBytes) : '5.4'} GB to download.`;
-  badge('cutscenes-badge', config.settings.eclipse ? 'Sunshine only' : !config.settings.textures ? 'Needs HD textures'
-    : data.cutscenesInstalled ? 'Installed' : 'Not installed',
+  badge('cutscenes-badge', config.settings.eclipse ? 'Sunshine only' : data.cutscenesInstalled ? 'Installed' : 'Not installed',
     data.cutscenesInstalled && !config.settings.eclipse, wantsCutscenes(data) && !data.cutscenesInstalled);
   $('cutscene-info').textContent = config.settings.eclipse
     ? data.features?.eclipseSunshineMovies && config.settings.eclipseSunshineMovies && data.cutscenesInstalled && config.settings.cutscenes
       ? 'Eclipse plays them for the movies it kept from Sunshine.' : 'Eclipse plays its own movies.'
-    : config.settings.cutscenes && !config.settings.textures ? 'Turn on HD textures to play HD cutscenes.'
+    : config.settings.cutscenes && !config.settings.textures && data.repoReady && data.cutscenesSupported && !data.features?.cutscenesWithoutTextures
+      ? 'Update the game to play HD cutscenes without HD textures.'
     : data.cutscenesInstalled ? config.settings.cutscenes ? 'HD cutscenes are ready for Sunshine.' : 'Already set up. Turn on to use them.'
       : !config.settings.cutscenes ? ''
         : data.repoReady && !data.cutscenesSupported ? 'Update the game to add HD cutscenes.'

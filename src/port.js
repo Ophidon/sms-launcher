@@ -382,10 +382,10 @@ function savedSettings(saved, repo) {
   return { ...saved, cutscenes: Boolean(saved.textures && repo && cutscenePackInstalled(repo)) };
 }
 
-// Eclipse plays its own movies, so HD cutscenes apply to Sunshine only. The
-// game also only plays them with HD textures on (platform/thp/hd_movie_pack.cpp
-// takes SMS_TEXTURE_PACKS=0 to mean no HD movies either).
-function wantsCutscenes(settings) { return Boolean(settings.cutscenes && settings.textures && !settings.eclipse); }
+// Eclipse plays its own movies, so HD cutscenes apply to Sunshine only. They
+// don't need HD textures: the game plays the pack named in SMS_HD_CUTSCENES
+// with SMS_TEXTURE_PACKS=0 too (gameFeatures cutscenesWithoutTextures).
+function wantsCutscenes(settings) { return Boolean(settings.cutscenes && !settings.eclipse); }
 
 // Every HD download the settings ask for is in place. Older playable
 // installations (without the movie pack's files) keep playing until updated.
@@ -403,7 +403,9 @@ function gameFeatures(root) {
     mouseKeys: mentions('bindings.txt', 'A = MOUSE_LEFT'),
     eclipseAppleSilicon: mentions(path.join('platform', 'mods', 'eclipse', 'lib', 'CMakeLists.txt'), 'SMS_GAMEPTR_PLUGIN'),
     // Eclipse plays the movies it kept from Sunshine from the Sunshine disc or the HD cutscenes (eclipseMovieEnvironment)
-    eclipseSunshineMovies: mentions(path.join('platform', 'dvd', 'dvd.cpp'), 'SMS_ECLIPSE_SUNSHINE_MOVIES') };
+    eclipseSunshineMovies: mentions(path.join('platform', 'dvd', 'dvd.cpp'), 'SMS_ECLIPSE_SUNSHINE_MOVIES'),
+    // HD cutscenes with HD textures off; an older game plays them only with HD textures on
+    cutscenesWithoutTextures: mentions(path.join('platform', 'thp', 'hd_movie_pack.cpp'), 'without HD textures') };
 }
 
 function hdVisualsInstalled(root, settings) {
@@ -511,7 +513,7 @@ function eclipseMovieEnvironment(root, settings, rom) {
   if (!settings.eclipse || !gameFeatures(root).eclipseSunshineMovies) return {};
   if (settings.eclipseSunshineMovies === false) return { SMS_ECLIPSE_SUNSHINE_MOVIES: '0' };
   const env = { SMS_ECLIPSE_SUNSHINE_MOVIES: rom };
-  if (settings.cutscenes && settings.textures && cutscenePackInstalled(root)) env.SMS_HD_CUTSCENES = cutscenePackDirectory(root);
+  if (settings.cutscenes && cutscenePackInstalled(root)) env.SMS_HD_CUTSCENES = cutscenePackDirectory(root);
   return env;
 }
 
@@ -590,6 +592,7 @@ function commandFor(root, action, args = [], platform = process.platform, enviro
     ? path.join(process.resourcesPath, 'scripts', 'texture-progress.py')
     : path.resolve(__dirname, '..', 'scripts', 'texture-progress.py');
   const installLanguage = path.join(path.dirname(textureProgress), 'install-language.py');
+  const resumeDownloads = path.join(path.dirname(textureProgress), 'resume_downloads.py');
   // a language pack: [code, name, url, md5, size] from the catalog
   const pack = action === 'language' ? LANGUAGE_PACKS[args[0]] : null;
   if (action === 'language' && !pack) throw new Error(`There is no language pack "${args[0]}".`);
@@ -601,7 +604,7 @@ function commandFor(root, action, args = [], platform = process.platform, enviro
         : action === 'texture-extras' ? [textureProgress, path.join(root, 'tools', 'mods', 'get.py'), 'extras', '--if-outdated']
         : action === 'eclipse-maps' ? [textureProgress, path.join(root, 'tools', 'mods', 'get.py'), 'eclipse-maps', '--if-outdated']
         : action === 'language' ? [textureProgress, installLanguage, ...packArgs]
-        : action === 'cutscenes' ? ['tools/media/install_cutscenes.py', '--iso', ...args] : args;
+        : action === 'cutscenes' ? [resumeDownloads, 'tools/media/install_cutscenes.py', '--iso', ...args] : args;
     return { command: file, args: commandArgs, cwd: root, env: environment };
   }
   const msys = environment.MSYS2_ROOT || 'C:\\msys64';
@@ -610,7 +613,7 @@ function commandFor(root, action, args = [], platform = process.platform, enviro
   const script = action === 'python'
     ? 'cd "$(cygpath -u "$1")" && python "$(cygpath -u "$2")" tools/mods/get.py eclipse --iso "$(cygpath -u "$3")"'
     : action === 'cutscenes'
-      ? 'cd "$(cygpath -u "$1")" && python tools/media/install_cutscenes.py --iso "$(cygpath -u "$2")"'
+      ? 'cd "$(cygpath -u "$1")" && python "$(cygpath -u "$2")" tools/media/install_cutscenes.py --iso "$(cygpath -u "$3")"'
     : action === 'textures'
       ? 'cd "$(cygpath -u "$1")" && python "$(cygpath -u "$2")" tools/mods/get.py'
     : action === 'texture-extras'
@@ -626,7 +629,8 @@ function commandFor(root, action, args = [], platform = process.platform, enviro
     command: bash,
     args: ['-c', script, 'sms-launcher', root, ...(action === 'textures' || action === 'texture-extras' || action === 'eclipse-maps' ? [textureProgress]
       : action === 'language' ? [textureProgress, installLanguage, ...packArgs]
-      : action === 'python' ? [textureProgress, args[0]] : args)], cwd: root,
+      : action === 'python' ? [textureProgress, args[0]]
+      : action === 'cutscenes' ? [resumeDownloads, args[0]] : args)], cwd: root,
     env: msysEnvironment(msys, environment)
   };
 }

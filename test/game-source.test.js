@@ -57,5 +57,22 @@ test('resolves a fork branch and reads the decomp commit it pins', async () => {
     assert.match(other.version, /\+ decomp /);
     await assert.rejects(source.resolve({ port: { repository: port, ref: 'nope' } }, { capture, env: process.env }), /Could not find "nope"/);
     assert.equal(await source.resolve(null, { capture }), release);
+
+    // A connection GitHub drops is asked again; a repository that isn't there is not.
+    let drops = 1;
+    const flaky = async (command, args, cwd, env) => {
+      if (['ls-remote', 'fetch'].includes(args[0]) && drops-- > 0) throw new Error('fatal: early EOF');
+      return capture(command, args, cwd, env);
+    };
+    const waits = [];
+    const again = await source.resolve({ port: { repository: port, ref: 'feature' }, decomp: null },
+      { capture: flaky, env: process.env, wait: async ms => waits.push(ms) });
+    assert.equal(again.decomp, pin);
+    assert.equal(waits.length, 1);
+    let asked = 0;
+    await assert.rejects(source.resolve({ port: { repository: path.join(dir, 'gone'), ref: 'main' } }, {
+      capture: async () => { asked++; throw new Error('remote: Repository not found.'); }, env: process.env, wait: async () => {} }),
+    /Repository not found/);
+    assert.equal(asked, 1);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });

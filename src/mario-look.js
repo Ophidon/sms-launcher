@@ -59,6 +59,7 @@ function show() {
   }
   viewer.paint(look.colors);
   viewer.setAloha(look.aloha);
+  viewer.setSunglasses(look.sunglasses);
   viewer.setFludd(look.fludd, look.nozzle);
   viewer.start();
   setStatus('');
@@ -100,6 +101,7 @@ function change(update) {
       paintQueued = false;
       viewer?.paint(look.colors);
       viewer?.setAloha(look.aloha);
+      viewer?.setSunglasses(look.sunglasses);
       viewer?.setFludd(look.fludd, look.nozzle);
     });
   }
@@ -161,16 +163,23 @@ function renderControls() {
     box.append(...group.regions.map(id => swatch(id)).filter(Boolean));
     list.append(heading, box);
   }
+  // What Mario always wears, here and in the game (ext/outfit), each on its own.
   const heading = document.createElement('h2');
   heading.className = 'group-title';
-  heading.textContent = 'Shine shirt';
+  heading.textContent = 'Shine shirt and sunglasses';
   const box = document.createElement('div');
   box.className = 'mario-swatches';
-  const toggle = document.createElement('label');
-  toggle.className = 'switch mario-aloha';
-  toggle.innerHTML = '<span><strong>Wear the Shine shirt</strong><small>The shirt Mario can buy in Sirena Beach.</small></span><input id="mario-aloha" type="checkbox"><i></i>';
-  toggle.querySelector('input').addEventListener('change', event => change(() => { look.aloha = event.target.checked; }));
-  box.append(toggle, swatch('alohaShirt') || '');
+  const wearing = (id, title, note, key) => {
+    const toggle = document.createElement('label');
+    toggle.className = 'switch mario-aloha';
+    toggle.innerHTML = `<span><strong>${title}</strong><small>${note}</small></span><input id="${id}" type="checkbox"><i></i>`;
+    toggle.querySelector('input').addEventListener('change', event => change(() => { look[key] = event.target.checked; }));
+    return toggle;
+  };
+  box.append(
+    wearing('mario-aloha', 'Always wear the Shine shirt', 'In every stage, with or without the sunglasses, in Super Mario Eclipse too. In the game it usually comes with the sunglasses, once Mario has earned it.', 'aloha'),
+    swatch('alohaShirt') || '',
+    wearing('mario-sunglasses', 'Always wear sunglasses', 'In every stage, not only after the sunglasses stand, in Super Mario Eclipse too. The screen keeps its usual brightness.', 'sunglasses'));
   list.append(heading, box);
 
   const fluddHeading = document.createElement('h2');
@@ -229,6 +238,8 @@ function syncControls() {
   const aloha = $('mario-aloha');
   if (aloha) aloha.checked = look.aloha;
   for (const row of document.querySelectorAll('.mario-swatch[data-region="alohaShirt"]')) row.hidden = !look.aloha;
+  const sunglasses = $('mario-sunglasses');
+  if (sunglasses) sunglasses.checked = look.sunglasses;
   const fludd = $('mario-fludd');
   if (fludd) fludd.checked = look.fludd;
   const nozzles = $('mario-nozzles');
@@ -289,7 +300,7 @@ function createViewer(canvas, data) {
     geometry.setIndex(new THREE.BufferAttribute(shape.index, 1));
     // FLUDD's tank has no texture: its colour and see-through come from its vertices.
     const material = new THREE.MeshToonMaterial({ map: shape.texture >= 0 ? textures[shape.texture].texture : null,
-      vertexColors: Boolean(shape.color), transparent: shape.translucent, depthWrite: !shape.translucent,
+      vertexColors: Boolean(shape.color), transparent: shape.translucent, depthWrite: !shape.translucent, alphaTest: shape.alphaTest || 0,
       gradientMap: gradient, side: shape.doubleSided ? THREE.DoubleSide : THREE.FrontSide });
     const mesh = new THREE.Mesh(geometry, material);
     mesh.frustumCulled = false;
@@ -303,6 +314,10 @@ function createViewer(canvas, data) {
   const pack = createRig(data.fludd.pack, makeMesh);
   const nozzles = Object.fromEntries(Object.entries(data.fludd.nozzles).map(([id, rig]) => [id, createRig(rig, makeMesh)]));
   const fludd = { on: false, nozzle: 'spray' };
+  // The sunglasses, on his M_head joint (a disc without them shows none).
+  const sunglasses = data.sunglasses && createRig(data.sunglasses, makeMesh);
+  let wearingSunglasses = false;
+  sunglasses?.setVisible(false);
   const showFludd = () => {
     pack.setVisible(fludd.on);
     for (const [id, nozzle] of Object.entries(nozzles)) nozzle.setVisible(fludd.on && id === fludd.nozzle);
@@ -321,6 +336,7 @@ function createViewer(canvas, data) {
       }
       return jointMatrix(trs.subarray(0, 3), trs.subarray(3, 6), trs.subarray(6, 9), local);
     });
+    if (wearingSunglasses) sunglasses.pose(body.world[sunglasses.attach.joint]);
     if (!fludd.on) return;
     // TWaterGun::setBaseTRMtx: rolled back up to 33.75 degrees, less as the chest leans.
     const chest = body.world[pack.attach.joint];
@@ -478,6 +494,11 @@ function createViewer(canvas, data) {
     },
     setAloha(on) {
       for (const { shape, mesh } of body.meshes) if (shape.part === 'aloha') mesh.visible = on;
+      redraw();
+    },
+    setSunglasses(on) {
+      wearingSunglasses = Boolean(on && sunglasses);
+      sunglasses?.setVisible(wearingSunglasses);
       redraw();
     },
     setFludd(on, nozzle) {
