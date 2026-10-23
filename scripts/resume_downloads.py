@@ -57,8 +57,11 @@ def pause(attempt):
 
 def request_from(target, headers=None):
     if isinstance(target, urllib.request.Request):
-        request = urllib.request.Request(target.full_url, headers=dict(target.header_items()),
-                                         method=target.get_method())
+        # The installer's own headers only. urllib adds Host (and others) to the
+        # request it opened; copied here, a Host of github.com would follow the
+        # redirect to GitHub's download servers, which answer "Domain Not Found".
+        own = {name: value for name, value in target.headers.items() if name.lower() != "host"}
+        request = urllib.request.Request(target.full_url, headers=own, method=target.get_method())
     else:
         request = urllib.request.Request(target)
     for name, value in (headers or {}).items():
