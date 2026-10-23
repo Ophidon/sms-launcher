@@ -2,13 +2,15 @@
 """Run the port's texture installer with download progress on piped stdout.
 
 The port still owns the URL, checksum, disk checks and installation. This
-adapter counts bytes as its existing downloader reads the HTTP response.
+adapter counts bytes as its existing downloader reads the HTTP response, and
+resumes the download when the connection drops (resume_downloads.py).
 """
 
-import runpy
 import sys
 import time
 import urllib.request
+
+import resume_downloads
 
 
 class ProgressResponse:
@@ -49,15 +51,13 @@ class ProgressResponse:
 def main():
     # texture-progress.py GET_PY [get.py's arguments, "textures" by default]
     installer = sys.argv[1]
-    original_argv = sys.argv
     original_urlopen = urllib.request.urlopen
+    resuming = resume_downloads.resuming(original_urlopen)
     try:
-        urllib.request.urlopen = lambda *args, **kwargs: ProgressResponse(original_urlopen(*args, **kwargs))
-        sys.argv = [installer] + (original_argv[2:] or ["textures"])
-        runpy.run_path(installer, run_name="__main__")
+        urllib.request.urlopen = lambda *args, **kwargs: ProgressResponse(resuming(*args, **kwargs))
+        resume_downloads.run(installer, sys.argv[2:] or ["textures"])
     finally:
         urllib.request.urlopen = original_urlopen
-        sys.argv = original_argv
 
 
 if __name__ == "__main__":

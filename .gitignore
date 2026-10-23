@@ -9,3 +9,4 @@ tool-assets/
 *.p12
 MAC_CSC_LINK.txt
 mac-signing-password.txt
+__pycache__/

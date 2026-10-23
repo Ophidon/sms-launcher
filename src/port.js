@@ -590,6 +590,7 @@ function commandFor(root, action, args = [], platform = process.platform, enviro
     ? path.join(process.resourcesPath, 'scripts', 'texture-progress.py')
     : path.resolve(__dirname, '..', 'scripts', 'texture-progress.py');
   const installLanguage = path.join(path.dirname(textureProgress), 'install-language.py');
+  const resumeDownloads = path.join(path.dirname(textureProgress), 'resume_downloads.py');
   // a language pack: [code, name, url, md5, size] from the catalog
   const pack = action === 'language' ? LANGUAGE_PACKS[args[0]] : null;
   if (action === 'language' && !pack) throw new Error(`There is no language pack "${args[0]}".`);
@@ -601,7 +602,7 @@ function commandFor(root, action, args = [], platform = process.platform, enviro
         : action === 'texture-extras' ? [textureProgress, path.join(root, 'tools', 'mods', 'get.py'), 'extras', '--if-outdated']
         : action === 'eclipse-maps' ? [textureProgress, path.join(root, 'tools', 'mods', 'get.py'), 'eclipse-maps', '--if-outdated']
         : action === 'language' ? [textureProgress, installLanguage, ...packArgs]
-        : action === 'cutscenes' ? ['tools/media/install_cutscenes.py', '--iso', ...args] : args;
+        : action === 'cutscenes' ? [resumeDownloads, 'tools/media/install_cutscenes.py', '--iso', ...args] : args;
     return { command: file, args: commandArgs, cwd: root, env: environment };
   }
   const msys = environment.MSYS2_ROOT || 'C:\\msys64';
@@ -610,7 +611,7 @@ function commandFor(root, action, args = [], platform = process.platform, enviro
   const script = action === 'python'
     ? 'cd "$(cygpath -u "$1")" && python "$(cygpath -u "$2")" tools/mods/get.py eclipse --iso "$(cygpath -u "$3")"'
     : action === 'cutscenes'
-      ? 'cd "$(cygpath -u "$1")" && python tools/media/install_cutscenes.py --iso "$(cygpath -u "$2")"'
+      ? 'cd "$(cygpath -u "$1")" && python "$(cygpath -u "$2")" tools/media/install_cutscenes.py --iso "$(cygpath -u "$3")"'
     : action === 'textures'
       ? 'cd "$(cygpath -u "$1")" && python "$(cygpath -u "$2")" tools/mods/get.py'
     : action === 'texture-extras'
@@ -626,7 +627,8 @@ function commandFor(root, action, args = [], platform = process.platform, enviro
     command: bash,
     args: ['-c', script, 'sms-launcher', root, ...(action === 'textures' || action === 'texture-extras' || action === 'eclipse-maps' ? [textureProgress]
       : action === 'language' ? [textureProgress, installLanguage, ...packArgs]
-      : action === 'python' ? [textureProgress, args[0]] : args)], cwd: root,
+      : action === 'python' ? [textureProgress, args[0]]
+      : action === 'cutscenes' ? [resumeDownloads, args[0]] : args)], cwd: root,
     env: msysEnvironment(msys, environment)
   };
 }
