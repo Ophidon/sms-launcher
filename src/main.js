@@ -1123,6 +1123,7 @@ async function play(installation = null, session = null) {
   if (config.settings.discordPresence) env.SMS_PRESENCE = '1';
   const look = marioLookPack(rom, disc, root, settings);
   if (look) env.SMS_MARIO_LOOK = look;
+  Object.assign(env, marioPack.outfitEnvironment(config.marioLook));
   // Together, each game paints the others in their own colours (theirs come over the network).
   if (session) Object.assign(env, marioPaintEnvironment(rom, root, settings));
   // The game puts its version in the window title: the launcher's name for the build being played.
