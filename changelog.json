@@ -45,7 +45,8 @@
       "The Vulkan renderer no longer keeps measuring goop after a stage stops using it, which may also fix the frame rate halving for good partway through some fights on Mac.",
       "Paint and goop no longer slide, fade or vanish with FSR 1 or NIS upscaling, and cleaning matches what you see (OpenGL and Vulkan).",
       "Super Mario Eclipse: fixed a crash when fighting the Tramplin' Stu in Hotel Lacrima's basement (water that could crash the game on 64-bit now behaves as it does on the GameCube).",
-      "Super Mario Eclipse: the stages in Peach's Castle play their music again after the character select (Delfino Square, Click Clock Wood, Battle Fort and the rest)."
+      "Super Mario Eclipse: the stages in Peach's Castle play their music again after the character select (Delfino Square, Click Clock Wood, Battle Fort and the rest).",
+      "Super Mario Eclipse: FLUDD's spray breaks the Tramplin' Stu's mask in Hotel Lacrima's basement, as it does in Eclipse on a console; it takes a few seconds of spraying."
     ]
   },
   "releases": [
