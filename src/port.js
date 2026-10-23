@@ -382,10 +382,10 @@ function savedSettings(saved, repo) {
   return { ...saved, cutscenes: Boolean(saved.textures && repo && cutscenePackInstalled(repo)) };
 }
 
-// Eclipse plays its own movies, so HD cutscenes apply to Sunshine only. The
-// game also only plays them with HD textures on (platform/thp/hd_movie_pack.cpp
-// takes SMS_TEXTURE_PACKS=0 to mean no HD movies either).
-function wantsCutscenes(settings) { return Boolean(settings.cutscenes && settings.textures && !settings.eclipse); }
+// Eclipse plays its own movies, so HD cutscenes apply to Sunshine only. They
+// don't need HD textures: the game plays the pack named in SMS_HD_CUTSCENES
+// with SMS_TEXTURE_PACKS=0 too (gameFeatures cutscenesWithoutTextures).
+function wantsCutscenes(settings) { return Boolean(settings.cutscenes && !settings.eclipse); }
 
 // Every HD download the settings ask for is in place. Older playable
 // installations (without the movie pack's files) keep playing until updated.
@@ -403,7 +403,9 @@ function gameFeatures(root) {
     mouseKeys: mentions('bindings.txt', 'A = MOUSE_LEFT'),
     eclipseAppleSilicon: mentions(path.join('platform', 'mods', 'eclipse', 'lib', 'CMakeLists.txt'), 'SMS_GAMEPTR_PLUGIN'),
     // Eclipse plays the movies it kept from Sunshine from the Sunshine disc or the HD cutscenes (eclipseMovieEnvironment)
-    eclipseSunshineMovies: mentions(path.join('platform', 'dvd', 'dvd.cpp'), 'SMS_ECLIPSE_SUNSHINE_MOVIES') };
+    eclipseSunshineMovies: mentions(path.join('platform', 'dvd', 'dvd.cpp'), 'SMS_ECLIPSE_SUNSHINE_MOVIES'),
+    // HD cutscenes with HD textures off; an older game plays them only with HD textures on
+    cutscenesWithoutTextures: mentions(path.join('platform', 'thp', 'hd_movie_pack.cpp'), 'without HD textures') };
 }
 
 function hdVisualsInstalled(root, settings) {
@@ -511,7 +513,7 @@ function eclipseMovieEnvironment(root, settings, rom) {
   if (!settings.eclipse || !gameFeatures(root).eclipseSunshineMovies) return {};
   if (settings.eclipseSunshineMovies === false) return { SMS_ECLIPSE_SUNSHINE_MOVIES: '0' };
   const env = { SMS_ECLIPSE_SUNSHINE_MOVIES: rom };
-  if (settings.cutscenes && settings.textures && cutscenePackInstalled(root)) env.SMS_HD_CUTSCENES = cutscenePackDirectory(root);
+  if (settings.cutscenes && cutscenePackInstalled(root)) env.SMS_HD_CUTSCENES = cutscenePackDirectory(root);
   return env;
 }
 
