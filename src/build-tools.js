@@ -454,7 +454,7 @@ async function prepare(userData, { platform = process.platform, run, progress = 
     if (!commandWorks(path.join(bin, platform === 'win32' ? 'g++.exe' : platform === 'darwin' ? 'clang++' : 'g++'), ['--version'], env))
       throw new Error('The downloaded compiler could not start on this computer.');
     if (platform === 'darwin') {
-      const found = await check(userData, { platform, refresh: true, archives });
+      const found = await check(userData, { platform, refresh: true, archives, rosetta });
       if (!found.ready) throw new Error(found.message);
     }
     if (keptPrevious) void fs.promises.rm(previous, { recursive: true, force: true,
