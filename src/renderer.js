@@ -19,7 +19,8 @@ function closeModal() {
 // shows and hides (Customize Mario's module registers through window.smsOnPage).
 const pages = {
   play: { section: 'page-home', nav: 'nav-play' }, multiplayer: { section: 'multiplayer', nav: 'open-multiplayer' },
-  mario: { section: 'mario-look', nav: 'customize-mario' }, saves: { section: 'page-saves', nav: 'nav-saves' },
+  mario: { section: 'mario-look', nav: 'customize-mario' },
+  achievements: { section: 'page-achievements', nav: 'nav-achievements' }, saves: { section: 'page-saves', nav: 'nav-saves' },
   changelog: { section: 'changelog', nav: 'open-changelog' }, settings: { section: 'page-settings', nav: 'settings-cog' }
 };
 const pageOrder = Object.keys(pages);
@@ -682,6 +683,7 @@ function refresh(data) {
   $('settings-rom-path').textContent = data.romError || config.rom || 'No disc file selected';
   $('settings-rom-path').title = data.romError || config.rom;
   showCustomizeMario();
+  window.smsAchievementsRefresh?.(data);
   $('choose-rom').hidden = !data.romReady;
   showWizardStep(data);
   renderMacTools(data.tools);

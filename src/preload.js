@@ -62,6 +62,8 @@ contextBridge.exposeInMainWorld('sms', {
   enableNativeMod: (id, on) => ipcRenderer.invoke('native-mod-enable', id, on),
   openNativeMods: () => ipcRenderer.invoke('open-native-mods'),
   saveStates: () => ipcRenderer.invoke('save-states'),
+  achievements: () => ipcRenderer.invoke('achievements'),
+  achievementIcons: () => ipcRenderer.invoke('achievement-icons'),
   importSaveState: () => ipcRenderer.invoke('import-save-state'),
   showSaveState: name => ipcRenderer.invoke('show-save-state', name),
   deleteSaveState: name => ipcRenderer.invoke('delete-save-state', name),
@@ -88,5 +90,6 @@ contextBridge.exposeInMainWorld('sms', {
   onAppUpdate: callback => ipcRenderer.on('app-update', (_event, value) => callback(value)),
   onOnline: callback => ipcRenderer.on('online', (_event, value) => callback(value)),
   onPublicOnline: callback => ipcRenderer.on('public-online', (_event, value) => callback(value)),
+  onAchievement: callback => ipcRenderer.on('achievement', (_event, value) => callback(value)),
   onDiscordJoin: callback => ipcRenderer.on('discord-join', () => callback())
 });

@@ -1,6 +1,6 @@
 'use strict';
 
-const { app, BrowserWindow, ipcMain, dialog, shell, clipboard, net, screen, Notification } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, clipboard, net, screen, Notification, nativeImage } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 const { spawn, execFile } = require('node:child_process');
@@ -25,6 +25,7 @@ const portable = require('./portable');
 const telemetry = require('./telemetry');
 const discord = require('./discord');
 const presence = require('./presence');
+const achievements = require('./achievements');
 const changelog = require('./changelog');
 const multiplayer = require('./multiplayer');
 const nat = require('./nat');
@@ -79,6 +80,8 @@ let online = null;
 let discordPresence = null;
 // The running game's handler for its `[presence]` lines (src/presence.js).
 let onPresence = null;
+// The running game's handler for its `[achievement]` lines (src/achievements.js).
+let onAchievement = null;
 // Discord started this launcher to join a friend's game (their invite, accepted while it was closed).
 let launchedByDiscord = process.argv.some(arg => discord.isLaunchUrl(arg));
 // `--play` (for a Steam shortcut's launch options) starts the game without the
@@ -563,11 +566,13 @@ async function launch(command, args, options = {}, label = 'Task', isGame = fals
     // partial line that could become one waits for the rest.
     function output(text, stream, entry) {
       if (isGame && stream === 'stdout' && !entry && text
-        && (presence.isPresenceLine(text) || presence.PREFIX.startsWith(text))) return entry;
+        && (presence.isPresenceLine(text) || presence.PREFIX.startsWith(text)
+          || achievements.isLine(text) || achievements.PREFIX.startsWith(text))) return entry;
       return logOutput(text, stream, entry);
     }
     function line(value, stream, entry) {
       if (isGame && stream === 'stdout' && presence.isPresenceLine(value)) return onPresence?.(value);
+      if (isGame && stream === 'stdout' && achievements.isLine(value)) return onAchievement?.(value);
       completeOutput(value, stream, entry);
       if (!value) return;
       if (recent.push(value) > 80) recent.shift();
@@ -835,6 +840,8 @@ async function updateAchievementIcons(root, settings) {
     const cmd = port.commandFor(root, 'achievement-icons', [], process.platform, toolEnv());
     await launch(cmd.command, cmd.args, { cwd: cmd.cwd, env: cmd.env }, 'Install achievement icons');
     if (!port.achievementIconsInstalled(root)) throw new Error('the installer finished without them');
+    achievementIconCache.clear();
+    broadcast('achievement', null);
   } catch (error) {
     log(`The achievement icons were not installed (${error.message}); achievements still unlock, and setup tries again next time.`);
   }
@@ -1139,6 +1146,8 @@ async function play(installation = null, session = null) {
   env.SMS_BUTTON_PROMPT_DIR = promptDirectory();
   // What the player changes in the game's settings menu comes back to the launcher (keepGameSettings).
   env.SMS_SETTINGS_SAVE = gameSettings.file(app.getPath('userData'));
+  // Unlocks are the player's, in the launcher's folder, so they survive a new game folder.
+  if (achievements.supported(root, settings)) env.SMS_ACHIEVEMENTS = achievements.file(app.getPath('userData'));
   // The achievements' icons (updateAchievementIcons), for the game's banner.
   if (!settings.eclipse && port.achievementIconsInstalled(root)) env.SMS_ACHIEVEMENT_ICONS = port.achievementIconsDirectory(root);
   if (config.settings.discordPresence) env.SMS_PRESENCE = '1';
@@ -1164,6 +1173,7 @@ async function play(installation = null, session = null) {
     : port.commandFor(root, 'run', [disc], process.platform, env);
   const startedAt = Date.now();
   startPresence(startedAt, settings.eclipse);
+  onAchievement = line => announceAchievement(root, line);
   try {
     return await launch(cmd.command, cmd.args, { cwd: cmd.cwd, env: cmd.env }, 'Play Super Mario Sunshine', true);
   } catch (error) {
@@ -1171,6 +1181,7 @@ async function play(installation = null, session = null) {
     throw error;
   } finally {
     stopPresence(startedAt);
+    onAchievement = null;
     keepGameSettings();
     try { makeSaveBackup('after-play'); }
     catch (error) { log(`Save backup failed: ${error.message}`); }
@@ -1236,6 +1247,39 @@ function playtime() {
     const { ms } = JSON.parse(fs.readFileSync(playtimeFile(), 'utf8'));
     return Number.isFinite(ms) && ms > 0 ? ms : 0;
   } catch (_) { return 0; }
+}
+
+// The Achievements page: every achievement of the game folder's list, and the player's unlocks.
+function achievementsState() {
+  const root = config.repo && fs.existsSync(config.repo) ? config.repo : null;
+  if (!root) return { supported: false, achievements: [], unlocked: 0, total: 0 };
+  return achievements.state(root, config.settings, app.getPath('userData'));
+}
+
+// Small copies of the icons for the page (the files are 512 px), made once each.
+const achievementIconCache = new Map();
+function achievementIcons() {
+  const root = config.repo && fs.existsSync(config.repo) ? config.repo : null;
+  if (!root || !port.achievementIconsInstalled(root)) return {};
+  const directory = port.achievementIconsDirectory(root), icons = {};
+  for (const { id } of achievements.readList(root) || []) {
+    const fileName = achievements.iconFile(directory, id);
+    if (!achievementIconCache.has(fileName)) {
+      const image = nativeImage.createFromPath(fileName);
+      achievementIconCache.set(fileName, image.isEmpty() ? null : image.resize({ width: 128, quality: 'best' }).toDataURL());
+    }
+    if (achievementIconCache.get(fileName)) icons[id] = achievementIconCache.get(fileName);
+  }
+  return icons;
+}
+
+// An unlock as it happens: the page marks it at once, and the log says which.
+function announceAchievement(root, line) {
+  const unlock = achievements.parseLine(line);
+  if (!unlock) return;
+  const item = (achievements.readList(root) || []).find(entry => entry.id === unlock.id);
+  log(`🏆 Achievement unlocked: ${item ? item.title : `#${unlock.id}`}`);
+  broadcast('achievement', unlock);
 }
 
 // Discord shows the game only while it runs, and only with the setting on. In a room game (hosted or joined) it is
@@ -2047,6 +2091,8 @@ function registerHandlers() {
     fs.mkdirSync(nativeMods.directory(app.getPath('userData')), { recursive: true });
     return shell.openPath(nativeMods.directory(app.getPath('userData')));
   });
+  ipcMain.handle('achievements', () => achievementsState());
+  ipcMain.handle('achievement-icons', () => achievementIcons());
   ipcMain.handle('save-states', () => ({ directory: stateDirectory(), states: savestates.listStates(stateDirectory()) }));
   ipcMain.handle('open-save-states', () => {
     fs.mkdirSync(stateDirectory(), { recursive: true });
