@@ -12,8 +12,8 @@
       "Sunshine's movies in Eclipse, on by default under Settings → Gameplay while Super Mario Eclipse is on: the ten movies Eclipse kept from Sunshine but made blurrier play from your own Sunshine disc instead, or as HD cutscenes when you have those on.",
       "A Custom Game Source tag under Play now says when your game is built from a game source you chose under Settings → Manage, with its branch and commit, instead of this launcher's release; click it to change it.",
       "Language: Português (Brasil) joins the list, a community translation made for Super Mario 3D All-Stars with all of the game's text and the menus, pause menu and Yes/No in Portuguese; its other pictures stay in Spanish. It needs a game version that plays any language pack.",
-      "Fixed controller buttons that couldn't be changed under Settings → Controls when the launcher can't see the controller, though the game can, as with some Switch Pro Controllers: choosing Change or Add now also offers a list of buttons to pick from."
-      "Fixed downloads failing when the connection dropped or stalled partway through: the game's source (\"RPC failed; curl 92 HTTP/2 stream reset\", \"early EOF\"), the build tools, mods and Steam artwork are now tried again by themselves, and HD textures, HD cutscenes, Super Mario Eclipse, Eclipse's maps and language packs carry on from where they stopped instead of starting over or failing."
+      "Fixed controller buttons that couldn't be changed under Settings → Controls when the launcher can't see the controller, though the game can, as with some Switch Pro Controllers: choosing Change or Add now also offers a list of buttons to pick from.",
+      "Fixed downloads failing when the connection dropped or stalled partway through: the game's source (\"RPC failed; curl 92 HTTP/2 stream reset\", \"early EOF\"), the build tools, mods and Steam artwork are now tried again by themselves, and HD textures, HD cutscenes, Super Mario Eclipse, Eclipse's maps and language packs carry on from where they stopped instead of starting over or failing.",
       "Customize Mario: Always wear the Shine shirt and Always wear sunglasses, each on its own. Mario wears them in the 3D view and in every stage of the game, from the start, while Use in the game is on, in Super Mario Eclipse too."
     ],
     "game": [
@@ -32,8 +32,17 @@
       "Sound effects are muffled under water again, as on the GameCube: when the camera dips below the surface, Mario and everything around him sound dull until it comes back up.",
       "Fixed Hotel Delfino rising out of the sand in Sirena Beach with no sound: its rumble plays again.",
       "Super Mario Eclipse: choosing Score on the file select no longer crashes the game when a file has 210 or more Shines, and the total shows the right number from 200 Shines on.",
-      "Fixed the game refusing to save (\"Unable to save to Memory Card in Slot A\"), with auto save failing too, after you loaded a save state from before your last save: it now saves over your latest save as usual, so resetting no longer loses the Shines and blue coins you got since."
-      "Mario can wear his Shine shirt, his sunglasses, or both in every stage, without visiting the sunglasses stand, when Customize Mario in the launcher asks for them. In Super Mario Eclipse every character wears them."
+      "Fixed the game refusing to save (\"Unable to save to Memory Card in Slot A\"), with auto save failing too, after you loaded a save state from before your last save: it now saves over your latest save as usual, so resetting no longer loses the Shines and blue coins you got since.",
+      "Mario can wear his Shine shirt, his sunglasses, or both in every stage, without visiting the sunglasses stand, when Customize Mario in the launcher asks for them. In Super Mario Eclipse every character wears them.",
+      "Multiplayer: you hear the players near you, their steps, jumps, ground pounds and voices, a little quieter than your own Mario, and a manhole lid in Delfino Plaza that one of them ground pounds open flips for everyone.",
+      "Mods: mod API 1.5 beta 2 lets every kind of mod react to what happens in the game, such as Mario getting hurt or healed and what hurt him, enemies and bosses defeated, Shines appearing and collected, Yoshi and Blooper rides, talks, cutscenes, music and saves.",
+      "Fixed a one-pixel line at the right and bottom edges of the screen staying bright behind the settings and save state menus.",
+      "The settings menu's Hold X Preview hint now shows your controller's button, like Square on a PlayStation controller, instead of the letter X.",
+      "Fixed a crash after about 20 minutes of play with the Vulkan renderer (\"out of occlusion queries\"), most often seen on Steam Deck.",
+      "The Vulkan renderer no longer keeps measuring goop after a stage stops using it, which may also fix the frame rate halving for good partway through some fights on Mac.",
+      "Paint and goop no longer slide, fade or vanish with FSR 1 or NIS upscaling, and cleaning matches what you see (OpenGL and Vulkan).",
+      "Super Mario Eclipse: fixed a crash when fighting the Tramplin' Stu in Hotel Lacrima's basement (water that could crash the game on 64-bit now behaves as it does on the GameCube).",
+      "Super Mario Eclipse: the stages in Peach's Castle play their music again after the character select (Delfino Square, Click Clock Wood, Battle Fort and the rest)."
     ]
   },
   "releases": [
