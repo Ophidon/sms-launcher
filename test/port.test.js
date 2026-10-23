@@ -654,13 +654,16 @@ test('HD movies have their own setting and only complete packs are recognized', 
   assert.equal(port.hdVisualsInstalled(root, port.normalizeSettings({ textures: true, cutscenes: true })), false);
   fs.writeFileSync(path.join(folder, 'files', movies[20].disc_path), 'damaged');
   assert.equal(port.cutscenePackInstalled(root), false);
-  assert.equal(port.hdVisualsInstalled(root, port.normalizeSettings({ textures: false, cutscenes: true })), true);
+  // HD cutscenes don't need HD textures, so a damaged pack needs setup with textures off too.
+  assert.equal(port.hdVisualsInstalled(root, port.normalizeSettings({ textures: false, cutscenes: true })), false);
   assert.equal(port.hdVisualsInstalled(root, port.normalizeSettings({ textures: false, cutscenes: true, eclipse: true })), true);
   assert.equal(port.hdVisualsInstalled(root, port.normalizeSettings({})), false);
   const settings = port.normalizeSettings({ textures: true, cutscenes: true, eclipse: false });
   assert.equal(port.buildEnvironment(settings, '/my/disc.iso', root).SMS_HD_CUTSCENES, folder);
-  // The game plays HD movies only with HD textures on, so none are set up or passed without them.
-  assert.equal(port.buildEnvironment({ ...settings, textures: false }, '/my/disc.iso', root).SMS_HD_CUTSCENES, '0');
+  // The game plays the pack it is given with HD textures off too.
+  const own = port.buildEnvironment({ ...settings, textures: false }, '/my/disc.iso', root);
+  assert.equal(own.SMS_HD_CUTSCENES, folder);
+  assert.equal(own.SMS_TEXTURE_PACKS, '0');
   assert.equal(port.buildEnvironment({ ...settings, cutscenes: false, textures: true }, '/my/disc.iso', root).SMS_HD_CUTSCENES, '0');
   assert.equal(port.buildEnvironment({ ...settings, eclipse: true }, '/my/disc.iso', root).SMS_HD_CUTSCENES, '0');
   for (const platform of ['linux', 'darwin']) assert.deepEqual(port.commandFor(root, 'cutscenes', ['/my/disc.iso'], platform).args,
@@ -812,7 +815,8 @@ test('game features come from the game version on disk', () => {
   const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sms-features-'));
   try {
-    const none = { vulkan: false, appleSilicon: false, mouseKeys: false, eclipseAppleSilicon: false, eclipseSunshineMovies: false };
+    const none = { vulkan: false, appleSilicon: false, mouseKeys: false, eclipseAppleSilicon: false, eclipseSunshineMovies: false,
+      cutscenesWithoutTextures: false };
     assert.deepEqual(port.gameFeatures(root), none);
     assert.deepEqual(port.gameFeatures(null), none);
     fs.mkdirSync(path.join(root, 'platform', 'gx', 'src', 'vk'), { recursive: true });
@@ -824,6 +828,12 @@ test('game features come from the game version on disk', () => {
     fs.appendFileSync(path.join(mods, 'CMakeLists.txt'), 'if(SMS_GAMEPTR_PLUGIN)\nendif()\n');
     fs.writeFileSync(path.join(root, 'bindings.txt'), '# defaults\nA = MOUSE_LEFT\nB = MOUSE_RIGHT\n');
     assert.deepEqual(port.gameFeatures(root), { ...none, vulkan: true, appleSilicon: true, mouseKeys: true, eclipseAppleSilicon: true });
+    const thp = path.join(root, 'platform', 'thp');
+    fs.mkdirSync(thp, { recursive: true });
+    fs.writeFileSync(path.join(thp, 'hd_movie_pack.cpp'), '// plays only with HD textures on\n');
+    assert.equal(port.gameFeatures(root).cutscenesWithoutTextures, false);
+    fs.writeFileSync(path.join(thp, 'hd_movie_pack.cpp'), '// the launcher can offer HD cutscenes without HD textures\n');
+    assert.equal(port.gameFeatures(root).cutscenesWithoutTextures, true);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 

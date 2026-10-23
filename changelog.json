@@ -2,6 +2,7 @@
   "_instructions": "Players see this file in the launcher. Add each player-visible change here in the same commit: launcher changes to beta.launcher, game changes Beta now builds to beta.game. Releases move beta into a new entry (npm run update:game does it). One plain sentence for players per line, no commit hashes or PR numbers. See AGENTS.md.",
   "beta": {
     "launcher": [
+      "HD cutscenes no longer need HD textures: turn them on by themselves in Settings for sharper movies with the original textures.",
       "Controls: each control on the Controls page now says what it does, like A button (jump) or Z button (map). If you had changed any keys, your whole keyboard layout stays as it was; Use classic keys, beside Reset all to defaults, brings back the old one (Space jumps, Shift dives, Q and E are L and R).",
       "Mouse aim in Mario Cam, on by default under Settings → Gameplay: in the close-up view Y opens, the mouse turns the view and aims FLUDD, as in shooters.",
       "Radar in Super Mario Eclipse: with Eclipse and the radar on, the launcher downloads the maps of Eclipse's own stages (about 140 MB), so its new areas have the radar and the full map too. If the download fails, the game still plays and the launcher tries again next time.",
@@ -15,6 +16,7 @@
       "Customize Mario: Always wear the Shine shirt and Always wear sunglasses, each on its own. Mario wears them in the 3D view and in every stage of the game, from the start, while Use in the game is on, in Super Mario Eclipse too."
     ],
     "game": [
+      "HD cutscenes play with HD textures off, when the launcher has them on.",
       "Keyboard and mouse: the default keys are now laid out for the mouse, with mouse look on. WASD moves, the mouse turns the camera, left click jumps, right click dives, Q switches the nozzle, E opens the close-up camera, middle click sprays FLUDD gently so you can spray on the move and Space sprays it fully, Left Shift ground pounds and sidesteps, Tab opens the map and Enter pauses. Controllers keep their layout.",
       "Soft L and Soft R now press as deep as a trigger goes without clicking (95%) by default, instead of 40%; Soft press depth under Controls still changes it.",
       "The radar and its full map work in Super Mario Eclipse's own stages, show its Shine Sprites past the first 120 as collected or not, and name its areas on the full map.",
