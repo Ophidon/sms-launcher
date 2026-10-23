@@ -826,6 +826,20 @@ async function updateEclipseMaps(root, settings) {
   }
 }
 
+// The achievements' icons, when they are missing or not the pinned release: before the game plays, for every
+// player. A failed download does not stop the game: it plays without them, and setup tries again next time.
+async function updateAchievementIcons(root, settings) {
+  if (!port.achievementIconsWanted(root, settings)) return;
+  try {
+    await ensureBuildTools();
+    const cmd = port.commandFor(root, 'achievement-icons', [], process.platform, toolEnv());
+    await launch(cmd.command, cmd.args, { cwd: cmd.cwd, env: cmd.env }, 'Install achievement icons');
+    if (!port.achievementIconsInstalled(root)) throw new Error('the installer finished without them');
+  } catch (error) {
+    log(`The achievement icons were not installed (${error.message}); achievements still unlock, and setup tries again next time.`);
+  }
+}
+
 // The chosen language's pack, when it is missing or not the pinned release. A
 // failed download does not stop the game: it plays in English, and setup tries
 // again next time.
@@ -1015,6 +1029,7 @@ async function setupGame() {
   else await updateTextureExtras(config.repo, config.settings);
   await updateLanguagePack(config.repo, config.settings);
   await updateEclipseMaps(config.repo, config.settings);
+  await updateAchievementIcons(config.repo, config.settings);
   return state();
 }
 
@@ -1124,6 +1139,8 @@ async function play(installation = null, session = null) {
   env.SMS_BUTTON_PROMPT_DIR = promptDirectory();
   // What the player changes in the game's settings menu comes back to the launcher (keepGameSettings).
   env.SMS_SETTINGS_SAVE = gameSettings.file(app.getPath('userData'));
+  // The achievements' icons (updateAchievementIcons), for the game's banner.
+  if (!settings.eclipse && port.achievementIconsInstalled(root)) env.SMS_ACHIEVEMENT_ICONS = port.achievementIconsDirectory(root);
   if (config.settings.discordPresence) env.SMS_PRESENCE = '1';
   const look = marioLookPack(rom, disc, root, settings);
   if (look) env.SMS_MARIO_LOOK = look;
@@ -1263,6 +1280,7 @@ async function launchGame(session = null, update = config.settings.autoUpdate) {
   else await updateTextureExtras(config.repo, config.settings);
   await updateLanguagePack(config.repo, config.settings);
   await updateEclipseMaps(config.repo, config.settings);
+  await updateAchievementIcons(config.repo, config.settings);
   // last checks, with the game as it will run (multiplayer: the network check is done, the host's version matches)
   if (session?.beforePlay) await session.beforePlay();
   return play(null, session);
