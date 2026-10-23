@@ -39,7 +39,8 @@
       "The settings menu's Hold X Preview hint now shows your controller's button, like Square on a PlayStation controller, instead of the letter X.",
       "Fixed a crash after about 20 minutes of play with the Vulkan renderer (\"out of occlusion queries\"), most often seen on Steam Deck.",
       "The Vulkan renderer no longer keeps measuring goop after a stage stops using it, which may also fix the frame rate halving for good partway through some fights on Mac.",
-      "Paint and goop no longer slide, fade or vanish with FSR 1 or NIS upscaling, and cleaning matches what you see (OpenGL and Vulkan)."
+      "Paint and goop no longer slide, fade or vanish with FSR 1 or NIS upscaling, and cleaning matches what you see (OpenGL and Vulkan).",
+      "Super Mario Eclipse: fixed a crash when fighting the Tramplin' Stu in Hotel Lacrima's basement (water that could crash the game on 64-bit now behaves as it does on the GameCube)."
     ]
   },
   "releases": [
