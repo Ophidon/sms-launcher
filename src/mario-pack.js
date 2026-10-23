@@ -178,6 +178,16 @@ function lookText(look) {
   return colors.REGIONS.filter(({ id }) => chosen[id]).map(({ id }) => `${id}=${chosen[id].slice(1)}`).join(';');
 }
 
+// What Mario always wears in the game (ext/outfit): the Shine shirt
+// (SMS_MARIO_SHIRT) and the sunglasses (SMS_MARIO_SUNGLASSES), each on its own,
+// while Use in the game is on.
+function outfitEnvironment(look) {
+  const { inGame, aloha, sunglasses } = colors.normalizeLook(look), env = {};
+  if (inGame && aloha) env.SMS_MARIO_SHIRT = '1';
+  if (inGame && sunglasses) env.SMS_MARIO_SUNGLASSES = '1';
+  return env;
+}
+
 // What a multiplayer game needs to paint the other players in their own
 // colours (SMS_MARIO_PAINT, ext/multiplayer/sync/mp_look.cpp): for each texture
 // Mario's colours touch, the picture the game shows (the HD one where a pack
@@ -232,4 +242,4 @@ function bakePaint({ rom, references, packDirectories = [], directory }) {
   return directory;
 }
 
-module.exports = { bake, bakePaint, lookText, packName, targets, othersTextures, packIndex, paintMap, paintFile, repaint };
+module.exports = { bake, bakePaint, lookText, outfitEnvironment, packName, targets, othersTextures, packIndex, paintMap, paintFile, repaint };

@@ -307,12 +307,13 @@
   ];
 
   // The saved look: chosen colours, whether the game uses them (on unless
-  // turned off), whether Mario wears his Shine shirt, and whether he wears
-  // FLUDD and with which nozzle.
+  // turned off), whether Mario always wears his Shine shirt and his
+  // sunglasses (here and in the game), and whether he wears FLUDD here and
+  // with which nozzle.
   function normalizeLook(look) {
     return {
       colors: normalize(look?.colors), inGame: look?.inGame !== false,
-      aloha: look?.aloha === true, fludd: look?.fludd === true,
+      aloha: look?.aloha === true, sunglasses: look?.sunglasses === true, fludd: look?.fludd === true,
       nozzle: NOZZLES.some(n => n.id === look?.nozzle) ? look.nozzle : 'spray',
     };
   }

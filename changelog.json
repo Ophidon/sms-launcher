@@ -12,6 +12,7 @@
       "A Custom Game Source tag under Play now says when your game is built from a game source you chose under Settings → Manage, with its branch and commit, instead of this launcher's release; click it to change it.",
       "Language: Português (Brasil) joins the list, a community translation made for Super Mario 3D All-Stars with all of the game's text and the menus, pause menu and Yes/No in Portuguese; its other pictures stay in Spanish. It needs a game version that plays any language pack.",
       "Fixed downloads failing when the connection dropped or stalled partway through: the game's source (\"RPC failed; curl 92 HTTP/2 stream reset\", \"early EOF\"), the build tools, mods and Steam artwork are now tried again by themselves, and HD textures, HD cutscenes, Super Mario Eclipse, Eclipse's maps and language packs carry on from where they stopped instead of starting over or failing."
+      "Customize Mario: Always wear the Shine shirt and Always wear sunglasses, each on its own. Mario wears them in the 3D view and in every stage of the game, from the start, while Use in the game is on, in Super Mario Eclipse too."
     ],
     "game": [
       "Keyboard and mouse: the default keys are now laid out for the mouse, with mouse look on. WASD moves, the mouse turns the camera, left click jumps, right click dives, Q switches the nozzle, E opens the close-up camera, middle click sprays FLUDD gently so you can spray on the move and Space sprays it fully, Left Shift ground pounds and sidesteps, Tab opens the map and Enter pauses. Controllers keep their layout.",
@@ -27,7 +28,8 @@
       "Super Mario Eclipse: the speedrun timer no longer shows a broken \"Overclock: -2147483648\" next to it; overclocking only meant something on a console or Dolphin.",
       "Sound effects are muffled under water again, as on the GameCube: when the camera dips below the surface, Mario and everything around him sound dull until it comes back up.",
       "Fixed Hotel Delfino rising out of the sand in Sirena Beach with no sound: its rumble plays again.",
-      "Super Mario Eclipse: choosing Score on the file select no longer crashes the game when a file has 210 or more Shines, and the total shows the right number from 200 Shines on."
+      "Super Mario Eclipse: choosing Score on the file select no longer crashes the game when a file has 210 or more Shines, and the total shows the right number from 200 Shines on.",
+      "Mario can wear his Shine shirt, his sunglasses, or both in every stage, without visiting the sunglasses stand, when Customize Mario in the launcher asks for them. In Super Mario Eclipse every character wears them."
     ]
   },
   "releases": [
