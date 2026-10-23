@@ -93,12 +93,16 @@ test('a game download that drops, stalls or meets a busy server carries on from 
     const checksum = crypto.createHash('sha256').update(payload).digest('hex');
     const half = payload.length / 2;
     const requests = [];
-    const server = http.createServer((req, res) => {
+    const serve = (req, res) => {
       const route = req.url.slice(1);
       const range = req.headers.range?.match(/^bytes=(\d+)-$/);
       const first = !requests.some(seen => seen.route === route);
       requests.push({ route, range: req.headers.range || null, ifRange: req.headers['if-range'] || null });
       if (route === 'missing') { res.writeHead(404); res.end(); return; }
+      // As GitHub's release links do: a redirect to another host that serves the file.
+      if (route === 'release') {
+        res.writeHead(302, { Location: `http://127.0.0.1:${assets.address().port}/asset` }); res.end(); return;
+      }
       if (route === 'busy' && first) { res.writeHead(503); res.end(); return; }
       if (range && route !== 'no-range') {
         const start = Number(range[1]);
@@ -113,9 +117,20 @@ test('a game download that drops, stalls or meets a busy server carries on from 
       res.write(payload.subarray(0, half), () => {
         if (route !== 'stall') setTimeout(() => res.socket.destroy(), 50);
       });
+    };
+    const server = http.createServer(serve);
+    // GitHub's download servers answer a request for another host with "Domain Not Found".
+    const assets = http.createServer((req, res) => {
+      if (req.headers.host !== `127.0.0.1:${assets.address().port}`) {
+        requests.push({ route: 'wrong host', host: req.headers.host });
+        res.writeHead(500, 'Domain Not Found'); res.end(); return;
+      }
+      serve(req, res);
     });
-    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-    t.after(() => { server.closeAllConnections(); return new Promise(resolve => server.close(resolve)); });
+    for (const listening of [server, assets]) {
+      await new Promise(resolve => listening.listen(0, '127.0.0.1', resolve));
+      t.after(() => { listening.closeAllConnections(); return new Promise(resolve => listening.close(resolve)); });
+    }
     const driver = path.join(root, 'driver.py');
     fs.writeFileSync(driver, `import hashlib, sys, urllib.request
 sys.path.insert(0, ${JSON.stringify(path.resolve(__dirname, '..', 'scripts'))})
@@ -147,6 +162,11 @@ print(digest.hexdigest())
       assert.deepEqual(routeRequests(route).map(seen => seen.range), [null, `bytes=${half}-`], route);
       assert.equal(routeRequests(route)[1].ifRange, '"v1"');
     }
+    // A release link resumes at the host it redirects to, asked for by its own name.
+    assert.equal((await run('release')).stdout.trim().split('\n').at(-1), checksum);
+    assert.deepEqual(routeRequests('release').length, 2);
+    assert.deepEqual(routeRequests('asset').map(seen => seen.range), [null, `bytes=${half}-`]);
+    assert.deepEqual(routeRequests('wrong host'), []);
     // A server that can't resume sends the whole file again: the part already had is skipped.
     assert.equal((await run('no-range')).stdout.trim().split('\n').at(-1), checksum);
     // A server that is briefly down is asked again.
