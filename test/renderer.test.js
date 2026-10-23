@@ -40,7 +40,8 @@ async function renderer(data = state(), copyError = null, notes = { releases: []
       click() { if (!this.disabled) for (const callback of listeners.get('click') || []) callback(); },
       dispatch(event, value) { for (const callback of listeners.get(event) || []) callback(value); },
       setAttribute(name, value) { this[name] = value; }, removeAttribute(name) { delete this[name]; },
-      replaceChildren(...children) { this.textContent = children.map(text).join(''); this.replaced = children; }, append() {}, focus() {},
+      replaceChildren(...children) { this.textContent = children.map(text).join(''); this.replaced = children; },
+      append(...children) { this.children.push(...children); }, focus() {}, querySelector: () => null,
       children: [], appendChild(child) { this.children.push(child); return child; },
       close() { this.open = false; }, showModal() { this.open = true; },
       dataset: {}, getBoundingClientRect: () => ({ left: 0, top: 0 }), querySelectorAll: () => [],
@@ -78,8 +79,9 @@ async function renderer(data = state(), copyError = null, notes = { releases: []
       return { added: true, play: options.play, name: 'Super Mario Sunshine', artwork: 5, total: 5 }; }
   };
   const context = vm.createContext({ console, setInterval() {}, clearInterval() {}, requestAnimationFrame: callback => setImmediate(callback),
+    cancelAnimationFrame() {}, navigator: { getGamepads: () => [] }, SmsBindings: require('../src/bindings'),
     window: { sms, smsActivityLog: require('../src/activity-log'), smsChangelogText: require('../src/changelog-text'), smsRumble: require('../src/rumble'), smsGamepadNav: { start: options => Object.assign(gamepad, options) },
-      addEventListener() {} }, document: {
+      addEventListener() {}, removeEventListener() {} }, document: {
     getElementById(id) { assert.ok(elements.has(id), `Missing HTML element ${id}`); return elements.get(id); },
     querySelectorAll(selector) {
       const modals = ['steam-add', 'mac-tools-help', 'apple-silicon-switched'].map(id => elements.get(id));
@@ -93,6 +95,7 @@ async function renderer(data = state(), copyError = null, notes = { releases: []
     async resetLog(sequence) { resetCallback(sequence); await new Promise(setImmediate); },
     async emitActivity(active) { activityCallback(active); await new Promise(setImmediate); },
     async refresh() { vm.runInContext('refresh(current)', context); },
+    run: code => vm.runInContext(code, context),
     async click(id) { elements.get(id).click(); await new Promise(setImmediate); } };
 }
 
@@ -488,6 +491,30 @@ test('controller buttons open settings, step through its tabs, go back and pause
   assert.equal(elements.get('activity-log').hidden, true);
   await view.emitActivity({ label: 'Play Super Mario Sunshine', startedAt: Date.now() });
   assert.equal(gamepad.paused(), true);
+});
+
+test('a controller the launcher cannot see still gets its buttons changed, from the list in the row', async () => {
+  const ui = await renderer();
+  await ui.click('settings-cog');
+  await ui.click('tab-controls');
+  const choose = async (id, add, pad) => {
+    ui.run(`bindingMode = 'controller'; startCapture(${JSON.stringify(id)}, ${add})`);
+    const row = ui.elements.get('binding-list').replaced[ui.run(`SmsBindings.CONTROLS.findIndex(control => control.id === ${JSON.stringify(id)})`)];
+    const keys = row.children[1];
+    assert.equal(keys.textContent, 'No controller seen yet: press a button on it…');
+    const list = keys.children.find(child => child.className === 'pad-choice');
+    assert.deepEqual(list.children.map(option => option.value), ['', ...require('../src/bindings').PAD_BUTTONS.map(button => button.id)]);
+    list.value = pad;
+    list.dispatch('change');
+    await new Promise(setImmediate);
+  };
+  await choose('A', false, 'PAD_B');
+  assert.match(ui.elements.get('binding-note').textContent, /pick the button from the list/);
+  await choose('B', false, 'PAD_A');
+  assert.equal(ui.run('capture'), null);
+  assert.deepEqual({ ...ui.calls.at(-1)[1].padBindings }, { A: ['PAD_B'], B: ['PAD_A'] });
+  await choose('A', true, 'PAD_LB');
+  assert.deepEqual([...ui.calls.at(-1)[1].padBindings.A], ['PAD_B', 'PAD_LB']);
 });
 
 test('the Steam banner offers Add to Steam, then shows a tick once the launcher is in the library', async () => {
