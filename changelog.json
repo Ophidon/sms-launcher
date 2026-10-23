@@ -50,7 +50,8 @@
       "Super Mario Eclipse: FLUDD's spray breaks the Tramplin' Stu's mask in Hotel Lacrima's basement, as it does in Eclipse on a console; it takes a few seconds of spraying.",
       "Hide HUD, under HUD in the game's pause-menu Settings, hides the counters, health and water gauge while you play; choose which parts to hide there, press H to switch them on or off, and pause to see them again.",
       "Fixed a hidden FLUDD water gauge repeatedly playing its slide-in sound and blocking FLUDD's messages when a mod or multiplayer server hid it; mods can now hide individual parts of the HUD too (mod API 1.5 beta 3).",
-      "Paint and goop keep their rounded edges above 1x picture sharpness, instead of looking blocky."
+      "Paint and goop keep their rounded edges above 1x picture sharpness, instead of looking blocky.",
+      "Fixed the game failing to build on Windows when your Windows user name has letters outside the English alphabet, such as Cyrillic (\"fatal error: stdlib.h: No such file or directory\")."
     ]
   },
   "releases": [
