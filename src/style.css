@@ -845,3 +845,4 @@ pre { height: 120px; margin: 0; padding: 12px; overflow: auto; border-radius: 8p
 /* With Achievements, the tabs need a little less room each to keep Settings and Discord on the bar at the narrowest window. */
 @media (max-width: 1000px) { .nav-tab { gap: 6px; padding: 0 8px; } }
 @media (max-width: 900px) { .nav-tab { font-size: 12.5px; } }
+.achievements-game { margin-left: 8px; vertical-align: middle; background: #f3e8ff; color: #6b3fa0; font-size: 11px; letter-spacing: 0; }

@@ -873,7 +873,7 @@ async function downloadAchievementIcons() {
   requireRepo();
   // Nothing to download them for: said in the popup, before any download.
   if (!achievements.supported(config.repo, config.settings)) throw new Error(config.settings.eclipse
-    ? 'Super Mario Eclipse has no achievements. Turn Eclipse off under Settings to see them'
+    ? "Your game version has no Super Mario Eclipse achievements yet. Update the game on Play, then try again"
     : 'Your game version has no achievements yet. Update the game on Play, then try again');
   if (!port.achievementIconsWanted(config.repo, config.settings)) return achievementsState();
   try { await installAchievementIcons(config.repo); }
@@ -1184,9 +1184,10 @@ async function play(installation = null, session = null) {
   // What the player changes in the game's settings menu comes back to the launcher (keepGameSettings).
   env.SMS_SETTINGS_SAVE = gameSettings.file(app.getPath('userData'));
   // Unlocks are the player's, in the launcher's folder, so they survive a new game folder.
-  if (achievements.supported(root, settings)) env.SMS_ACHIEVEMENTS = achievements.file(app.getPath('userData'));
+  // Eclipse's are its own (achievements-eclipse.txt), as are its icons.
+  if (achievements.supported(root, settings)) env.SMS_ACHIEVEMENTS = achievements.file(app.getPath('userData'), settings.eclipse);
   // The achievements' icons (updateAchievementIcons), for the game's banner.
-  if (!settings.eclipse && port.achievementIconsInstalled(root)) env.SMS_ACHIEVEMENT_ICONS = port.achievementIconsDirectory(root);
+  if (port.achievementIconsInstalled(root)) env.SMS_ACHIEVEMENT_ICONS = port.achievementIconsDirectory(root, settings.eclipse);
   if (config.settings.discordPresence) env.SMS_PRESENCE = '1';
   const look = marioLookPack(rom, disc, root, settings);
   if (look) env.SMS_MARIO_LOOK = look;
@@ -1307,8 +1308,9 @@ const achievementIconCache = new Map();
 function achievementIcons() {
   const root = config.repo && fs.existsSync(config.repo) ? config.repo : null;
   if (!root || !port.achievementIconsInstalled(root)) return {};
-  const directory = port.achievementIconsDirectory(root), icons = {};
-  for (const { id } of achievements.readList(root) || []) {
+  const eclipse = Boolean(config.settings.eclipse);
+  const directory = port.achievementIconsDirectory(root, eclipse), icons = {};
+  for (const { id } of achievements.readList(root, eclipse) || []) {
     const fileName = achievements.iconFile(directory, id);
     if (!achievementIconCache.has(fileName)) {
       const image = nativeImage.createFromPath(fileName);
@@ -1323,7 +1325,7 @@ function achievementIcons() {
 function announceAchievement(root, line) {
   const unlock = achievements.parseLine(line);
   if (!unlock) return;
-  const item = (achievements.readList(root) || []).find(entry => entry.id === unlock.id);
+  const item = (achievements.readList(root, unlock.eclipse) || []).find(entry => entry.id === unlock.id);
   log(`🏆 Achievement unlocked: ${item ? item.title : `#${unlock.id}`}`);
   broadcast('achievement', unlock);
 }

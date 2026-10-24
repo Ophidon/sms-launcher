@@ -376,7 +376,7 @@ test('texture extras are downloaded again only when the port pins another releas
       [progressScript, path.join(root, 'tools', 'mods', 'get.py'), 'extras', '--if-outdated']);
 });
 
-test('achievement icons are downloaded for every player but Eclipse, again only for another pinned release', t => {
+test('achievement icons are downloaded for every player, Eclipse too, again only for another pinned release', t => {
   const root = temporary(); t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const plain = port.normalizeSettings({}), noTextures = port.normalizeSettings({ textures: false });
   const pin = md5 => {
@@ -394,7 +394,9 @@ test('achievement icons are downloaded for every player but Eclipse, again only 
   pin('4989fef3cb8bb19d579258b3dbf39939');
   assert.equal(port.achievementIconsWanted(root, plain), true);
   assert.equal(port.achievementIconsWanted(root, noTextures), true, 'whatever the texture settings');
-  assert.equal(port.achievementIconsWanted(root, port.normalizeSettings({ eclipse: true })), false);
+  // Eclipse's icons come in the same release, in eclipse/.
+  assert.equal(port.achievementIconsWanted(root, port.normalizeSettings({ eclipse: true })), true);
+  assert.equal(port.achievementIconsDirectory(root, true), path.join(root, 'assets', 'achievements', 'eclipse'));
   record('4989fef3cb8bb19d579258b3dbf39939');
   assert.equal(port.achievementIconsInstalled(root), true);
   assert.equal(port.achievementIconsWanted(root, plain), false);

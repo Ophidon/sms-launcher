@@ -17,7 +17,8 @@
       "Customize Mario: Always wear the Shine shirt and Always wear sunglasses, each on its own. Mario wears them in the 3D view and in every stage of the game, from the start, while Use in the game is on, in Super Mario Eclipse too.",
       "Achievements: 148 of them, from your first Shine to every Blue Coin and the trickiest challenges, unlocked as you play. A banner shows each one in the game, and the new Achievements tab lists them all by stage, with what to do for each and when you unlocked it, and marks new ones as they happen. The tab glows until you first open it; if the icons aren't downloaded yet (about 40 MB), opening it offers to download just those, then shows the page; a failed download is tried again by itself, and if it still fails the popup says why and offers Try again. They are yours whichever save you play; play after a warp, a save state, a cheat or with mods doesn't count. Not in Super Mario Eclipse. The launcher also downloads the icons before the game next starts; if that fails, the game still starts and it tries again next time.",
       "Roomier tabs along the top: Multiplayer is now Online, Customize Mario is Mario and Saves & states is Saves, and What's new and Discord moved up beside the window's buttons, so every tab keeps its name even in a small window. What's new shows a dot while there are notes you haven't read.",
-      "Fixed Apple Silicon Macs being asked to install Rosetta once the build tools had downloaded, though the Apple Silicon build runs without it. Rosetta is only needed when Apple Silicon build is off, or for Super Mario Eclipse on older game versions."
+      "Fixed Apple Silicon Macs being asked to install Rosetta once the build tools had downloaded, though the Apple Silicon build runs without it. Rosetta is only needed when Apple Silicon build is off, or for Super Mario Eclipse on older game versions.",
+      "Achievements: Super Mario Eclipse has its own 128, from every Shine and Blue Coin of its new areas to the castle's Power Stars and its trickiest challenges. With Eclipse on, the Achievements tab shows Eclipse's, kept apart from Sunshine's."
     ],
     "game": [
       "Achievements: 148 achievements unlock as you play, each announced by a BADGE GET! banner with its icon, name and what you did.",
@@ -51,7 +52,8 @@
       "Hide HUD, under HUD in the game's pause-menu Settings, hides the counters, health and water gauge while you play; choose which parts to hide there, press H to switch them on or off, and pause to see them again.",
       "Fixed a hidden FLUDD water gauge repeatedly playing its slide-in sound and blocking FLUDD's messages when a mod or multiplayer server hid it; mods can now hide individual parts of the HUD too (mod API 1.5 beta 3).",
       "Paint and goop keep their rounded edges above 1x picture sharpness, instead of looking blocky.",
-      "Fixed the game failing to build on Windows when your Windows user name has letters outside the English alphabet, such as Cyrillic (\"fatal error: stdlib.h: No such file or directory\")."
+      "Fixed the game failing to build on Windows when your Windows user name has letters outside the English alphabet, such as Cyrillic (\"fatal error: stdlib.h: No such file or directory\").",
+      "Achievements in Super Mario Eclipse: its own 128 unlock as you play, each with the BADGE GET! banner."
     ]
   },
   "releases": [
