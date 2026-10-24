@@ -761,7 +761,7 @@ function refresh(data) {
   $('backup-list').replaceChildren(...data.backups.map(backup => {
     const option = document.createElement('option');
     option.value = backup.id;
-    option.textContent = `${new Date(backup.createdAt).toLocaleString()} · ${backupReason(backup.reason)} · ${backup.count} files`;
+    option.textContent = `${new Date(backup.createdAt).toLocaleString()} · ${backupReason(backup.reason)} · ${backup.count} files${backup.mods ? ` + ${backup.mods} mod files` : ''}`;
     return option;
   }));
   if (data.backups.some(backup => backup.id === selectedBackup)) $('backup-list').value = selectedBackup;

@@ -104,6 +104,86 @@ test('verified backup restores old progress and preserves current files first', 
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 
+test('mods\' files beside the card are backed up and restored with it', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sms-save-mods-'));
+  const card = path.join(root, 'card-a');
+  const mods = path.join(root, 'card-a-mods');
+  const backups = path.join(root, 'backups');
+  try {
+    assert.equal(saves.modSaveDirectory(`${card}${path.sep}`), mods);
+    fs.mkdirSync(card);
+    fs.mkdirSync(path.join(mods, 'randomizer', 'GMSE01-A'), { recursive: true });
+    fs.writeFileSync(path.join(card, 'GMSE01.dat'), 'first progress');
+    fs.writeFileSync(path.join(mods, 'randomizer', 'settings.txt'), 'all unlocks');
+    fs.writeFileSync(path.join(mods, 'randomizer', 'GMSE01-A', 'seed.bin'), 'seed 1');
+    fs.writeFileSync(path.join(mods, 'randomizer', 'GMSE01-A', 'seed.bin.tmp'), 'half written');
+    const first = saves.backupSaves(card, backups);
+    assert.equal(first.count, 1);
+    assert.equal(first.mods, 2);
+    // later: another seed, a file of another mod
+    fs.writeFileSync(path.join(card, 'GMSE01.dat'), 'later progress');
+    fs.writeFileSync(path.join(mods, 'randomizer', 'GMSE01-A', 'seed.bin'), 'seed 2');
+    fs.mkdirSync(path.join(mods, 'other'));
+    fs.writeFileSync(path.join(mods, 'other', 'x'), 'later');
+    const result = saves.restoreBackup(first.id, card, backups);
+    assert.equal(result.restoredMods, 2);
+    assert.equal(fs.readFileSync(path.join(mods, 'randomizer', 'GMSE01-A', 'seed.bin'), 'utf8'), 'seed 1');
+    assert.equal(fs.readFileSync(path.join(mods, 'randomizer', 'settings.txt'), 'utf8'), 'all unlocks');
+    assert.equal(fs.existsSync(path.join(mods, 'other')), false);
+    assert.equal(fs.existsSync(path.join(mods, 'randomizer', 'GMSE01-A', 'seed.bin.tmp')), false);
+    // what was there before the restore is in its own backup
+    assert.equal(fs.readFileSync(path.join(result.previous, 'mods', 'randomizer', 'GMSE01-A', 'seed.bin'), 'utf8'), 'seed 2');
+    assert.equal(fs.readFileSync(path.join(result.previous, 'mods', 'other', 'x'), 'utf8'), 'later');
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test('a backup from before mods\' files leaves the current ones; one with none clears them', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sms-save-mods-old-'));
+  const card = path.join(root, 'card-a');
+  const mods = path.join(root, 'card-a-mods');
+  const backups = path.join(root, 'backups');
+  try {
+    fs.mkdirSync(card);
+    fs.writeFileSync(path.join(card, 'GMSE01.dat'), 'progress');
+    const none = saves.backupSaves(card, backups);
+    // an older launcher's backup: no `mods` in its manifest
+    const old = saves.backupSaves(card, backups);
+    const manifestPath = path.join(old.directory, 'manifest.json');
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    delete manifest.mods;
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest));
+    fs.mkdirSync(path.join(mods, 'randomizer'), { recursive: true });
+    fs.writeFileSync(path.join(mods, 'randomizer', 'settings.txt'), 'kept');
+    saves.restoreBackup(old.id, card, backups);
+    assert.equal(fs.readFileSync(path.join(mods, 'randomizer', 'settings.txt'), 'utf8'), 'kept');
+    saves.restoreBackup(none.id, card, backups);
+    assert.equal(fs.existsSync(mods), false);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test('a tampered mod file in a backup does not replace current progress', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sms-save-mods-bad-'));
+  const card = path.join(root, 'card-a');
+  const mods = path.join(root, 'card-a-mods');
+  const backups = path.join(root, 'backups');
+  try {
+    fs.mkdirSync(card);
+    fs.mkdirSync(path.join(mods, 'm'), { recursive: true });
+    fs.writeFileSync(path.join(card, 'GMSE01.dat'), 'safe');
+    fs.writeFileSync(path.join(mods, 'm', 'seed'), 'safe seed');
+    const snapshot = saves.backupSaves(card, backups);
+    fs.writeFileSync(path.join(snapshot.directory, 'mods', 'm', 'seed'), 'tampered');
+    assert.throws(() => saves.restoreBackup(snapshot.id, card, backups), /verification failed/i);
+    // a manifest path out of the folder is refused too
+    const manifestPath = path.join(snapshot.directory, 'manifest.json');
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    manifest.mods = [{ name: '../escape', hash: manifest.mods[0].hash }];
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest));
+    assert.throws(() => saves.restoreBackup(snapshot.id, card, backups), /verification failed/i);
+    assert.equal(fs.readFileSync(path.join(mods, 'm', 'seed'), 'utf8'), 'safe seed');
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
 test('corrupted backup does not replace current progress', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sms-save-corrupt-'));
   const card = path.join(root, 'card-a');

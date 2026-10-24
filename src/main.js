@@ -543,7 +543,7 @@ function makeSaveBackup(reason) {
   if (active) throw new Error('Stop the running game or task before backing up saves.');
   tidySaveDirectory();
   const result = saves.backupSaves(currentSaveDirectory(), saves.backupRoot(), reason);
-  log(result.empty ? result.message : `Saved ${result.count} memory card file(s) to ${result.directory}`);
+  log(result.empty ? result.message : `Saved ${result.count} memory card file(s)${result.mods ? ` and ${result.mods} mod save file(s)` : ''} to ${result.directory}`);
   return result;
 }
 
