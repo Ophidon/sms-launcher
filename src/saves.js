@@ -87,6 +87,33 @@ function saveFiles(dir) {
   }).map(entry => entry.name);
 }
 
+// Mods' files beside the memory card (the game's mod API, api->files): <card folder>-mods, kept with the card.
+function modSaveDirectory(saveDir) {
+  return `${String(saveDir).replace(/[\\/]+$/, '')}-mods`;
+}
+
+// Every file below the mods' folder, as '/'-separated paths relative to it.
+function modSaveFiles(dir) {
+  const out = [];
+  if (!fs.existsSync(dir)) return out;
+  if (!fs.statSync(dir).isDirectory()) throw new Error(`Mod saves path is not a folder: ${dir}`);
+  const walk = (folder, prefix) => {
+    for (const entry of fs.readdirSync(folder, { withFileTypes: true })) {
+      if (entry.isSymbolicLink()) throw new Error(`Mod saves contain a symbolic link: ${prefix}${entry.name}`);
+      if (entry.isDirectory()) walk(path.join(folder, entry.name), `${prefix}${entry.name}/`);
+      else if (entry.isFile() && !entry.name.endsWith('.tmp')) out.push(`${prefix}${entry.name}`);
+    }
+  };
+  walk(dir, '');
+  return out.sort();
+}
+
+// A mod save's relative path from a manifest: names the game allows, no way out of the folder.
+function isModSavePath(name) {
+  return typeof name === 'string' && name.length <= 512 &&
+    name.split('/').every(part => /^[A-Za-z0-9_-][A-Za-z0-9._-]{0,63}$/.test(part));
+}
+
 function digest(file) {
   return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 }
@@ -108,10 +135,20 @@ function backupSaves(saveDir, destination = backupRoot(), reason = 'manual') {
       if (digest(target) !== hash) throw new Error(`Backup verification failed for ${name}`);
       return { name, hash };
     });
+    const modDir = modSaveDirectory(saveDir);
+    const mods = modSaveFiles(modDir).map(name => {
+      const source = path.join(modDir, ...name.split('/'));
+      const target = path.join(pending, 'mods', ...name.split('/'));
+      fs.mkdirSync(path.dirname(target), { recursive: true, mode: 0o700 });
+      fs.copyFileSync(source, target, fs.constants.COPYFILE_EXCL);
+      const hash = digest(source);
+      if (digest(target) !== hash) throw new Error(`Backup verification failed for ${name}`);
+      return { name, hash };
+    });
     fs.writeFileSync(path.join(pending, 'manifest.json'), JSON.stringify({ version: 1, reason,
-      createdAt: new Date().toISOString(), source: saveDir, files: records }, null, 2), { flag: 'wx' });
+      createdAt: new Date().toISOString(), source: saveDir, files: records, mods }, null, 2), { flag: 'wx' });
     fs.renameSync(pending, complete);
-    return { id, directory: complete, count: files.length };
+    return { id, directory: complete, count: files.length, mods: mods.length };
   } catch (error) {
     fs.rmSync(pending, { recursive: true, force: true });
     throw error;
@@ -126,7 +163,8 @@ function listBackups(destination = backupRoot()) {
       try {
         const manifest = JSON.parse(fs.readFileSync(path.join(destination, entry.name, 'manifest.json'), 'utf8'));
         return manifest.version === 1 ? { id: entry.name, reason: manifest.reason,
-          createdAt: manifest.createdAt, count: manifest.files.length, source: manifest.source } : null;
+          createdAt: manifest.createdAt, count: manifest.files.length,
+          mods: Array.isArray(manifest.mods) ? manifest.mods.length : 0, source: manifest.source } : null;
       } catch (_) { return null; }
     }).filter(Boolean).sort((a, b) => b.id.localeCompare(a.id));
 }
@@ -142,6 +180,14 @@ function restoreBackup(id, saveDir, destination = backupRoot()) {
       !/^[a-f0-9]{64}$/.test(file.hash) || digest(path.join(folder, 'files', file.name)) !== file.hash)
       throw new Error(`Backup verification failed for ${file.name}.`);
   }
+  // Mods' files (backups since they were kept): absent from older backups, which leave the current ones as they are.
+  const mods = manifest.mods;
+  if (mods !== undefined && !Array.isArray(mods)) throw new Error('Backup manifest is invalid.');
+  for (const file of mods || []) {
+    if (!file || !isModSavePath(file.name) || !/^[a-f0-9]{64}$/.test(file.hash) ||
+      digest(path.join(folder, 'mods', ...file.name.split('/'))) !== file.hash)
+      throw new Error(`Backup verification failed for ${file && file.name}.`);
+  }
   const current = backupSaves(saveDir, destination, 'before-restore');
   fs.mkdirSync(saveDir, { recursive: true });
   for (const file of manifest.files) {
@@ -151,7 +197,23 @@ function restoreBackup(id, saveDir, destination = backupRoot()) {
       fs.renameSync(temporary, path.join(saveDir, file.name));
     } finally { fs.rmSync(temporary, { force: true }); }
   }
-  return { restored: manifest.files.length, previous: current.directory || null };
+  if (mods) {
+    // the mods' folder as it was then: built beside it, then put in its place (the current one is in the backup above)
+    const modDir = modSaveDirectory(saveDir);
+    const staging = `${modDir}.restore-${process.pid}`;
+    fs.rmSync(staging, { recursive: true, force: true });
+    try {
+      fs.mkdirSync(staging, { recursive: true });
+      for (const file of mods) {
+        const target = path.join(staging, ...file.name.split('/'));
+        fs.mkdirSync(path.dirname(target), { recursive: true });
+        fs.copyFileSync(path.join(folder, 'mods', ...file.name.split('/')), target);
+      }
+      fs.rmSync(modDir, { recursive: true, force: true });
+      if (mods.length) fs.renameSync(staging, modDir);
+    } finally { fs.rmSync(staging, { recursive: true, force: true }); }
+  }
+  return { restored: manifest.files.length, restoredMods: mods ? mods.length : 0, previous: current.directory || null };
 }
 
 function moveBuildKeepingSaves(buildDirectory, destination, saveDir, backups = backupRoot()) {
@@ -170,5 +232,5 @@ function moveBuildKeepingSaves(buildDirectory, destination, saveDir, backups = b
   return backup;
 }
 
-module.exports = { saveDirectory, gameSaveDirectory, prepareSaveDirectory, guestSaveDirectory, moveOldGuestSaves, backupRoot,
+module.exports = { saveDirectory, gameSaveDirectory, prepareSaveDirectory, guestSaveDirectory, moveOldGuestSaves, backupRoot, modSaveDirectory,
   cleanupWouldRemoveSaves, backupSaves, listBackups, restoreBackup, moveBuildKeepingSaves };
