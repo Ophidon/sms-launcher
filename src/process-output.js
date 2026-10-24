@@ -1,6 +1,7 @@
 'use strict';
 
-const { StringDecoder } = require('node:string_decoder');
+const { execFileSync } = require('node:child_process');
+const path = require('node:path');
 const { cleanOutputLine, failureReason } = require('./progress');
 
 const WINDOWS_STATUSES = new Map([
@@ -17,18 +18,67 @@ const WINDOWS_STATUSES = new Map([
   [0xC0000602, 'fail-fast exception']
 ]);
 
-// Each pipe keeps its own decoder and partial line. Show partial output as it
-// arrives, then update that entry instead of duplicating it at the next chunk.
-function observeProcess(child, { output, line = () => {}, capture = false }) {
+// Windows programs print in UTF-8 (MSYS2's tools, addr2line) or in the
+// system's ANSI code page (the game's paths, which come from getenv), and the
+// game's crash report has both. A line that isn't UTF-8 is read in the code
+// page, so a Windows user name in Cyrillic shows as Иван, not as ����.
+const CODE_PAGE_LABELS = new Map([[932, 'shift_jis'], [936, 'gbk'], [949, 'euc-kr'], [950, 'big5']]);
+
+function codePageDecoder(page) {
+  if (!Number.isInteger(page) || page <= 0 || page === 65001) return null;
+  try { return new TextDecoder(CODE_PAGE_LABELS.get(page) || `windows-${page}`); } catch { return null; }
+}
+
+// Looked up the first time a line isn't UTF-8, which is rare.
+let windowsDecoder;
+function windowsCodePage(platform = process.platform) {
+  if (windowsDecoder !== undefined) return windowsDecoder;
+  windowsDecoder = null;
+  if (platform !== 'win32') return null;
+  try {
+    const reg = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'reg.exe');
+    const out = execFileSync(reg, ['query', 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Nls\\CodePage', '/v', 'ACP'],
+      { encoding: 'utf8', windowsHide: true, timeout: 5000, stdio: ['ignore', 'pipe', 'ignore'] });
+    windowsDecoder = codePageDecoder(Number(/\bACP\s+REG_SZ\s+(\d+)/i.exec(out)?.[1]));
+  } catch {}
+  return windowsDecoder;
+}
+
+// A partial line keeps an incomplete UTF-8 character back until the rest of it arrives.
+function decodeLine(bytes, fallback, partial = false) {
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes, { stream: partial });
+  } catch {
+    const decoder = fallback();
+    return decoder ? decoder.decode(bytes) : Buffer.from(bytes).toString('utf8');
+  }
+}
+
+// Complete lines, each decoded on its own, with their line endings.
+function decodeLines(bytes, fallback) {
+  let text = '', start = 0;
+  for (let i = 0; i < bytes.length; ++i) {
+    if (bytes[i] !== 0x0A && bytes[i] !== 0x0D) continue;
+    if (i > start) text += decodeLine(bytes.subarray(start, i), fallback);
+    text += bytes[i] === 0x0A ? '\n' : '\r';
+    start = i + 1;
+  }
+  return text;
+}
+
+// Each pipe keeps its own undecoded bytes and partial line. Show partial output
+// as it arrives, then update that entry instead of duplicating it at the next chunk.
+// codePage: the decoder for lines that aren't UTF-8 (default: Windows' ANSI code page).
+function observeProcess(child, { output, line = () => {}, capture = false, codePage } = {}) {
+  const fallback = () => (codePage !== undefined ? codePage : windowsCodePage());
   return new Promise(resolve => {
     const readers = [];
     const captured = { stdout: '', stderr: '' };
     let error = null;
     for (const stream of ['stdout', 'stderr']) {
-      const decoder = new StringDecoder('utf8');
-      let pending = '', entry = null, afterCR = false;
-      function publish() {
-        const text = cleanOutputLine(pending);
+      let rest = Buffer.alloc(0), pending = '', entry = null, afterCR = false;
+      function publish(text = pending) {
+        text = cleanOutputLine(text);
         if (!entry || entry.text !== text) entry = output(text, stream, entry);
       }
       function consume(text) {
@@ -49,9 +99,23 @@ function observeProcess(child, { output, line = () => {}, capture = false }) {
         pending += text.slice(start);
         if (pending) publish();
       }
-      child[stream].on('data', bytes => consume(decoder.write(bytes)));
+      // Line endings are single bytes in UTF-8 and in every ANSI code page.
+      function receive(bytes) {
+        rest = rest.length ? Buffer.concat([rest, bytes]) : bytes;
+        const end = Math.max(rest.lastIndexOf(0x0A), rest.lastIndexOf(0x0D)) + 1;
+        if (end) {
+          consume(decodeLines(rest.subarray(0, end), fallback));
+          rest = rest.subarray(end);
+        }
+        if (rest.length) {
+          const partial = decodeLine(rest, fallback, true);
+          if (partial) publish(partial);
+        }
+      }
+      child[stream].on('data', receive);
       readers.push(() => {
-        consume(decoder.end());
+        if (rest.length) consume(decodeLine(rest, fallback));
+        rest = Buffer.alloc(0);
         if (pending) line(cleanOutputLine(pending), stream, entry);
       });
     }
@@ -79,4 +143,4 @@ function failureMessage(label, result, recent, { game = false, platform = proces
   return `${exitDescription(label, result.code, result.signal, platform)}${reason ? `: ${reason}` : ''}. See the activity log.`;
 }
 
-module.exports = { observeProcess, exitDescription, failureMessage };
+module.exports = { observeProcess, exitDescription, failureMessage, codePageDecoder };
