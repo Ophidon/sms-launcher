@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { spawn } = require('node:child_process');
 const { createActivityLog } = require('../src/activity-log');
-const { observeProcess, exitDescription, failureMessage } = require('../src/process-output');
+const { observeProcess, exitDescription, failureMessage, codePageDecoder } = require('../src/process-output');
 
 function start(script, output, options = {}, stdio = ['ignore', 'pipe', 'pipe']) {
   const child = spawn(process.execPath, ['-e', script], { stdio });
@@ -61,6 +61,41 @@ test('partial output appears before process exit and split UTF-8 remains intact 
   assert.equal(status.stdout, 'Café 🌞');
   assert.equal(status.stderr, 'last error');
   assert.deepEqual(log.snapshot().filter(entry => entry.stream === 'stdout').map(entry => entry.text), ['Café 🌞']);
+});
+
+test('lines in the Windows code page read as such beside UTF-8 lines', async () => {
+  const log = createActivityLog(), lines = [];
+  // The game's paths from getenv in CP1251, addr2line's in UTF-8, as in a Windows crash report.
+  const { result } = start(`
+    const cp1251 = Buffer.from([0xC8, 0xE2, 0xE0, 0xED]);  // Иван
+    process.stderr.write(Buffer.concat([Buffer.from('[card] slot A: C:/Users/'), cp1251, Buffer.from(' 1488/card-a\\r\\n')]));
+    process.stderr.write('at C:/Users/Иван 1488/msys64/fs_path.h:785\\n');
+    process.stderr.write(Buffer.concat([Buffer.from('[sms_gx] shader cache: C:\\\\Users\\\\'), cp1251.subarray(0, 2)]));
+    setTimeout(() => process.stderr.write(Buffer.concat([cp1251.subarray(2), Buffer.from(' 1488')])), 50);
+  `, log.write, { capture: true, codePage: codePageDecoder(1251), line: text => lines.push(text) });
+  const status = await result;
+  assert.equal(status.stderr, '[card] slot A: C:/Users/Иван 1488/card-a\r\nat C:/Users/Иван 1488/msys64/fs_path.h:785\n' +
+    '[sms_gx] shader cache: C:\\Users\\Иван 1488');
+  assert.deepEqual(log.snapshot().map(entry => entry.text), ['[card] slot A: C:/Users/Иван 1488/card-a',
+    'at C:/Users/Иван 1488/msys64/fs_path.h:785', '[sms_gx] shader cache: C:\\Users\\Иван 1488']);
+  assert.deepEqual(lines, log.snapshot().map(entry => entry.text));
+});
+
+test('without a code page, a line that is not UTF-8 still shows', async () => {
+  const log = createActivityLog();
+  const { result } = start(`process.stdout.write(Buffer.from([0x41, 0xC8, 0xE2, 0x0A]))`, log.write, { codePage: null });
+  await result;
+  assert.deepEqual(log.snapshot().map(entry => entry.text), ['A\uFFFD\uFFFD']);
+});
+
+test('Windows code pages map to their decoders', () => {
+  assert.equal(codePageDecoder(1251).decode(Buffer.from([0xC8, 0xE2, 0xE0, 0xED])), 'Иван');
+  assert.equal(codePageDecoder(1252).decode(Buffer.from([0x43, 0x61, 0x66, 0xE9])), 'Café');
+  assert.equal(codePageDecoder(932).decode(Buffer.from([0x83, 0x7D, 0x83, 0x8A, 0x83, 0x49])), 'マリオ');
+  assert.equal(codePageDecoder(936).decode(Buffer.from([0xC2, 0xED, 0xC0, 0xEF, 0xB0, 0xC2])), '马里奥');
+  assert.equal(codePageDecoder(65001), null);
+  assert.equal(codePageDecoder(NaN), null);
+  assert.equal(codePageDecoder(12345), null);
 });
 
 test('signal termination and spawn failure retain their actual cause', { timeout: 5000 }, async () => {

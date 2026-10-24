@@ -20,7 +20,8 @@
       "Fixed Apple Silicon Macs being asked to install Rosetta once the build tools had downloaded, though the Apple Silicon build runs without it. Rosetta is only needed when Apple Silicon build is off, or for Super Mario Eclipse on older game versions.",
       "Achievements: Super Mario Eclipse has its own 128, from every Shine and Blue Coin of its new areas to the castle's Power Stars and its trickiest challenges. With Eclipse on, the Achievements tab shows Eclipse's, kept apart from Sunshine's.",
       "Players collide, a new switch under Host Game in the Online tab: players bump into each other and bounce off heads. You can also change it while you host, in the game's settings (Gameplay).",
-      "Save backups now include mods' save data kept beside the memory card (the card-a-mods folder), and restoring a backup puts it back with your saves, so a mod's progress always matches the saves it goes with."
+      "Save backups now include mods' save data kept beside the memory card (the card-a-mods folder), and restoring a backup puts it back with your saves, so a mod's progress always matches the saves it goes with.",
+      "Fixed Windows paths with letters outside the English alphabet, such as a Cyrillic user name, showing as ���� in the activity log's game and build messages."
     ],
     "game": [
       "Achievements: 148 achievements unlock as you play, each announced by a BADGE GET! banner with its icon, name and what you did.",
