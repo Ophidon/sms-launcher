@@ -295,12 +295,15 @@ function eclipseMapsWanted(root, settings) {
   return Boolean(settings.eclipse && settings.radar) && eclipseMapsSupported(root) && !eclipseMapsInstalled(root);
 }
 
-// The achievements' icons (1.png to 148.png), published with the texture
-// extras. The port pins their release in tools/mods/achievement-icons.json,
-// installs them in assets/achievements/ (get.py achievement-icons) and records
-// the one it installed there in .release, as for the extras; every player gets
-// them, whatever the texture settings. Eclipse has no achievements.
-function achievementIconsDirectory(root) { return path.join(root, 'assets', 'achievements'); }
+// The achievements' icons (1.png to 148.png, and Super Mario Eclipse's in
+// eclipse/), published with the texture extras. The port pins their release in
+// tools/mods/achievement-icons.json, installs them in assets/achievements/
+// (get.py achievement-icons) and records the one it installed there in
+// .release, as for the extras; every player gets them, whatever the texture
+// settings, Eclipse's with Sunshine's.
+function achievementIconsDirectory(root, eclipse = false) {
+  return eclipse ? path.join(root, 'assets', 'achievements', 'eclipse') : path.join(root, 'assets', 'achievements');
+}
 
 function achievementIconsSupported(root) {
   return fs.existsSync(path.join(root, 'tools', 'mods', 'achievement-icons.json'));
@@ -309,13 +312,13 @@ function achievementIconsSupported(root) {
 function achievementIconsInstalled(root) {
   try {
     const pinned = JSON.parse(fs.readFileSync(path.join(root, 'tools', 'mods', 'achievement-icons.json'), 'utf8'));
-    const installed = JSON.parse(fs.readFileSync(path.join(achievementIconsDirectory(root), '.release'), 'utf8'));
+    const installed = JSON.parse(fs.readFileSync(path.join(root, 'assets', 'achievements', '.release'), 'utf8'));
     return typeof pinned.md5 === 'string' && /^[0-9a-f]{32}$/.test(pinned.md5) && installed.md5 === pinned.md5;
   } catch (_) { return false; }
 }
 
-function achievementIconsWanted(root, settings) {
-  return !settings.eclipse && achievementIconsSupported(root) && !achievementIconsInstalled(root);
+function achievementIconsWanted(root, _settings) {
+  return achievementIconsSupported(root) && !achievementIconsInstalled(root);
 }
 
 // Languages other than the disc's English come from language packs (the

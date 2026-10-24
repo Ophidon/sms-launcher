@@ -5,8 +5,10 @@
 // the icons are downloaded, the tab offers to download just those first.
 (() => {
   // Game order; the list's own stages come after any not named here.
-  const STAGE_ORDER = ['Delfino Airstrip', 'Delfino Plaza', 'Bianco Hills', 'Ricco Harbor', 'Gelato Beach', 'Pinna Park',
-    'Sirena Beach', 'Noki Bay', 'Pianta Village', 'Corona Mountain', 'Anywhere'];
+  const STAGE_ORDER = ['Tutorial', 'Delfino Airstrip', 'Delfino Plaza', 'Bianco Hills', 'Ricco Harbor', 'Gelato Beach', 'Pinna Park',
+    'Sirena Beach', 'Noki Bay', 'Pianta Village', 'Corona Mountain', 'Erto Rock', 'Lighthouse Island', 'Warship Island',
+    'Hotel Lacrima', 'Pianta Pit', 'Daisy Cruiser', "Mario's Dream", 'Lancia Fredda Peaks', 'Vaporwave', 'Yoshi Village',
+    'Red Lily City', 'Peach Beach', 'Spettro Casino', 'Isle Delfino', "Peach's Castle", 'Anywhere'];
   let state = { supported: false, achievements: [], unlocked: 0, total: 0, iconsNeeded: false, seen: true };
   let icons = {}, iconsLoaded = false, filter = 'all', loadedFor = null;
   const fresh = new Set();
@@ -42,6 +44,8 @@
 
   function render() {
     const { achievements, unlocked, total } = state;
+    // Eclipse's own list while Eclipse is on.
+    $('achievements-game').hidden = !state.eclipse;
     $('achievements-count').textContent = `${unlocked} of ${total} unlocked`;
     $('achievements-percent').textContent = `${total ? Math.floor(unlocked * 100 / total) : 0}%`;
     $('achievements-ring').style.setProperty('--done', total ? String(unlocked / total) : '0');
@@ -193,7 +197,7 @@
   // null: the icons were (re)installed.
   window.sms.onAchievement(unlock => {
     if (!unlock) iconsLoaded = false;
-    else fresh.add(unlock.id);
+    else if (unlock.eclipse === Boolean(state.eclipse)) fresh.add(unlock.id);
     load();
   });
 })();
