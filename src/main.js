@@ -228,7 +228,7 @@ function savedMultiplayer(saved) {
     .map(item => ({ address: item.address.slice(0, 255), port: item.port, name: multiplayer.playerName(item.name, '') }));
   return { name: multiplayer.playerName(value.name, ''), address: typeof value.address === 'string' ? value.address.slice(0, 255) : '',
     hostPort: portOr(value.hostPort), joinPort: portOr(value.joinPort), maxPlayers: mostOr(value.maxPlayers),
-    public: value.public === true, recent };
+    public: value.public === true, collision: value.collision === true, recent };
 }
 
 function loadConfig() {
@@ -1091,6 +1091,13 @@ function keepGameSettings() {
   const file = gameSettings.file(app.getPath('userData'));
   if (!fs.existsSync(file)) return;
   try {
+    // the host's Player Collision, changed in its game: the Online tab's switch for next time
+    const collision = gameSettings.readCollision(file);
+    if (collision !== null && collision !== (config.multiplayer.collision === true)) {
+      config.multiplayer = { ...config.multiplayer, collision };
+      saveConfig();
+      log(`Kept Player Collision ${collision ? 'on' : 'off'}, as you set it in the game.`);
+    }
     const settings = port.normalizeSettings(gameSettings.merge(config.settings, gameSettings.read(file)),
       process.platform, process.arch, port.gameFeatures(port.isPort(config.repo) ? config.repo : null));
     const changed = gameSettings.changedKeys(config.settings, settings);
@@ -1391,6 +1398,7 @@ function saveMultiplayer(input = {}, { strict = true } = {}) {
     hostPort: portField(input.hostPort, config.multiplayer.hostPort), joinPort: portField(input.joinPort, config.multiplayer.joinPort),
     maxPlayers: mostField(input.maxPlayers, config.multiplayer.maxPlayers ?? multiplayer.DEFAULT_MAX_PLAYERS),
     public: typeof input.public === 'boolean' ? input.public : config.multiplayer.public === true,
+    collision: typeof input.collision === 'boolean' ? input.collision : config.multiplayer.collision === true,
     recent: config.multiplayer.recent || [] };
   config.multiplayer = value;
   saveConfig();
@@ -1510,7 +1518,8 @@ async function hostGame(input) {
       : `Room code ${hostedRoom} (copied): friends join with it from their Multiplayer window.`);
     broadcast('activity', activityState());
   };
-  const session = { mode: 'host', env: multiplayer.environment('host', { port: settings.hostPort, name, maxPlayers: settings.maxPlayers, versions: localVersions() }),
+  const session = { mode: 'host', env: multiplayer.environment('host', { port: settings.hostPort, name, maxPlayers: settings.maxPlayers,
+    collision: settings.collision, versions: localVersions() }),
     beforePlay: async () => {
       await natCheck?.catch(() => {});
       const { build, version, launcher } = localVersions();

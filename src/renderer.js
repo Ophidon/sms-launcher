@@ -1424,7 +1424,7 @@ async function showWhatsNew() {
 function multiplayerFields() {
   return { name: $('mp-name').value, hostPort: $('mp-host-port').value, maxPlayers: $('mp-max-players').value,
     address: $('mp-address').value,
-    joinPort: $('mp-join-port').value, public: $('mp-list-public').checked };
+    joinPort: $('mp-join-port').value, public: $('mp-list-public').checked, collision: $('mp-collision').checked };
 }
 function setMultiplayerResult(text, error = false) {
   $('mp-result').textContent = text;
@@ -1581,6 +1581,7 @@ function showMultiplayer() {
   $('mp-address').value = saved.address || '';
   $('mp-join-port').value = String(saved.joinPort || 24002);
   $('mp-list-public').checked = saved.public === true;
+  $('mp-collision').checked = saved.collision === true;
   setMultiplayerResult('');
   renderRecentHosts();
   renderMultiplayer();
@@ -1591,7 +1592,7 @@ function showMultiplayer() {
   publicTimer = setInterval(() => { if (page === 'multiplayer') loadPublicGames(); }, PUBLIC_REFRESH);
 }
 onPage('multiplayer', { show: showMultiplayer, hide() { clearInterval(publicTimer); publicTimer = null; } });
-for (const id of ['mp-name', 'mp-host-port', 'mp-max-players', 'mp-address', 'mp-join-port', 'mp-list-public']) {
+for (const id of ['mp-name', 'mp-host-port', 'mp-max-players', 'mp-address', 'mp-join-port', 'mp-list-public', 'mp-collision']) {
   $(id).addEventListener('input', renderMultiplayer);
   // An unfinished port is kept as it was until it is a number.
   $(id).addEventListener('change', () => window.sms.saveMultiplayer(multiplayerFields())

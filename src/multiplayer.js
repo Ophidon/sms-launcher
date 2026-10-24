@@ -316,14 +316,16 @@ function versionProblem(host, mine) {
 // The game's multiplayer settings, as environment variables.
 // The game's multiplayer settings. `versions` is this launcher's { version (the game's), launcher }, which the game
 // tells a host it joins (a host may ask for at least some versions). A host may also say whom it takes:
-// `allowDrift` (other builds of the same protocol), `minVersion`, `minLauncher` (a dedicated server's choice).
+// `allowDrift` (other builds of the same protocol), `minVersion`, `minLauncher` (a dedicated server's choice), and
+// `collision`: players collide with each other (the game's Player Collision, which its settings menu changes too).
 function environment(mode, { host, port, name, maxPlayers = DEFAULT_MAX_PLAYERS, versions = null, allowDrift = false,
-  minVersion = '', minLauncher = '' }) {
+  minVersion = '', minLauncher = '', collision = false }) {
   const mine = { ...(versions?.version ? { SMS_GAME_VERSION: String(versions.version) } : {}),
     ...(versions?.launcher ? { SMS_LAUNCHER_VERSION: String(versions.launcher) } : {}) };
   if (mode === 'host') return { SMS_MULTIPLAYER: 'host', SMS_MULTIPLAYER_PORT: String(port), SMS_MULTIPLAYER_NAME: name,
     SMS_MULTIPLAYER_MAX_PLAYERS: String(parseMaxPlayers(maxPlayers)), ...mine,
     ...(allowDrift ? { SMS_MULTIPLAYER_VERSIONS: 'drift' } : {}),
+    ...(collision ? { SMS_MULTIPLAYER_COLLISION: '1' } : {}),
     ...(minVersion ? { SMS_MULTIPLAYER_MIN_VERSION: String(minVersion) } : {}),
     ...(minLauncher ? { SMS_MULTIPLAYER_MIN_LAUNCHER: String(minLauncher) } : {}) };
   const address = net.isIPv6(host) ? `[${host}]:${port}` : `${host}:${port}`;
