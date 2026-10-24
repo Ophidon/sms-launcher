@@ -42,4 +42,13 @@ function changedKeys(before, after) {
 
 function remove(name) { fs.rmSync(name, { force: true }); }
 
-module.exports = { KEYS, file, read, merge, changedKeys, remove };
+// The host's Player Collision as the game's menu left it (`mpCollision`): true or false, null when it was not changed.
+// A multiplayer setting, kept with the Online tab's rather than the game's settings.
+function readCollision(name) {
+  let data;
+  try { data = JSON.parse(fs.readFileSync(name, 'utf8')); } catch (_) { return null; }
+  const value = data && typeof data.settings === 'object' && data.settings ? data.settings.mpCollision : undefined;
+  return typeof value === 'boolean' ? value : null;
+}
+
+module.exports = { KEYS, file, read, merge, changedKeys, remove, readCollision };

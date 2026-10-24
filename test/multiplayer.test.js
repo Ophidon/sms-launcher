@@ -213,6 +213,9 @@ test('the game is told to host or join through its environment', () => {
   assert.deepEqual(multiplayer.environment('host', { port: 24005, name: 'Chase' }),
     { SMS_MULTIPLAYER: 'host', SMS_MULTIPLAYER_PORT: '24005', SMS_MULTIPLAYER_NAME: 'Chase', SMS_MULTIPLAYER_MAX_PLAYERS: '8' });
   assert.equal(multiplayer.environment('host', { port: 24005, name: 'Chase', maxPlayers: '3' }).SMS_MULTIPLAYER_MAX_PLAYERS, '3');
+  // Players collide: the host's switch, off unless asked for
+  assert.equal(multiplayer.environment('host', { port: 24005, name: 'Chase', collision: true }).SMS_MULTIPLAYER_COLLISION, '1');
+  assert.equal(multiplayer.environment('host', { port: 24005, name: 'Chase', collision: false }).SMS_MULTIPLAYER_COLLISION, undefined);
   assert.throws(() => multiplayer.environment('host', { port: 24005, name: 'Chase', maxPlayers: 9 }), /2 to 8/);
   assert.deepEqual(multiplayer.environment('join', { host: '203.0.113.7', port: 24002, name: 'Bob' }),
     { SMS_MULTIPLAYER: 'join', SMS_MULTIPLAYER_ADDRESS: '203.0.113.7:24002', SMS_MULTIPLAYER_PORT: '24002', SMS_MULTIPLAYER_NAME: 'Bob' });

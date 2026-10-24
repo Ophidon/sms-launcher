@@ -54,3 +54,15 @@ test('values the launcher does not offer fall back to its own (normalizeSettings
   const after = port.normalizeSettings(gameSettings.merge(port.normalizeSettings({ resolution: 3 }), { resolution: 6, widescreen: 'wide', frameRate: 45 }));
   assert.deepEqual([after.resolution, after.widescreen, after.frameRate], [4, '16:9', 60]);
 });
+
+test('Player Collision changed in the hosting game is read apart from the game\'s settings', () => {
+  for (const [settings, want] of [[{ mpCollision: true }, true], [{ mpCollision: false, msaa: 4 }, false], [{ msaa: 4 }, null],
+    [{ mpCollision: 'yes' }, null]]) {
+    const { dir, file } = written(settings);
+    try {
+      assert.equal(gameSettings.readCollision(file), want);
+      assert.equal('mpCollision' in gameSettings.read(file), false); // not one of the game's settings
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  }
+  assert.equal(gameSettings.readCollision(path.join(os.tmpdir(), 'no-such-sms-settings.json')), null);
+});
