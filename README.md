@@ -162,6 +162,7 @@ On the **Saves & states** tab, you can:
 - **Back up saves** whenever you want an extra copy.
 - **Open backup folder** to find your backups.
 - Choose an earlier backup and select **Restore backup**. Your current saves are backed up before restoring.
+- Turn off **Back up automatically** to stop the backups before and after playing and before game updates or cleanup. **Back up saves** still works, and restoring a backup or importing a Dolphin save still backs up your current saves first.
 
 Backups are stored in **SMS Launcher Backups** in your home folder, separate from the launcher installation and game build folders. Copy that folder to another drive or cloud storage for extra protection.
 

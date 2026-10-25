@@ -145,6 +145,12 @@ test('usage sharing is on unless turned off', () => {
   assert.equal(port.normalizeSettings({ discordPresence: false }).discordPresence, false);
 });
 
+test('automatic save backups are on unless turned off', () => {
+  assert.equal(port.normalizeSettings({}).autoBackups, true);
+  assert.equal(port.normalizeSettings({ autoBackups: false }).autoBackups, false);
+  assert.equal(port.normalizeSettings({ autoBackups: 'no' }).autoBackups, true);
+});
+
 test('settings keep only changed, known key bindings', () => {
   assert.deepEqual(port.normalizeSettings({}).keyBindings, {});
   const settings = port.normalizeSettings({ keyBindings: { A: ['J'], B: ['MOUSE_RIGHT'], R: ['NOPE', 'K', 'K'], JUMP: ['A'] } });

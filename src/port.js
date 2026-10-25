@@ -191,6 +191,8 @@ function normalizeSettings(input = {}, platform = process.platform, hostArch = p
     shareUsage: input.shareUsage !== false,
     // Show what you are playing on your Discord profile while the game runs.
     discordPresence: input.discordPresence !== false,
+    // Save backups the launcher makes by itself (before and after play, before updates and cleanup); on unless turned off.
+    autoBackups: input.autoBackups !== false,
     // The launcher's own look: dark dialogs instead of light ones, off unless chosen.
     darkMode: Boolean(input.darkMode),
     // Keys the player changed in Settings → Controls; the rest stay the game's defaults.

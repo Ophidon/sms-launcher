@@ -539,9 +539,18 @@ function tidySaveDirectory() {
   catch (error) { log(`Couldn't move the multiplayer guest save out of your memory card folder: ${error.message}`); }
 }
 
+// The backups the launcher makes by itself, which Back up automatically (Saves) turns off. Back up saves, and the backups
+// before a restore or a Dolphin import (which write over the card) or before moving a build the card is in, still happen.
+const AUTOMATIC_BACKUPS = { 'before-play': 'before playing', 'after-play': 'after playing',
+  'before-port-update': 'before the update', 'before-cleanup': 'before cleanup' };
+
 function makeSaveBackup(reason) {
   if (active) throw new Error('Stop the running game or task before backing up saves.');
   tidySaveDirectory();
+  if (AUTOMATIC_BACKUPS[reason] && config.settings.autoBackups === false) {
+    log(`Saves not backed up ${AUTOMATIC_BACKUPS[reason]}: automatic backups are off under Saves.`);
+    return { skipped: true };
+  }
   const result = saves.backupSaves(currentSaveDirectory(), saves.backupRoot(), reason);
   log(result.empty ? result.message : `Saved ${result.count} memory card file(s)${result.mods ? ` and ${result.mods} mod save file(s)` : ''} to ${result.directory}`);
   return result;

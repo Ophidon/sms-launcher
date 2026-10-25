@@ -351,6 +351,16 @@ test('the Discord toggle shows the setting and is saved with the others', async 
   assert.equal(ui.calls.at(-1)[1].discordPresence, false);
 });
 
+test('Back up automatically shows the setting and is saved with the others', async () => {
+  const data = state(); data.config.settings = port.normalizeSettings({});
+  const ui = await renderer(data);
+  assert.equal(ui.elements.get('autoBackups').checked, true);
+  ui.elements.get('autoBackups').checked = false;
+  ui.elements.get('autoBackups').dispatch('change');
+  await new Promise(setImmediate);
+  assert.equal(ui.calls.at(-1)[1].autoBackups, false);
+});
+
 test('the Language list comes from the catalog, and a language the game lacks asks for an update', async () => {
   const data = state(); data.config.settings = port.normalizeSettings({ language: 'pl' });
   data.languagesSupported = true;

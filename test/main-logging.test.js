@@ -37,7 +37,7 @@ function main(t, { platform = process.platform, childProcess } = {}) {
     } }),
     setTimeout, setInterval, module: { exports: {} } };
   vm.runInNewContext(fs.readFileSync(filename, 'utf8') +
-    '\nmodule.exports = { launch, capture, exclusive, createWindow, registerHandlers, log, logOutput, activityLog, saveLog: file => sessionLog.save(file, [...partialOutput.values()]) };', context, { filename });
+    '\nmodule.exports = { launch, capture, exclusive, createWindow, registerHandlers, log, logOutput, activityLog, makeSaveBackup, setConfig: value => { config = value; }, saveLog: file => sessionLog.save(file, [...partialOutput.values()]) };', context, { filename });
   return { ...context.module.exports, root, appEvents, processEvents, consoleEvents, handlers, copied };
 }
 
@@ -151,4 +151,28 @@ test('Windows starts the game detached, not hidden, so its window shows', async 
   assert.equal(spawned[0].options.detached, true);
   assert.equal(spawned[1].options.windowsHide, true);
   assert.equal(spawned[1].options.detached, false);
+});
+
+test('Back up automatically off skips the launcher\'s own backups, with a log line, but not Back up saves', t => {
+  const runtime = main(t);
+  const home = process.env.HOME;
+  process.env.HOME = runtime.root; // backups go to ~/SMS Launcher Backups
+  t.after(() => { process.env.HOME = home; });
+  const card = path.join(runtime.root, 'card-a');
+  const backups = path.join(runtime.root, 'SMS Launcher Backups');
+  fs.mkdirSync(card);
+  fs.writeFileSync(path.join(card, 'GMSE01.dat'), 'progress');
+  const made = () => fs.existsSync(backups) ? fs.readdirSync(backups).length : 0;
+  runtime.setConfig({ repo: runtime.root, saveDirectory: card, settings: { autoBackups: false } });
+  for (const reason of ['before-play', 'after-play', 'before-port-update', 'before-cleanup'])
+    assert.deepEqual({ ...runtime.makeSaveBackup(reason) }, { skipped: true });
+  assert.equal(made(), 0);
+  const lines = runtime.activityLog.snapshot().map(entry => entry.text);
+  assert.ok(lines.includes('Saves not backed up before playing: automatic backups are off under Saves.'), lines.join('\n'));
+  assert.ok(lines.includes('Saves not backed up before the update: automatic backups are off under Saves.'));
+  assert.equal(runtime.makeSaveBackup('manual').count, 1);
+  assert.equal(made(), 1);
+  runtime.setConfig({ repo: runtime.root, saveDirectory: card, settings: { autoBackups: true } });
+  assert.equal(runtime.makeSaveBackup('before-play').count, 1);
+  assert.equal(made(), 2);
 });
