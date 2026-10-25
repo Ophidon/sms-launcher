@@ -77,7 +77,9 @@
       "Invert FLUDD Aim Y, in the game's settings menu (Gameplay) too: the control stick's up and down when you spray in place now have their own switch, and Invert Camera Y only flips the camera.",
       "Super Mario Eclipse: the Long Jump/Crouch Button setting in Better Sunshine Movement now works as on a console, so at L you crouch, long jump and ground pound with L, and Z centres the camera.",
       "Fixed the Rocket Nozzle launching Mario far too high, and higher the longer you held R, with Infinite FLUDD on in the cheat menu (F9): it now goes exactly as high as without the cheat.",
-      "Two more cheats in the cheat menu (F9): Infinite Air keeps Mario's air meter full under water so he can't drown, and Low Gravity (1/2 or 1/4) makes him jump higher and fall slower."
+      "Two more cheats in the cheat menu (F9): Infinite Air keeps Mario's air meter full under water so he can't drown, and Low Gravity (1/2 or 1/4) makes him jump higher and fall slower.",
+      "The episode select (where you pick a Shine after entering a stage) now runs at 60 or 120 fps when you play at that frame rate, instead of dropping to 30.",
+      "Fixed things that ran too fast at 60 and 120 fps playing at their normal speed again, among them the coin counter, the water tank's flash, regrowing goop, waterfall and seagull sounds, FLUDD's splashes, the Piantas' and Peach's sway, the Gatekeeper's and Petey's head turns, a 1-Up's blink, controller rumble, and the settings and save state menus' highlight and scrolling."
     ]
   },
   "releases": [
