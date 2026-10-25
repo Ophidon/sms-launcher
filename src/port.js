@@ -458,7 +458,40 @@ function texturePackInstalled(root) {
   return false;
 }
 
-function buildEnvironment(settings, disc, root) {
+// Custom textures: texture packs the player adds, made for Dolphin's "Load Custom Textures" (tex1_*.png or .dds
+// in any sub-folder), in a folder of the launcher's own, so a new game folder keeps them.
+function customTextureDirectory(userData) { return path.join(userData, 'custom-textures'); }
+
+// Whether a folder holds a texture the game would read. Folders linked in count, as the game follows them.
+function customTexturesPresent(directory) {
+  const pending = [directory], seen = new Set();
+  while (pending.length) {
+    const folder = pending.pop();
+    let entries, real;
+    try { real = fs.realpathSync(folder); entries = fs.readdirSync(folder, { withFileTypes: true }); } catch (_) { continue; }
+    if (seen.has(real)) continue;
+    seen.add(real);
+    for (const entry of entries) {
+      const file = path.join(folder, entry.name);
+      let kind = entry;
+      if (entry.isSymbolicLink()) try { kind = fs.statSync(file); } catch (_) { continue; }
+      if (kind.isFile() && /^tex1_.*\.(?:dds|png)$/i.test(entry.name)) return true;
+      if (kind.isDirectory()) pending.push(file);
+    }
+  }
+  return false;
+}
+
+// The texture folders the game reads, first match wins: the player's custom textures, then the HD textures.
+function texturePackFolders(settings, root, customTextures) {
+  const folders = [];
+  if (customTextures && customTexturesPresent(customTextures)) folders.push(customTextures);
+  if (settings.textures) folders.push(texturePackDirectory(root));
+  return folders;
+}
+
+// `customTextures` is the custom textures folder, for playing (texturePackFolders).
+function buildEnvironment(settings, disc, root, { customTextures = null } = {}) {
   if (!root) throw new Error('The port folder is required to configure texture packs.');
   const env = {
     ...process.env,
@@ -521,7 +554,8 @@ function buildEnvironment(settings, disc, root) {
     SMS_MUSIC_VOLUME: String(settings.musicVolume ?? 100),
     SMS_SFX_VOLUME: String(settings.sfxVolume ?? 100),
     SMS_GX_SCALE: String(settings.resolution),
-    SMS_TEXTURE_PACKS: settings.textures ? texturePackDirectory(root) : '0',
+    // The game splits the list at ';' (and at ':' outside a drive letter) on every system.
+    SMS_TEXTURE_PACKS: texturePackFolders(settings, root, customTextures).join(';') || '0',
     SMS_TEXTURE_PACK_PRELOAD: { all: 'all', play: '0' }[settings.textureLoading] || '1',
     SMS_GX_SHADER_WARMUP: settings.shaderWarmup === false ? '0' : '1',
     SMS_MOD: 'none',
@@ -709,7 +743,7 @@ function gameRuntimeFolders(settings, environment = process.env) {
 function eclipseRunCommand(...args) { return gameRunCommand(...args); }
 
 module.exports = { PORT_URL, ECLIPSE_ISO, platformInfo, isPort, validateRom, normalizeSettings, savedSettings, gameFeatures,
-  texturePackDirectory, texturePackInstalled, textureExtrasDirectory, textureExtrasSupported, textureExtrasInstalled, textureExtrasWanted,
+  texturePackDirectory, texturePackInstalled, customTextureDirectory, customTexturesPresent, texturePackFolders, textureExtrasDirectory, textureExtrasSupported, textureExtrasInstalled, textureExtrasWanted,
   eclipseMapsDirectory, eclipseMapsSupported, eclipseMapsInstalled, eclipseMapsWanted,
   achievementIconsDirectory, achievementIconsSupported, achievementIconsInstalled, achievementIconsWanted,
   LANGUAGES, LANGUAGE_PACKS, gameLanguage, languagePackDirectory, languagePacksSupported, languageAvailable, languageChoices,

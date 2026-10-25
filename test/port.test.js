@@ -125,6 +125,41 @@ test('offers only platform-supported architectures and keeps builds separate', (
     path.join('/port', 'mods', 'textures'));
 });
 
+test('custom textures with any texture in them come first in SMS_TEXTURE_PACKS, and play without HD textures', t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sms custom textures-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const root = path.join(dir, 'port'), custom = port.customTextureDirectory(path.join(dir, 'userData'));
+  assert.equal(custom, path.join(dir, 'userData', 'custom-textures'));
+  const hd = port.normalizeSettings({ textures: true }), off = port.normalizeSettings({ textures: false });
+  const packs = settings => port.buildEnvironment(settings, '/my/disc.iso', root, { customTextures: custom }).SMS_TEXTURE_PACKS;
+  assert.equal(packs(hd), port.texturePackDirectory(root), 'no folder yet');
+  assert.equal(packs(off), '0');
+  fs.mkdirSync(path.join(custom, 'GMSE01'), { recursive: true });
+  fs.writeFileSync(path.join(custom, 'GMSE01', 'readme.txt'), 'not a texture');
+  assert.equal(port.customTexturesPresent(custom), false);
+  assert.equal(packs(off), '0', 'a folder without textures is left out');
+  fs.writeFileSync(path.join(custom, 'GMSE01', 'TEX1_64x64_0123456789abcdef_14.DDS'), 'texture');
+  assert.equal(packs(hd), `${custom};${port.texturePackDirectory(root)}`);
+  assert.equal(packs(off), custom);
+  assert.equal(port.buildEnvironment(hd, '/my/disc.iso', root).SMS_TEXTURE_PACKS, port.texturePackDirectory(root),
+    'only playing passes the folder');
+});
+
+test('custom textures in a linked folder count, and a link back to a parent does not loop', t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sms custom links-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const custom = path.join(dir, 'custom-textures'), pack = path.join(dir, 'Dolphin', 'Load', 'Textures', 'GMSE01');
+  fs.mkdirSync(custom, { recursive: true });
+  fs.mkdirSync(pack, { recursive: true });
+  try {
+    fs.symlinkSync(dir, path.join(custom, 'loop'), 'junction');
+    fs.symlinkSync(pack, path.join(custom, 'GMSE01'), 'junction');
+  } catch (error) { t.skip(`cannot make links here: ${error.code}`); return; }
+  assert.equal(port.customTexturesPresent(custom), false);
+  fs.writeFileSync(path.join(pack, 'tex1_32x32_0123456789abcdef_3.png'), 'texture');
+  assert.equal(port.customTexturesPresent(custom), true);
+});
+
 test('master volume defaults to full, is clamped to 0-100, and reaches the game as SMS_VOLUME', () => {
   assert.equal(port.normalizeSettings({}).volume, 100);
   assert.equal(port.normalizeSettings({ volume: 40 }).volume, 40);

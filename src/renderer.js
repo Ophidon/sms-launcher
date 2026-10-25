@@ -2064,6 +2064,7 @@ $('import-save-state').addEventListener('click', async () => {
   } catch (error) { $('save-state-result').textContent = errorText(error); }
 });
 $('open-save-states').addEventListener('click', () => window.sms.openSaveStates().catch(showError));
+$('open-custom-textures').addEventListener('click', () => window.sms.openCustomTextures().catch(showError));
 for (const key of ['arch', 'widescreen', 'resolution', 'volume', 'musicVolume', 'sfxVolume', 'frameRate', 'language', 'vsync', 'skipMovies', 'skipIntro', 'pauseTracker', 'radar', 'autoSave', 'heatHaze', 'overlay', 'fullscreen', 'fullscreenMode', 'exclusiveResolution', 'display', 'invertCameraX', 'invertCameraY', 'freeCamera', 'cstickAim', 'cstickOrbit', 'cameraSpeed', 'mouseCamera', 'closeCameraMouse', 'mouseSensitivity', 'rawMouse', 'msaa', 'fxaa', 'anisotropic', 'sharpen', 'brightness', 'aspect', 'presentFilter', 'hudEdges', 'textures', 'textureLoading', 'shaderWarmup', 'cutscenes', 'eclipse', 'eclipseSunshineMovies', 'autoUpdate', 'shareUsage', 'discordPresence', 'autoBackups', 'darkMode', 'updateChannel', 'buttonPrompts', 'promptPad', 'hdr', 'hdrCalibration', 'hdrPaperWhite', 'hdrPeak', 'hdrContrast', 'hdrSaturation', 'hdrHighlights', 'fsrMode', 'renderer', 'appleSilicon'])
   $(key).addEventListener('change', saveSettings);
 for (const key of ['volume', 'musicVolume', 'sfxVolume']) $(key).addEventListener('input', renderVolume);

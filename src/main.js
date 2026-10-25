@@ -1236,9 +1236,10 @@ async function play(installation = null, session = null) {
   const saveDir = saves.prepareSaveDirectory(session?.mode === 'join'
     ? saves.guestSaveDirectory(currentSaveDirectory()) : currentSaveDirectory());
   const recordedTools = game.toolRoot(root, settings);
+  const playEnv = port.buildEnvironment(settings, disc, root, { customTextures: customTextureDirectory() });
   const env = recordedTools
-    ? buildTools.environmentAtRoot(recordedTools, { ...port.buildEnvironment(settings, disc, root), SMS_SAVE_DIR: saveDir })
-    : toolEnv({ ...port.buildEnvironment(settings, disc, root), SMS_SAVE_DIR: saveDir });
+    ? buildTools.environmentAtRoot(recordedTools, { ...playEnv, SMS_SAVE_DIR: saveDir })
+    : toolEnv({ ...playEnv, SMS_SAVE_DIR: saveDir });
   Object.assign(env, port.eclipseMovieEnvironment(root, settings, rom));
   shieldGame(root, settings, env);
   // Changed keys go to a file of the launcher's own, so a bindings.txt kept by hand in the game folder is left alone.
@@ -1321,7 +1322,7 @@ function marioLookPack(rom, disc, root, settings) {
   try {
     const started = Date.now();
     const made = marioPack.bake({ rom: disc, look, references: marioFrom(rom).references, directory,
-      packDirectories: settings.textures ? [port.texturePackDirectory(root)] : [] });
+      packDirectories: port.texturePackFolders(settings, root, customTextureDirectory()) });
     if (Date.now() - started > 250) log(`Painted Mario in your colours in ${((Date.now() - started) / 1000).toFixed(1)} s.`);
     return made;
   } catch (error) {
@@ -1340,13 +1341,17 @@ function marioPaintEnvironment(rom, root, settings) {
     const started = Date.now();
     env.SMS_MARIO_PAINT = marioPack.bakePaint({ rom, references: marioFrom(rom).references,
       directory: path.join(app.getPath('userData'), 'mario-paint'),
-      packDirectories: settings.textures ? [port.texturePackDirectory(root)] : [] });
+      packDirectories: port.texturePackFolders(settings, root, customTextureDirectory()) });
     if (Date.now() - started > 250) log(`Got Mario ready to paint the other players in ${((Date.now() - started) / 1000).toFixed(1)} s.`);
   } catch (error) {
     log(`The other players keep their characters' colours: ${error.message}`);
   }
   return env;
 }
+
+// Custom textures (port.customTextureDirectory): the player's own texture packs, in the launcher's folder
+// (the portable folder for the portable launcher).
+function customTextureDirectory() { return port.customTextureDirectory(app.getPath('userData')); }
 
 // Time spent in the game, in milliseconds, for Discord; kept apart from preferences.
 function playtimeFile() { return path.join(app.getPath('userData'), 'playtime.json'); }
@@ -2213,6 +2218,10 @@ function registerHandlers() {
   ipcMain.handle('open-native-mods', () => {
     fs.mkdirSync(nativeMods.directory(app.getPath('userData')), { recursive: true });
     return shell.openPath(nativeMods.directory(app.getPath('userData')));
+  });
+  ipcMain.handle('open-custom-textures', () => {
+    fs.mkdirSync(customTextureDirectory(), { recursive: true });
+    return shell.openPath(customTextureDirectory());
   });
   ipcMain.handle('achievements', () => achievementsState());
   ipcMain.handle('achievement-icons', () => achievementIcons());

@@ -2,6 +2,7 @@
   "_instructions": "Players see this file in the launcher. Add each player-visible change here in the same commit: launcher changes to beta.launcher, game changes Beta now builds to beta.game. Releases move beta into a new entry (npm run update:game does it). One plain sentence for players per line, no commit hashes or PR numbers. See AGENTS.md.",
   "beta": {
     "launcher": [
+      "Custom textures, under Settings → Graphics: choose Open custom textures folder and put texture packs made for Dolphin in it; their images replace the HD textures where both change the same texture, and they work with HD textures off too.",
       "HD cutscenes no longer need HD textures: turn them on by themselves in Settings for sharper movies with the original textures.",
       "Controls: each control on the Controls page now says what it does, like A button (jump) or Z button (map). If you had changed any keys, your whole keyboard layout stays as it was; Use classic keys, beside Reset all to defaults, brings back the old one (Space jumps, Shift dives, Q and E are L and R).",
       "Mouse aim in Mario Cam, on by default under Settings → Gameplay: in the close-up view Y opens, the mouse turns the view and aims FLUDD, as in shooters.",

@@ -210,6 +210,30 @@ test('chosen Mario colours reach the game as a look pack, from the HD pack when 
   assert.deepEqual(plainCopy(plain.bakes[0].packDirectories), [], 'HD textures off: the disc textures are repainted');
 });
 
+test('custom textures are read before the HD textures, alone with HD textures off, and repaint Mario too', async t => {
+  const addCustom = f => {
+    const folder = path.join(port.customTextureDirectory(f.directory), 'Load', 'Textures', 'GMSE01');
+    fs.mkdirSync(folder, { recursive: true });
+    fs.writeFileSync(path.join(folder, 'tex1_custom.png'), 'custom texture');
+    return port.customTextureDirectory(f.directory);
+  };
+  const look = { colors: { hat: '#00ff00' }, inGame: true };
+  const plainCopy = value => JSON.parse(JSON.stringify(value));
+  const hd = fixture(t, { textures: true, marioLook: look });
+  const custom = addCustom(hd);
+  await hd.play();
+  assert.equal(hd.starts[0].options.env.SMS_TEXTURE_PACKS, `${custom};${port.texturePackDirectory(hd.root)}`);
+  assert.deepEqual(plainCopy(hd.bakes[0].packDirectories), [custom, port.texturePackDirectory(hd.root)]);
+
+  const alone = fixture(t, { marioLook: look });
+  await alone.play();
+  assert.equal(alone.starts[0].options.env.SMS_TEXTURE_PACKS, '0', 'no custom textures: packs stay off');
+  const own = addCustom(alone);
+  await alone.play();
+  assert.equal(alone.starts[1].options.env.SMS_TEXTURE_PACKS, own);
+  assert.deepEqual(plainCopy(alone.bakes[1].packDirectories), [own]);
+});
+
 test('with Eclipse, Mario is painted from the Eclipse disc the game plays', async t => {
   const eclipse = fixture(t, { eclipse: true, marioLook: { colors: { hat: '#00ff00' } } });
   await eclipse.play();
