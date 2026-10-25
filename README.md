@@ -283,6 +283,8 @@ The launcher checks available tools and downloads prepared archives when needed.
 
 **Your own MSYS2 (Windows, advanced).** Set the environment variable `SMS_MSYS2_ROOT` to an MSYS2 folder (the one containing `usr` and `mingw64`) and restart the launcher. It then uses that MSYS2 for every build and never downloads its own Windows tools. This is for setups the prepared tools cannot run on, such as Windows 7 with the last MSYS2 that supports it. Install the packages from MinGW64: `pacman -S --needed mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-SDL2 mingw-w64-x86_64-ninja mingw-w64-x86_64-make mingw-w64-x86_64-python patch git`. Git is found in that MSYS2's `usr\bin` first, then on your normal PATH; on Windows 7, delete that MSYS2's `usr\bin\git.exe` and install Git for Windows 2.38.1 instead. Only 64-bit games are supported this way; Super Mario Eclipse needs clang, and HD textures need `7z` on the PATH. Unset the variable to go back to the prepared tools.
 
+**Removing them (Windows).** The tools take a few GB and are only needed to build the game: the Windows game has every DLL it imports beside it. Settings → Manage game → Remove build tools deletes them, and the launcher downloads them again the next time it builds or sets up the game. On Linux and macOS the game loads libraries from the tools, so they stay.
+
 Tool archives are separate release assets, with source archives and package notices. Matching versions are reused. Changed archives install into separate folders, preserving tools needed by earlier game builds. Each game build records its tool location.
 
 See [build tool publishing](docs/build-tools.md) for archive preparation and publishing.

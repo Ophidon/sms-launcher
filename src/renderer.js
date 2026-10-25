@@ -726,6 +726,12 @@ function refresh(data) {
   $('install-eclipse').disabled = !data.repoReady || !data.romReady || Boolean(data.active);
   $('clean').disabled = !data.repoReady || Boolean(data.active);
   $('clean-preview').disabled = !data.repoReady || Boolean(data.active);
+  // Windows only: elsewhere the game runs with libraries from the build tools. Your own MSYS2 is never removed.
+  $('build-tools-row').hidden = platform.id !== 'windows' || data.tools.mode === 'own';
+  $('build-tools-note').textContent = data.tools.ready
+    ? 'Only needed to build the game, which plays without them. Removing them frees a few GB; the launcher downloads them again the next time it builds or sets up the game.'
+    : 'Not downloaded. The launcher downloads them the next time it builds or sets up the game.';
+  $('remove-build-tools').disabled = !data.tools.ready || !data.binaryReady || Boolean(data.active);
   $('choose-rom').disabled = Boolean(data.active);
   $('choose-rom-settings').disabled = Boolean(data.active);
   $('choose-repo-settings').disabled = Boolean(data.active);
@@ -1222,7 +1228,7 @@ for (const [id, method] of Object.entries({
   'choose-rom': 'chooseRom', 'choose-rom-settings': 'chooseRom',
   'choose-repo-settings': 'chooseRepo', 'choose-location': 'chooseLocation',
   'play-installed': 'play', 'play-previous': 'playPrevious', 'build': 'build', 'install-eclipse': 'installEclipse',
-  'clean-preview': 'cleanPreview', clean: 'clean', 'backup-saves': 'backupSaves',
+  'clean-preview': 'cleanPreview', clean: 'clean', 'remove-build-tools': 'removeBuildTools', 'backup-saves': 'backupSaves',
   'open-backups': 'openBackups', stop: 'stop', docs: 'openDocs'
 })) $(id).addEventListener('click', () => action(method));
 // Update only builds the new game and stays in the launcher.

@@ -7,6 +7,7 @@ const port = require('./port');
 const tools = require('./build-tools');
 const saves = require('./saves');
 const portable = require('./portable');
+const windowsDlls = require('./windows-dlls');
 const release = require('./game-release.json');
 const { GIT_PERMANENT } = require('./retry');
 
@@ -77,6 +78,16 @@ function toolRoot(root, settings, base = portable.root()) {
   return recorded ? portable.relocated(recorded, base) : null;
 }
 
+// A Windows game plays without its build tools once every DLL it imports is
+// beside it, as shieldGame (main.js) puts them after each build and before each
+// play. Elsewhere the game loads libraries from the tools themselves (Linux's
+// RUNPATH and 32-bit loader, the Mac's), so it never does.
+function playsWithoutTools(root, settings, platform = process.platform, environment = process.env) {
+  if (platform !== 'win32') return false;
+  const binary = port.binaryPath(root, settings, platform);
+  return windowsDlls.unresolved(binary, [path.dirname(binary)], { environment })?.length === 0;
+}
+
 // Windows builds the Vulkan backend in only for a player who picks Vulkan
 // (port.buildEnvironment), so a build from before that is made again. A build
 // whose backend could not be had keeps SMS_GX_VULKAN on in its cache and isn't.
@@ -95,7 +106,8 @@ function isCurrent(root, settings, source = release, base = portable.root()) {
   const record = installed(root, settings);
   const expected = identity(settings, undefined, undefined, source);
   return Boolean(record && Object.keys(expected).every(key => record[key] === expected[key]) && !needsVulkanBuild(root, settings) &&
-    (!record.toolRoot || fs.existsSync(portable.relocated(record.toolRoot, base))) && matchesSource(root, source));
+    (!record.toolRoot || fs.existsSync(portable.relocated(record.toolRoot, base)) || playsWithoutTools(root, settings)) &&
+    matchesSource(root, source));
 }
 
 // Short, since Windows builds can't use paths of 260 characters or more
@@ -359,4 +371,4 @@ function recoverBuild(root, settings) {
   return true;
 }
 
-module.exports = { release, gitRevision, matchesSource, identity, installed, compilerToolRoot, toolRoot, needsVulkanBuild, isCurrent, snapshotPath, eclipseSourcesPath, checkout, carryUserFiles, relinkUserFolders, pruneSnapshots, buildSafely, recoverBuild };
+module.exports = { release, gitRevision, matchesSource, identity, installed, compilerToolRoot, toolRoot, playsWithoutTools, needsVulkanBuild, isCurrent, snapshotPath, eclipseSourcesPath, checkout, carryUserFiles, relinkUserFolders, pruneSnapshots, buildSafely, recoverBuild };

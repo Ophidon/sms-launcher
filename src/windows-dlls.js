@@ -171,4 +171,27 @@ function shieldToolchain(msys, options = {}) {
     errors: results.flatMap(result => result.errors) };
 }
 
-module.exports = { imports, needed, systemCopies, shield, toolchainPrograms, shieldToolchain };
+// The DLLs a program imports, directly or through the DLLs it finds in the
+// folders, that are neither there (for its own architecture) nor Windows' own:
+// what it would miss with nothing on the PATH. Null for a file that is not a
+// program. API sets (api-ms-win-*) are Windows' own, without files.
+function unresolved(program, folders, { environment = process.env } = {}) {
+  const info = imports(program);
+  if (!info) return null;
+  const listings = folders.map(listing);
+  const seen = new Set(), missing = [];
+  const pending = [...info.dlls];
+  while (pending.length) {
+    const name = pending.shift().toLowerCase();
+    if (seen.has(name) || /^(api|ext)-ms-/.test(name)) continue;
+    seen.add(name);
+    const found = folders.map((folder, index) => listings[index].has(name) && imports(path.join(folder, listings[index].get(name))))
+      .find(dll => dll && dll.machine === info.machine);
+    if (found) pending.push(...found.dlls);
+    else missing.push(name);
+  }
+  const system = new Set(systemCopies(missing, info.machine, environment).map(file => path.basename(file).toLowerCase()));
+  return missing.filter(name => !system.has(name));
+}
+
+module.exports = { imports, needed, systemCopies, shield, toolchainPrograms, shieldToolchain, unresolved };

@@ -70,6 +70,7 @@ async function renderer(data = state(), copyError = null, notes = { releases: []
     saveSettings: async value => { calls.push(['saveSettings', value]); return { ...data, config: { ...data.config, settings: port.normalizeSettings(value, ...host(data.platform)) } }; },
     changelog: async () => notes, markChangelogSeen: async () => { changelogSeen.push(true); },
     play: async () => { calls.push('play'); }, launchGame: async () => { calls.push('launchGame'); },
+    removeBuildTools: async () => { calls.push('removeBuildTools'); },
     updateAndPlay: async () => { calls.push('updateAndPlay'); },
     updatePort: async () => {
       calls.push('updatePort'); data.game = { ...data.game, needsUpdate: false, installedVersion: data.game.availableVersion };
@@ -904,4 +905,25 @@ test('setup says where the build tools download, which is not the install locati
     `Build tools (a few GB) download to ${folder}, not to the install location.`);
   const portable = await renderer({ ...fresh, portable: true });
   assert.match(portable.elements.get('tool-location-note').textContent, /SMS-Launcher-Portable folder/);
+});
+
+test('Manage game offers Remove build tools on Windows once the game is built, and nowhere else', async () => {
+  const windows = { ...state(), platform: port.platformInfo('win32') };
+  const ui = await renderer(windows);
+  assert.equal(ui.elements.get('build-tools-row').hidden, false);
+  assert.match(ui.elements.get('build-tools-note').textContent, /plays without them/);
+  await ui.click('remove-build-tools');
+  assert.ok(ui.calls.includes('removeBuildTools'));
+  for (const patch of [{ tools: { ready: false, mode: 'missing' } }, { binaryReady: false }, { active: { label: 'Build Sunshine port' } }]) {
+    const busy = await renderer({ ...windows, ...patch });
+    assert.equal(busy.elements.get('remove-build-tools').disabled, true);
+  }
+  const removed = await renderer({ ...windows, tools: { ready: false, mode: 'missing' } });
+  assert.match(removed.elements.get('build-tools-note').textContent, /^Not downloaded/);
+  const own = await renderer({ ...windows, tools: { ready: true, mode: 'own' } });
+  assert.equal(own.elements.get('build-tools-row').hidden, true);
+  for (const id of ['linux', 'darwin']) {
+    const other = await renderer({ ...state(), platform: port.platformInfo(id) });
+    assert.equal(other.elements.get('build-tools-row').hidden, true);
+  }
 });

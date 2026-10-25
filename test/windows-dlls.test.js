@@ -133,3 +133,41 @@ test('a game that is not a Windows program is left alone', t => {
   assert.deepEqual(dlls.shield([game], [path.join(directory, 'msys64', 'mingw64', 'bin')]), { placed: [], conflicts: [], errors: [] });
   assert.deepEqual(fs.readdirSync(path.dirname(game)), ['sms.exe']);
 });
+
+test('a program misses only the DLLs that are neither beside it, of its own architecture, nor Windows\' own', t => {
+  const directory = tempDir(t);
+  const bin = path.join(directory, 'game');
+  const program = write(path.join(bin, 'sms.exe'), pe(AMD64, ['SDL2.dll', 'libstdc++-6.dll', 'KERNEL32.dll', 'api-ms-win-crt-runtime-l1-1-0.dll']));
+  write(path.join(bin, 'SDL2.dll'), pe(AMD64, ['KERNEL32.dll', 'SETUPAPI.dll']));
+  write(path.join(bin, 'libstdc++-6.dll'), pe(AMD64, ['libgcc_s_seh-1.dll', 'libwinpthread-1.dll']));
+  write(path.join(bin, 'libgcc_s_seh-1.dll'), pe(AMD64));
+  const windows = path.join(directory, 'Windows');
+  write(path.join(windows, 'System32', 'kernel32.dll'), pe(AMD64));
+  write(path.join(windows, 'System32', 'setupapi.dll'), pe(AMD64));
+  const environment = { SystemRoot: windows };
+  assert.deepEqual(dlls.unresolved(program, [bin], { environment }), ['libwinpthread-1.dll']);
+  // a 32-bit copy beside a 64-bit game doesn't count
+  write(path.join(bin, 'libwinpthread-1.dll'), pe(I386));
+  assert.deepEqual(dlls.unresolved(program, [bin], { environment }), ['libwinpthread-1.dll']);
+  write(path.join(bin, 'libwinpthread-1.dll'), pe(AMD64));
+  assert.deepEqual(dlls.unresolved(program, [bin], { environment }), []);
+  assert.equal(dlls.unresolved(write(path.join(bin, 'notes.exe'), 'text'), [bin], { environment }), null);
+});
+
+test('a Windows game with its DLLs beside it plays without build tools; elsewhere the game needs them', t => {
+  const game = require('../src/game-version');
+  const directory = tempDir(t);
+  const root = path.join(directory, 'sms-pc-port');
+  const settings = port.normalizeSettings({}, 'win32');
+  const binary = port.binaryPath(root, settings, 'win32');
+  const windows = path.join(directory, 'Windows');
+  write(path.join(windows, 'System32', 'KERNEL32.dll'), pe(AMD64));
+  const environment = { SystemRoot: windows };
+  assert.equal(game.playsWithoutTools(root, settings, 'win32', environment), false);
+  write(binary, pe(AMD64, ['SDL2.dll', 'KERNEL32.dll']));
+  // its SDL2.dll was in the removed tools' mingw64\bin
+  assert.equal(game.playsWithoutTools(root, settings, 'win32', environment), false);
+  write(path.join(path.dirname(binary), 'SDL2.dll'), pe(AMD64, ['KERNEL32.dll']));
+  assert.equal(game.playsWithoutTools(root, settings, 'win32', environment), true);
+  assert.equal(game.playsWithoutTools(root, settings, 'linux', environment), false);
+});

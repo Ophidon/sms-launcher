@@ -39,6 +39,7 @@ contextBridge.exposeInMainWorld('sms', {
   takeDiscordJoin: () => ipcRenderer.invoke('take-discord-join'),
   cleanPreview: () => ipcRenderer.invoke('clean-preview'),
   clean: () => ipcRenderer.invoke('clean'),
+  removeBuildTools: () => ipcRenderer.invoke('remove-build-tools'),
   backupSaves: () => ipcRenderer.invoke('backup-saves'),
   steamStatus: () => ipcRenderer.invoke('steam-status'),
   gcAdapterStatus: () => ipcRenderer.invoke('gc-adapter-status'),

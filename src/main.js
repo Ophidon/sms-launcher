@@ -692,8 +692,10 @@ function shieldBuildTools() {
 }
 
 // The game loads its DLLs the same way: from its build folder before System32.
+// Only from the tools it was built with: once they are removed (removeBuildTools),
+// the DLLs beside it stay as they are, not replaced from some other C:\msys64.
 function shieldGame(root, settings, env) {
-  if (process.platform !== 'win32') return;
+  if (process.platform !== 'win32' || !env.MSYS2_ROOT) return;
   const result = windowsDlls.shield([port.binaryPath(root, settings)], port.gameRuntimeFolders(settings, env));
   for (const error of result.errors) log(`Could not give the game its own DLL: ${error}`);
   if (result.conflicts.length && result.placed.length)
@@ -782,8 +784,11 @@ async function prepareBuildTools() {
 async function updatePort() {
   requireRepo();
   port.validateRom(config.rom);
-  await ensureBuildTools();
-  await refreshGameSource();
+  // Removed build tools download again only for a game that needs building.
+  if (config.gameSource || !game.isCurrent(config.repo, config.settings, currentSource())) {
+    await ensureBuildTools();
+    await refreshGameSource();
+  }
   if (game.isCurrent(config.repo, config.settings, currentSource())) {
     log(config.gameSource ? 'Your game is up to date with the chosen game source.' : 'Your game is up to date for this launcher release.');
     return state();
@@ -812,11 +817,56 @@ async function installEclipse(root = requireRepo()) {
   return launch(cmd.command, cmd.args, { cwd: cmd.cwd, env: cmd.env }, 'Install Eclipse from your disc');
 }
 
+// Windows build tools removed under Manage game (removeBuildTools) or by hand,
+// with a game that plays without them: the downloads that only add to it, and
+// would otherwise download the tools first for their installers, wait for the
+// next time the tools come back (a game update or rebuild). Says so in the log.
+function toolsRemoved(what) {
+  if (process.platform !== 'win32' || toolsStatus().ready) return false;
+  log(`${what} wait for the next game update: their installer needs the build tools, which are removed, and the launcher downloads them again then.`);
+  return true;
+}
+
+// Manage game → Remove build tools. Only Windows: its game has every DLL it
+// imports beside it and plays without them (game.playsWithoutTools); on Linux
+// and macOS the game loads libraries from the tools. Each kept game first gets
+// its DLLs from the tools it was built with. The tools download again the next
+// time the launcher builds or sets up the game (ensureBuildTools).
+function buildToolsFolder() { return path.dirname(buildTools.rootFor(app.getPath('userData'))); }
+
+async function removeBuildTools() {
+  if (process.platform !== 'win32') throw new Error('On this computer the game runs with libraries from the build tools, so they stay.');
+  if (toolsStatus().mode === 'own') throw new Error('The launcher builds with your own MSYS2 (SMS_MSYS2_ROOT) and never removes it.');
+  requireRepo();
+  for (const install of [{ repo: config.repo }, config.previousInstall].filter(item => item?.repo))
+    for (const arch of port.platformInfo().arches)
+      for (const eclipse of [false, true]) {
+        const settings = { ...config.settings, arch, eclipse };
+        if (!fs.existsSync(port.binaryPath(install.repo, settings))) continue;
+        const recorded = game.toolRoot(install.repo, settings);
+        const base = { ...process.env, SMS_ARCH: arch };
+        shieldGame(install.repo, settings, recorded ? buildTools.environmentAtRoot(recorded, base) : toolEnv(base));
+      }
+  if (!binaryReady() || !game.playsWithoutTools(config.repo, config.settings))
+    throw new Error('The game still needs DLLs from the build tools. Update or rebuild the game, then try again.');
+  const folder = buildToolsFolder();
+  if (operation) {
+    Object.assign(operation, { detail: 'Removing build tools…', percent: null });
+    broadcast('activity', activityState());
+  }
+  try { await fs.promises.rm(folder, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }); }
+  catch (error) {
+    throw new Error(`Some build tools could not be removed (${error.message}). Close programs using files in ${folder}, then try again.`);
+  }
+  log(`Removed the build tools from ${folder}. The game plays without them; the launcher downloads them again the next time it builds or sets up the game.`);
+  return state();
+}
+
 // The texture extras' pinned release, downloaded on its own (not the UHD pack
 // again) when it is missing or a newer one is pinned. They only add to the UHD
 // pack, so a failed download is logged and never stops setup or play.
 async function updateTextureExtras(root, settings) {
-  if (!port.textureExtrasWanted(root, settings)) return;
+  if (!port.textureExtrasWanted(root, settings) || toolsRemoved('HD texture extras')) return;
   try {
     await ensureBuildTools();
     const cmd = port.commandFor(root, 'texture-extras', [], process.platform, toolEnv());
@@ -832,7 +882,8 @@ async function updateTextureExtras(root, settings) {
 // release is pinned. Only the radar needs them, so a failed download is logged
 // and never stops setup or play.
 async function updateEclipseMaps(root, settings) {
-  if (!port.eclipseMapsWanted(root, settings) || !fs.existsSync(path.join(root, port.ECLIPSE_ISO))) return;
+  if (!port.eclipseMapsWanted(root, settings) || !fs.existsSync(path.join(root, port.ECLIPSE_ISO)) ||
+    toolsRemoved("Eclipse's radar maps")) return;
   try {
     await ensureBuildTools();
     const cmd = port.commandFor(root, 'eclipse-maps', [], process.platform, toolEnv());
@@ -846,7 +897,7 @@ async function updateEclipseMaps(root, settings) {
 // The achievements' icons, when they are missing or not the pinned release: before the game plays, for every
 // player. A failed download does not stop the game: it plays without them, and setup tries again next time.
 async function updateAchievementIcons(root, settings) {
-  if (!port.achievementIconsWanted(root, settings)) return;
+  if (!port.achievementIconsWanted(root, settings) || toolsRemoved('The achievement icons')) return;
   try { await installAchievementIcons(root, { tries: 2 }); }
   catch (error) {
     log(`The achievement icons were not installed (${error.message}); achievements still unlock, and setup tries again next time.`);
@@ -2196,6 +2247,16 @@ function registerHandlers() {
       message: 'Remove files the launcher can make again?', detail: 'The next play may take longer. Your disc file and saved games will be kept.'
     });
     return answer.response === 1 ? clean(false) : { cancelled: true };
+  }));
+  ipcMain.handle('remove-build-tools', () => exclusive('Remove build tools', async () => {
+    const answer = await dialog.showMessageBox(window, {
+      type: 'warning', buttons: ['Cancel', 'Remove build tools'], defaultId: 0, cancelId: 0,
+      message: 'Remove the build tools?',
+      detail: `They take a few GB in ${buildToolsFolder()} and are only needed to build the game, which plays without them. ` +
+        'The launcher downloads them again when it next needs them: to update or rebuild the game, or to set up HD visuals, ' +
+        'a language or Super Mario Eclipse. Your game, disc file and saved games are kept.'
+    });
+    return answer.response === 1 ? removeBuildTools() : { cancelled: true };
   }));
   ipcMain.handle('stop', () => {
     if (!active) return false;

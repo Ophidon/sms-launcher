@@ -11,7 +11,7 @@ const { EventEmitter } = require('node:events');
 const port = require('../src/port');
 const { gcm } = require('./disc-fixture');
 
-function fixture(t, { metadata = true, textures = false, eclipse = false, discordPresence = true, autoUpdate = true, exitCode = 0, marioLook, bake } = {}) {
+function fixture(t, { metadata = true, textures = false, eclipse = false, discordPresence = true, autoUpdate = true, exitCode = 0, marioLook, bake, tools } = {}) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'sms installed game-'));
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   const root = path.join(directory, 'port');
@@ -45,7 +45,7 @@ function fixture(t, { metadata = true, textures = false, eclipse = false, discor
   const context = vm.createContext({ console, process, Buffer, setTimeout, setInterval, __dirname: path.dirname(sourcePath),
     require(name) {
       if (name === 'electron') return {
-        app: { requestSingleInstanceLock: () => true, commandLine: { appendSwitch() {} }, whenReady: () => new Promise(() => {}), on() {}, getPath: () => directory },
+        app: { requestSingleInstanceLock: () => true, commandLine: { appendSwitch() {} }, whenReady: () => new Promise(() => {}), on() {}, getPath: () => directory, getVersion: () => '0.0.0' },
         ipcMain: { handle: (name, fn) => handlers.set(name, fn) }, BrowserWindow: {} };
       if (name === './build-tools') return {
         environmentAtRoot(selected, env) {
@@ -53,10 +53,12 @@ function fixture(t, { metadata = true, textures = false, eclipse = false, discor
           return { ...env, MSYS2_ROOT: path.join(selected, 'msys64') };
         },
         environment(_userData, env) { return { ...env, MSYS2_ROOT: path.join(toolRoot, 'msys64') }; },
-        rootFor: userData => path.join(userData, 'build-tools'),
+        rootFor: userData => path.join(userData, 'build-tools'), toolsetFor: nativeRequire('./build-tools').toolsetFor,
         async ensure() { throw new Error('Playing must not prepare new tools'); },
         async check() { throw new Error('Playing must not prepare new tools'); },
-        status() { throw new Error('Playing must not prepare new tools'); } };
+        // `tools`: what the launcher's own status finds; preparing them still fails.
+        status() { if (tools) return tools; throw new Error('Playing must not prepare new tools'); },
+        async prepare() { throw new Error('Playing must not prepare new tools'); } };
       if (name === './discord') return { ...nativeRequire('./discord'),
         createPresence: () => ({ set: activity => activities.push(activity), stop() {}, listen() {}, reply() {} }) };
       if (name === './mario-model') return { loadMario: () => ({ references: ['disc references'] }) };
@@ -65,7 +67,7 @@ function fixture(t, { metadata = true, textures = false, eclipse = false, discor
       if (name === './saves') return {
         backupRoot: () => path.join(directory, 'backups'),
         backupSaves(_saves, _backups, reason) { backups.push(reason); return { empty: true, message: 'No saves yet' }; },
-        prepareSaveDirectory: dir => dir.replaceAll('\\', '/') };
+        prepareSaveDirectory: dir => dir.replaceAll('\\', '/'), listBackups: () => [] };
       if (name === 'node:child_process') return { spawn(command, args, options) {
         starts.push({ command, args, options });
         const child = new EventEmitter();
@@ -267,4 +269,18 @@ test('without chosen colours, or when painting fails, Mario plays as he is', asy
   assert.equal(failing.starts.length, 1);
   assert.equal(failing.starts[0].options.env.SMS_MARIO_LOOK, undefined);
   assert.match(failing.logText(), /Mario keeps his usual colours: disc unreadable/);
+});
+
+test('Update game with the game up to date says so without preparing build tools, which may have been removed', async t => {
+  const f = fixture(t, { tools: { ready: false, mode: 'missing' } });
+  const game = require('../src/game-version');
+  for (const [folder, commit] of [['', game.release.commit], ['decomp', game.release.decomp]]) {
+    fs.mkdirSync(path.join(f.root, folder, '.git'), { recursive: true });
+    fs.writeFileSync(path.join(f.root, folder, '.git', 'HEAD'), `${commit}\n`);
+  }
+  fs.writeFileSync(f.record, JSON.stringify(game.identity(f.config.settings)));
+  // preparing tools fails in this fixture, as would downloading them again
+  await f.invoke('update-port');
+  assert.equal(f.starts.length, 0);
+  assert.match(f.logText(), /up to date/);
 });
