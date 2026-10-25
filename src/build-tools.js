@@ -53,9 +53,14 @@ function legacyRootFor(userData, platform = process.platform) {
   return path.join(userData, 'build-tools', platformId(platform));
 }
 
+// The Windows toolset's GCC version: GCC runs its compilers (cc1plus.exe) and
+// linker driver from lib/gcc/<target>/<version>. A new toolset with another
+// GCC fails scripts/smoke-build-tools.js until this changes with it.
+const WINDOWS_GCC = '16.2.0';
+
 // Files each private toolset must keep. Antivirus can delete an executable
-// after unpacking (ninja.exe on Windows), which leaves CMake unable to build;
-// a tool missing any of them is set up again.
+// after unpacking (ninja.exe on Windows), or while the game builds (cc1plus.exe),
+// which leaves CMake unable to build; a tool missing any of them is set up again.
 const TOOL_FILES = {
   darwin: ['clang', 'clang++', 'git', 'cmake', 'ninja', 'python3', 'make', 'patch', 'llvm-objcopy', '7z']
     .map(name => path.join('env', 'bin', name)),
@@ -65,7 +70,10 @@ const TOOL_FILES = {
     'mingw64/bin/cmake.exe', 'mingw64/bin/ninja.exe', 'mingw64/bin/python.exe', 'mingw64/bin/7z.exe',
     'mingw64/bin/SDL2.dll', 'mingw64/include/SDL2/SDL.h',
     'opt/bin/i686-w64-mingw32-gcc.exe', 'opt/bin/i686-w64-mingw32-g++.exe',
-    'mingw32/bin/SDL2.dll', 'mingw32/include/SDL2/SDL.h'].map(file => path.join('msys64', ...file.split('/'))),
+    'mingw32/bin/SDL2.dll', 'mingw32/include/SDL2/SDL.h',
+    ...[['mingw64', 'x86_64-w64-mingw32'], ['opt', 'i686-w64-mingw32']].flatMap(([prefix, target]) => [
+      ...['cc1.exe', 'cc1plus.exe', 'collect2.exe'].map(name => `${prefix}/lib/gcc/${target}/${WINDOWS_GCC}/${name}`),
+      `${prefix}/${target}/bin/as.exe`, `${prefix}/${target}/bin/ld.exe`])].map(file => path.join('msys64', ...file.split('/'))),
   linux: [...['g++', 'git', 'cmake', 'python3', 'make', 'patch', 'objcopy', '7z'].map(name => path.join('env', 'bin', name)),
     path.join('env', 'lib', 'libSDL2-2.0.so.0'),
     path.join('env', 'targets', 'linux32', 'bin', 'i686-linux-g++'),
@@ -107,6 +115,43 @@ function deletedToolsError(userData, platform = process.platform) {
   const missing = missingTools(userData, platform);
   return missing?.length ? new Error(`${missingToolsMessage(userData, missing, platform)} Then try again: ` +
     'the launcher sets the build tools up again.') : null;
+}
+
+// What a Windows build prints when Windows won't run one of its tools, as when
+// antivirus quarantines or blocks ninja.exe or cc1plus.exe while the game
+// builds: [pattern, the tool's group or null, the reason's group or null].
+const BLOCKED_TOOL = [
+  // g++.exe: fatal error: cannot execute 'cc1plus': CreateProcess: No such file or directory
+  [/cannot execute '([^']+)': CreateProcess: (.+)/i, 1, 2],
+  // clang++: error: unable to execute command: Couldn't execute program 'C:\...\ld.exe': Access is denied.
+  [/unable to execute command: .*?'([^']+\.exe)'(?::\s*(.+))?/i, 1, 2],
+  // ninja: fatal: CreateProcess: Access is denied
+  [/CreateProcess(?: failed)?: (Access is denied|The system cannot find the file specified)/i, null, 1],
+  // bash: /mingw64/bin/ninja.exe: Permission denied
+  [/([^\s:'"]+\.exe): (Permission denied|Access is denied|cannot execute binary file)/i, 1, 2],
+  // Windows' own refusal (ERROR_VIRUS_INFECTED)
+  [/(Operation did not complete successfully because the file contains a virus or potentially unwanted software)/i, null, 1]
+];
+
+// The error to show for a failed Windows build whose output says Windows
+// wouldn't run one of the build tools, or null.
+function blockedToolError(userData, lines = [], platform = process.platform) {
+  if (platform !== 'win32') return null;
+  for (const line of [...lines].reverse()) {
+    for (const [pattern, toolGroup, reasonGroup] of BLOCKED_TOOL) {
+      const match = String(line).match(pattern);
+      if (!match) continue;
+      const named = toolGroup ? match[toolGroup] : String(line).match(/([^\s\\/:'"]+\.exe)\b/i)?.[1];
+      const tool = named ? path.win32.basename(named.replace(/\//g, '\\')).replace(/^(?!.*\.\w+$)(.+)$/, '$1.exe') : 'one of the build tools';
+      const reason = reasonGroup && match[reasonGroup] ? ` (${match[reasonGroup].trim().replace(/\.$/, '')})` : '';
+      return Object.assign(new Error(`Windows wouldn't run ${tool} while building the game${reason}. Antivirus usually ` +
+        `causes this: restore ${named ? 'it' : 'the build tools'} from your antivirus's quarantine if it took ${named ? 'it' : 'any'}, and allow ` +
+        `${path.dirname(rootFor(userData, platform))} in your antivirus (in Windows Security: Virus & threat protection, ` +
+        'Manage settings, Exclusions), then try again: the launcher sets up any build tools that are missing again.'),
+      { blockedTool: tool });
+    }
+  }
+  return null;
 }
 
 function commandWorks(command, args = [], env = process.env) {
@@ -517,5 +562,5 @@ async function pruneToolsets(userData, keep = [], { platform = process.platform,
   return removed;
 }
 
-module.exports = { TOOLSET, toolsetFor, platformId, rootFor, legacyRootFor, privateReady, missingTools, deletedToolsError, systemReady, status, environment, environmentAtRoot, check,
+module.exports = { TOOLSET, toolsetFor, platformId, rootFor, legacyRootFor, privateReady, missingTools, deletedToolsError, blockedToolError, systemReady, status, environment, environmentAtRoot, check,
   fetchVerified, hashFile, assetFor, prepare, pruneToolsets, unpackNative, renameRetrying };

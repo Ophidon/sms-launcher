@@ -598,7 +598,7 @@ async function launch(command, args, options = {}, label = 'Task', isGame = fals
     broadcast('activity', activityState());
     if (error) throw error;
     if (code !== 0 || signal) {
-      throw Object.assign(new Error(failureMessage(label, { code, signal }, recent, { game: isGame })), { exitCode: code });
+      throw Object.assign(new Error(failureMessage(label, { code, signal }, recent, { game: isGame })), { exitCode: code, output: recent.slice() });
     }
     log(`✓ ${label} finished`);
     return { ok: true };
@@ -1027,9 +1027,12 @@ async function build(forceFresh = false) {
       ? port.eclipseBuildCommand(root, settings, process.platform, buildEnv)
       : port.commandFor(root, 'build', [disc], process.platform, buildEnv);
     return game.buildSafely(root, settings, saveDirectory,
-      // A build that fails because antivirus deleted a tool says so instead of CMake's error.
+      // A build that fails because antivirus deleted or blocked a tool says so instead of CMake's error.
       () => launch(cmd.command, cmd.args, { cwd: cmd.cwd, env: cmd.env }, settings.eclipse ? 'Build Eclipse port' : 'Build Sunshine port')
-        .catch(error => { throw buildTools.deletedToolsError(app.getPath('userData')) || error; }),
+        .catch(error => {
+          const userData = app.getPath('userData');
+          throw buildTools.deletedToolsError(userData) || buildTools.blockedToolError(userData, error.output) || error;
+        }),
       undefined, source);
   };
   const startedAt = Date.now();
@@ -1038,7 +1041,7 @@ async function build(forceFresh = false) {
   catch (error) {
     // A failed build through the compiler cache is tried once more without it,
     // unless the player stopped it or the build tools lost files.
-    if (!usesCompilerCache(env) || stoppedAt >= startedAt || buildTools.missingTools(app.getPath('userData'))?.length) throw error;
+    if (!usesCompilerCache(env) || stoppedAt >= startedAt || error.blockedTool || buildTools.missingTools(app.getPath('userData'))?.length) throw error;
     log('The build failed with the compiler cache. Building again without it…');
     result = await compile(Object.fromEntries(Object.entries(env).filter(([key]) => key !== 'SMS_COMPILER_CACHE' && !/^CCACHE_/i.test(key))));
   }

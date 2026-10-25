@@ -118,6 +118,42 @@ test('Windows tools that lose an executable after setup are no longer ready, and
   assert.equal(tools.missingTools(dir, 'win32'), null);
 });
 
+test('a Windows build that antivirus breaks names the tool, and a compiler it deleted counts as missing', t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sms-blocked-tools-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const root = installedTools(dir, 'win32');
+  const cc1plus = path.join(root, 'msys64', 'mingw64', 'lib', 'gcc', 'x86_64-w64-mingw32', '16.2.0', 'cc1plus.exe');
+  assert.ok(fs.existsSync(cc1plus));
+  assert.equal(tools.privateReady(dir, 'win32'), true);
+  // Quarantined while the game built: the failed build says so, and setup puts it back.
+  fs.rmSync(cc1plus);
+  assert.equal(tools.privateReady(dir, 'win32'), false);
+  assert.match(tools.deletedToolsError(dir, 'win32').message, /missing cc1plus\.exe\. Antivirus/);
+
+  const build = [
+    '[608/665] Building CXX object platform/gx/CMakeFiles/sms_gx.dir/src/gx_fifo.cpp.obj',
+    'FAILED: platform/gx/CMakeFiles/sms_gx.dir/src/gx_fifo.cpp.obj',
+    "g++.exe: fatal error: cannot execute 'cc1plus': CreateProcess: No such file or directory",
+    'compilation terminated.',
+    'ninja: build stopped: subcommand failed.'
+  ];
+  const blocked = tools.blockedToolError(dir, build, 'win32');
+  assert.match(blocked.message, /^Windows wouldn't run cc1plus\.exe while building the game \(No such file or directory\)\. Antivirus usually causes this: restore it from your antivirus's quarantine/);
+  assert.ok(blocked.message.includes(path.dirname(tools.rootFor(dir, 'win32'))));
+  assert.match(blocked.message, /Exclusions\), then try again: the launcher sets up any build tools that are missing again\.$/);
+  assert.equal(blocked.blockedTool, 'cc1plus.exe');
+  const tool = lines => tools.blockedToolError(dir, lines, 'win32')?.blockedTool;
+  assert.equal(tool(['ninja: fatal: CreateProcess: Access is denied.']), 'one of the build tools');
+  assert.equal(tool(['/usr/bin/bash: line 1: /c/Users/me/msys64/mingw64/bin/ninja.exe: Permission denied']), 'ninja.exe');
+  assert.equal(tool(["clang++: error: unable to execute command: Couldn't execute program 'C:\\\\T\\\\msys64\\\\mingw64\\\\bin\\\\ld.lld.exe': Access is denied."]), 'ld.lld.exe');
+  assert.match(tools.blockedToolError(dir, ['ninja: fatal: CreateProcess: Operation did not complete successfully because the file contains a virus or potentially unwanted software.'], 'win32').message,
+    /contains a virus or potentially unwanted software\)\. Antivirus/);
+  // An ordinary compile error, and other systems, are left as they are.
+  assert.equal(tools.blockedToolError(dir, ["gx_fifo.cpp:12:3: error: expected ';' before '}' token", 'ninja: build stopped: subcommand failed.'], 'win32'), null);
+  assert.equal(tools.blockedToolError(dir, build, 'linux'), null);
+  assert.equal(tools.blockedToolError(dir, undefined, 'win32'), null);
+});
+
 test('setup unpacks tools that lost files again, and names files still missing after unpacking', x64Tools, async t => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sms-deleted-tools-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
