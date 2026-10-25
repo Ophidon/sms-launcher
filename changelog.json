@@ -75,7 +75,9 @@
       "Mod makers: a mod can now show its own screen when a file is chosen at file select (a randomizer's seed and options, say) before the game starts; mods that change where a file starts now apply their change once.",
       "Colour correction, on the Display page of the settings menu (off by default): Colour Correction shows the colours of the TVs the game was made for (NTSC-M, NTSC-J with Japan's bluer white, or PAL), and TV Gamma the darker midtones they had, as Dolphin's colour correction does, with OpenGL and Vulkan.",
       "Invert FLUDD Aim Y, in the game's settings menu (Gameplay) too: the control stick's up and down when you spray in place now have their own switch, and Invert Camera Y only flips the camera.",
-      "Super Mario Eclipse: the Long Jump/Crouch Button setting in Better Sunshine Movement now works as on a console, so at L you crouch, long jump and ground pound with L, and Z centres the camera."
+      "Super Mario Eclipse: the Long Jump/Crouch Button setting in Better Sunshine Movement now works as on a console, so at L you crouch, long jump and ground pound with L, and Z centres the camera.",
+      "Fixed the Rocket Nozzle launching Mario far too high, and higher the longer you held R, with Infinite FLUDD on in the cheat menu (F9): it now goes exactly as high as without the cheat.",
+      "Two more cheats in the cheat menu (F9): Infinite Air keeps Mario's air meter full under water so he can't drown, and Low Gravity (1/2 or 1/4) makes him jump higher and fall slower."
     ]
   },
   "releases": [
