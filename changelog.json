@@ -24,6 +24,7 @@
       "Fixed Windows paths with letters outside the English alphabet, such as a Cyrillic user name, showing as ���� in the activity log's game and build messages."
     ],
     "game": [
+      "Aim with the C-stick now works while you spray in place too, not only in the close-up view Y opens: hold R all the way, or L to walk sideways, and the C-stick turns Mario and aims FLUDD up and down while the camera follows behind him. With L held, the control stick still walks him sideways, so you can move and aim at once. Turn it on under Settings → Gameplay.",
       "Achievements: 148 achievements unlock as you play, each announced by a BADGE GET! banner with its icon, name and what you did.",
       "HD cutscenes play with HD textures off, when the launcher has them on.",
       "Keyboard and mouse: the default keys are now laid out for the mouse, with mouse look on. WASD moves, the mouse turns the camera, left click jumps, right click dives, Q switches the nozzle, E opens the close-up camera, middle click sprays FLUDD gently so you can spray on the move and Space sprays it fully, Left Shift ground pounds and sidesteps, Tab opens the map and Enter pauses. Controllers keep their layout.",
