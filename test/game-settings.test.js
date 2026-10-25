@@ -29,6 +29,14 @@ test('the settings changed in the game become the launcher\'s, in its own values
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('colour correction changed in the game\'s menu is kept in the launcher\'s values', () => {
+  const { dir, file } = written({ colorSpace: 'ntsc-j', gameGamma: '2.35', displayGamma: '2.4' });
+  try {
+    const after = port.normalizeSettings(gameSettings.merge(port.normalizeSettings({}), gameSettings.read(file)));
+    assert.deepEqual([after.colorSpace, after.gameGamma, after.displayGamma], ['ntsc-j', '2.35', '2.4']);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('a picture setting changed in the game makes the preset Custom unless the game chose the preset', () => {
   const ultra = port.normalizeSettings({ graphicsPreset: 'ultra', resolution: 4, msaa: 8, fxaa: true, anisotropic: 16, heatHaze: true });
   assert.equal(ultra.graphicsPreset, 'ultra');

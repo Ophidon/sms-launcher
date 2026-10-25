@@ -264,6 +264,20 @@ test('NIS is a scaling choice that takes the same upscaling quality', () => {
   assert.deepEqual([env.SMS_PRESENT_FILTER, env.SMS_FSR_MODE], ['nis', 'balanced']);
 });
 
+test('colour correction is off unless chosen; chosen, it reaches the game as Dolphin-style colour space and gammas', () => {
+  const off = port.normalizeSettings({});
+  assert.deepEqual([off.colorSpace, off.gameGamma, off.displayGamma], ['off', 'off', 'srgb']);
+  const offEnv = port.buildEnvironment(off, '/d', '/port');
+  assert.deepEqual([offEnv.SMS_COLOR_SPACE, offEnv.SMS_GAME_GAMMA, offEnv.SMS_DISPLAY_GAMMA], ['off', 'off', 'srgb']);
+  for (const colorSpace of ['ntsc-m', 'ntsc-j', 'pal'])
+    assert.equal(port.buildEnvironment(port.normalizeSettings({ colorSpace }), '/d', '/port').SMS_COLOR_SPACE, colorSpace);
+  // the game's settings menu writes them as strings; a number from an older settings file works too
+  const chosen = port.buildEnvironment(port.normalizeSettings({ colorSpace: 'ntsc-j', gameGamma: 2.35, displayGamma: '2.2' }), '/d', '/port');
+  assert.deepEqual([chosen.SMS_COLOR_SPACE, chosen.SMS_GAME_GAMMA, chosen.SMS_DISPLAY_GAMMA], ['ntsc-j', '2.35', '2.2']);
+  const bad = port.normalizeSettings({ colorSpace: 'secam', gameGamma: '9; rm -rf', displayGamma: 3 });
+  assert.deepEqual([bad.colorSpace, bad.gameGamma, bad.displayGamma], ['off', 'off', 'srgb']);
+});
+
 test('HDR is off unless chosen; on, it follows Windows calibration or the chosen nits', () => {
   const off = port.normalizeSettings({});
   assert.deepEqual([off.hdr, off.hdrCalibration, off.hdrPaperWhite, off.hdrPeak, off.hdrContrast, off.hdrSaturation, off.hdrHighlights],

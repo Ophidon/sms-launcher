@@ -163,6 +163,12 @@ function normalizeSettings(input = {}, platform = process.platform, hostArch = p
     anisotropic: [0, 2, 4, 8, 16].includes(Number(input.anisotropic)) ? Number(input.anisotropic) : 0,
     sharpen: numberSetting(input.sharpen, 0, 0, 100),
     brightness: numberSetting(input.brightness, 100, 50, 200),
+    // Colour correction, as Dolphin's; off unless chosen. colorSpace: the colours of the TVs the game was made for
+    // (America's, Japan's with its bluer white, Europe's); gameGamma: their gamma, which displayGamma (the player's
+    // display's: sRGB, or a TV's 2.2 or 2.4) encodes again.
+    colorSpace: choiceSetting(input.colorSpace, ['off', 'ntsc-m', 'ntsc-j', 'pal'], 'off'),
+    gameGamma: choiceSetting(String(input.gameGamma), ['off', '2.2', '2.35', '2.5', '2.8'], 'off'),
+    displayGamma: choiceSetting(String(input.displayGamma), ['srgb', '2.2', '2.4'], 'srgb'),
     aspect: choiceSetting(input.aspect, ['keep', 'stretch', 'integer'], 'keep'),
     // fsr: AMD FSR 1, which upscales a low picture sharpness with clean edges (the game's sharpening sets its strength).
     presentFilter: choiceSetting(input.presentFilter, ['bilinear', 'sharp', 'nearest', 'fsr', 'nis'], 'bilinear'),
@@ -545,6 +551,9 @@ function buildEnvironment(settings, disc, root, { customTextures = null } = {}) 
     SMS_ANISO: String(settings.anisotropic ?? 0),
     SMS_SHARPEN: String(settings.sharpen ?? 0),
     SMS_GAMMA: ((settings.brightness ?? 100) / 100).toFixed(2),
+    SMS_COLOR_SPACE: settings.colorSpace || 'off',
+    SMS_GAME_GAMMA: settings.gameGamma || 'off',
+    SMS_DISPLAY_GAMMA: settings.displayGamma || 'srgb',
     SMS_ASPECT: settings.aspect || 'keep',
     SMS_PRESENT_FILTER: settings.presentFilter || 'bilinear',
     // the upscaling quality, for FSR 1 or NIS (NVIDIA Image Scaling); the game uses it only with one of them, and

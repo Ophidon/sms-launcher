@@ -234,6 +234,9 @@
               <label class="switch"><span><strong>Screen icons at edges</strong><small>For widescreen.</small></span><input id="hudEdges" type="checkbox"><i></i></label>
               <label class="field"><span>Picture fit</span><select id="aspect"><option value="keep">Keep its shape</option><option value="stretch">Stretch to fill</option><option value="integer">Whole multiples</option></select></label>
               <label class="field range-field"><span><strong>Brightness</strong><output id="brightness-value" for="brightness">100%</output></span><input id="brightness" type="range" min="50" max="200" step="5" aria-label="Brightness"></label>
+              <label class="field"><span>Colour correction<small>The colours of the TVs the game was made for, as Dolphin's colour correction shows them. NTSC-J has Japanese TVs' bluer white.</small></span><select id="colorSpace"><option value="off">Off</option><option value="ntsc-m">NTSC-M (Americas)</option><option value="ntsc-j">NTSC-J (Japan)</option><option value="pal">PAL (Europe)</option></select></label>
+              <label class="field"><span>TV gamma<small>The darker midtones those TVs had, which can make the picture look less washed out. 2.35 is NTSC's, 2.8 PAL's.</small></span><select id="gameGamma"><option value="off">Off</option><option value="2.2">2.2</option><option value="2.35">2.35 (NTSC)</option><option value="2.5">2.5</option><option value="2.8">2.8 (PAL)</option></select></label>
+              <label class="field"><span>Display gamma<small>Your display's, for TV gamma. sRGB suits most PC monitors.</small></span><select id="displayGamma"><option value="srgb">sRGB</option><option value="2.2">2.2</option><option value="2.4">2.4</option></select></label>
             </div>
             <h2 class="group-title">Frame rate</h2>
             <div class="settings-group">
