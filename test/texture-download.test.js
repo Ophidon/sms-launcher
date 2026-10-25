@@ -227,18 +227,25 @@ print(digest.hexdigest())
     const run = route => promisify(execFile)(python, [driver, url(route)], { cwd: game, timeout: 20000 });
     const keptBytes = () => (fs.existsSync(kept) ? fs.readdirSync(kept) : [])
       .filter(name => name.endsWith('.part')).reduce((sum, name) => sum + fs.statSync(path.join(kept, name)).size, 0);
-    // Starts a download and kills it, as Stop does, once half of it is on disk.
+    // Starts a download and kills it, as Stop does, once what the server sent
+    // (half the file, then nothing) is kept on disk.
     async function stopHalfway(route) {
       stall = true;
       const child = execFile(python, [driver, url(route)], { cwd: game });
+      let stderr = '';
+      child.stderr.on('data', data => { stderr += data; });
       const exited = new Promise(resolve => child.on('exit', resolve));
-      for (let waited = 0; keptBytes() < half; waited += 50) {
-        assert.ok(waited < 10000, 'the download was not kept');
-        await new Promise(resolve => setTimeout(resolve, 50));
+      try {
+        for (let waited = 0; keptBytes() < half; waited += 50) {
+          assert.ok(waited < 15000, `the download was not kept: ${keptBytes()} of ${half} bytes. ${stderr}`);
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
+      } finally {
+        child.kill('SIGKILL');
+        await exited;
+        stall = false;
       }
-      child.kill('SIGKILL');
-      await exited;
-      stall = false;
+      assert.equal(keptBytes(), half);
     }
     const of = route => requests.filter(seen => seen.route === route).map(({ range, ifRange }) => [range, ifRange]);
 

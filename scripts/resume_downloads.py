@@ -226,7 +226,10 @@ class ResumingResponse:
         if self.kept is None:
             return
         try:
+            # On disk at once: Stop kills the installer, and what Python still
+            # buffered (128 KiB from Python 3.14) would be lost with it.
             self.kept.write(chunk)
+            self.kept.flush()
         except OSError:
             # A full disk fails the installer's own copy too; this only stops keeping.
             self.stop_keeping(done=True)
