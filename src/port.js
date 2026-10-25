@@ -153,6 +153,8 @@ function normalizeSettings(input = {}, platform = process.platform, hostArch = p
     // nearer-or-further; holding the right stick in gives that back. Off unless chosen.
     cstickOrbit: Boolean(input.cstickOrbit),
     cameraSpeed: numberSetting(input.cameraSpeed, 100, 10, 400),
+    // Split-screen co-op's two views: side by side, or one above the other.
+    coopSplit: input.coopSplit === 'stacked' ? 'stacked' : 'sides',
     // On unless turned off: the default keys are laid out for the mouse (left click jumps).
     mouseCamera: input.mouseCamera !== false,
     // With mouse look, the mouse turns (and aims FLUDD in) the close-up camera Y opens; on unless turned off.
@@ -442,7 +444,9 @@ function gameFeatures(root) {
     // Eclipse plays the movies it kept from Sunshine from the Sunshine disc or the HD cutscenes (eclipseMovieEnvironment)
     eclipseSunshineMovies: mentions(path.join('platform', 'dvd', 'dvd.cpp'), 'SMS_ECLIPSE_SUNSHINE_MOVIES'),
     // HD cutscenes with HD textures off; an older game plays them only with HD textures on
-    cutscenesWithoutTextures: mentions(path.join('platform', 'thp', 'hd_movie_pack.cpp'), 'without HD textures') };
+    cutscenesWithoutTextures: mentions(path.join('platform', 'thp', 'hd_movie_pack.cpp'), 'without HD textures'),
+    // split-screen co-op (SMS_COOP): a second player on this computer
+    coop: has(path.join('ext', 'coop', 'game', 'coop.cpp')) };
 }
 
 function hdVisualsInstalled(root, settings) {
@@ -545,6 +549,7 @@ function buildEnvironment(settings, disc, root, { customTextures = null } = {}) 
     SMS_FREE_CAMERA: settings.freeCamera ? '1' : '0',
     SMS_CLOSE_CAMERA_CSTICK: settings.cstickAim ? '1' : '0',
     SMS_CSTICK_ORBIT: settings.cstickOrbit ? '1' : '0',
+    SMS_COOP_SPLIT: settings.coopSplit === 'stacked' ? 'stacked' : 'sides',
     SMS_CAMERA_SPEED: String(settings.cameraSpeed ?? 100),
     SMS_MOUSE_CAMERA: settings.mouseCamera === false ? '0' : '1',
     SMS_CLOSE_CAMERA_MOUSE: settings.closeCameraMouse === false ? '0' : '1',

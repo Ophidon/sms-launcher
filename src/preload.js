@@ -27,6 +27,7 @@ contextBridge.exposeInMainWorld('sms', {
   play: () => ipcRenderer.invoke('play'),
   playPrevious: () => ipcRenderer.invoke('play-previous'),
   launchGame: () => ipcRenderer.invoke('launch-game'),
+  playCoop: () => ipcRenderer.invoke('play-coop'),
   updateAndPlay: () => ipcRenderer.invoke('update-and-play'),
   saveMultiplayer: value => ipcRenderer.invoke('save-multiplayer', value),
   hostGame: value => ipcRenderer.invoke('host-game', value),

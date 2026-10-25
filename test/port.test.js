@@ -916,7 +916,7 @@ test('game features come from the game version on disk', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sms-features-'));
   try {
     const none = { vulkan: false, appleSilicon: false, mouseKeys: false, eclipseAppleSilicon: false, eclipseSunshineMovies: false,
-      cutscenesWithoutTextures: false };
+      cutscenesWithoutTextures: false, coop: false };
     assert.deepEqual(port.gameFeatures(root), none);
     assert.deepEqual(port.gameFeatures(null), none);
     fs.mkdirSync(path.join(root, 'platform', 'gx', 'src', 'vk'), { recursive: true });
@@ -934,7 +934,20 @@ test('game features come from the game version on disk', () => {
     assert.equal(port.gameFeatures(root).cutscenesWithoutTextures, false);
     fs.writeFileSync(path.join(thp, 'hd_movie_pack.cpp'), '// the launcher can offer HD cutscenes without HD textures\n');
     assert.equal(port.gameFeatures(root).cutscenesWithoutTextures, true);
+    fs.mkdirSync(path.join(root, 'ext', 'coop', 'game'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'ext', 'coop', 'game', 'coop.cpp'), '// split-screen co-op\n');
+    assert.equal(port.gameFeatures(root).coop, true);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test('co-op splits the screen side by side unless one above the other is chosen', () => {
+  assert.equal(port.normalizeSettings({}).coopSplit, 'sides');
+  assert.equal(port.normalizeSettings({ coopSplit: 'stacked' }).coopSplit, 'stacked');
+  assert.equal(port.normalizeSettings({ coopSplit: 'diagonal' }).coopSplit, 'sides');
+  assert.equal(port.buildEnvironment(port.normalizeSettings({}), '/my/disc.iso', '/port').SMS_COOP_SPLIT, 'sides');
+  assert.equal(port.buildEnvironment(port.normalizeSettings({ coopSplit: 'stacked' }), '/my/disc.iso', '/port').SMS_COOP_SPLIT, 'stacked');
+  // only Play co-op lets a second player in
+  assert.equal(port.buildEnvironment(port.normalizeSettings({}), '/my/disc.iso', '/port').SMS_COOP, undefined);
 });
 
 test('music and sound effects volume default to full and reach the game', () => {
