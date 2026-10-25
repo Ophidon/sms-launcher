@@ -1143,7 +1143,7 @@ async function setupGame() {
 
 const PLAYER_SETTINGS = [
   'volume', 'musicVolume', 'sfxVolume', 'invertCameraX', 'invertCameraY', 'invertFluddAimY', 'keyBindings', 'padBindings', 'softTrigger', 'rumbleStrength', 'freeCamera', 'cstickAim', 'cstickOrbit', 'cameraSpeed', 'mouseCamera', 'closeCameraMouse',
-  'mouseSensitivity', 'rawMouse', 'skipMovies', 'skipIntro', 'language', 'heatHaze', 'pauseTracker', 'radar', 'autoSave', 'buttonPrompts', 'promptPad', 'hdr', 'hdrCalibration', 'hdrPaperWhite', 'hdrPeak', 'hdrContrast', 'hdrSaturation', 'hdrHighlights', 'overlay', 'fullscreenMode', 'exclusiveResolution', 'display', 'vsync',
+  'coopSplit', 'mouseSensitivity', 'rawMouse', 'skipMovies', 'skipIntro', 'language', 'heatHaze', 'pauseTracker', 'radar', 'autoSave', 'buttonPrompts', 'promptPad', 'hdr', 'hdrCalibration', 'hdrPaperWhite', 'hdrPeak', 'hdrContrast', 'hdrSaturation', 'hdrHighlights', 'overlay', 'fullscreenMode', 'exclusiveResolution', 'display', 'vsync',
   'msaa', 'fxaa', 'anisotropic', 'sharpen', 'fsrMode', 'brightness', 'colorSpace', 'gameGamma', 'displayGamma', 'aspect', 'presentFilter',
   'renderer', 'eclipseSunshineMovies'
 ];
@@ -1266,7 +1266,7 @@ async function play(installation = null, session = null) {
   if (look) env.SMS_MARIO_LOOK = look;
   Object.assign(env, marioPack.outfitEnvironment(config.marioLook));
   // Together, each game paints the others in their own colours (theirs come over the network).
-  if (session) Object.assign(env, marioPaintEnvironment(rom, root, settings));
+  if (session && session.mode !== 'coop') Object.assign(env, marioPaintEnvironment(rom, root, settings));
   // The game puts its version in the window title: the launcher's name for the build being played.
   const gameVersion = game.installed(root, settings)?.gameVersion;
   if (gameVersion) env.SMS_GAME_VERSION = String(gameVersion);
@@ -1771,6 +1771,20 @@ async function playDirectly() {
   return true;
 }
 
+// Split-screen co-op: one game, two players on this computer. The game runs as ever with the first player
+// on the keyboard or a controller; a second player joins by pressing Start on another controller (SMS_COOP).
+// Plain Play never takes a second player, so a controller's Start there is only ever the pause menu.
+async function playCoop() {
+  const root = requireRepo();
+  if (fs.existsSync(port.binaryPath(root, config.settings)) && !port.gameFeatures(root).coop && !config.settings.autoUpdate)
+    throw new Error('This game version has no co-op yet. Update the game (Update & play) to play co-op.');
+  log('Co-op: player 2 presses START on another controller to join as Luigi, and holds START to leave.');
+  return launchGame({ mode: 'coop', env: { SMS_COOP: '1' },
+    beforePlay: async () => {
+      if (!port.gameFeatures(config.repo).coop) throw new Error('This game version has no co-op yet. Update the game to play co-op.');
+    } });
+}
+
 async function playInstalled() {
   const root = requireRepo();
   // Playing without setup uses only packs already on disk. Keep the player's
@@ -2118,12 +2132,13 @@ function registerHandlers() {
     'install-textures': ['Install UHD textures', () => installTextures()], 'build': ['Build game', () => build(true)],
     'setup-game': ['Build game', setupGame], 'play': ['Play Super Mario Sunshine', playInstalled],
     'launch-game': ['Prepare game', () => launchGame()], 'update-and-play': ['Prepare game', () => launchGame(null, true)],
+    'play-coop': ['Play co-op', playCoop],
     'play-previous': ['Play Super Mario Sunshine', () => {
       if (!config.previousInstall) throw new Error('There is no previous version available.');
       return play(config.previousInstall);
     }] };
   for (const [channel, [label, callback]] of Object.entries(actions))
-    ipcMain.handle(channel, () => exclusive(label, callback, ['play', 'launch-game', 'update-and-play', 'play-previous'].includes(channel)));
+    ipcMain.handle(channel, () => exclusive(label, callback, ['play', 'launch-game', 'update-and-play', 'play-previous', 'play-coop'].includes(channel)));
   ipcMain.handle('set-game-source', (_event, input) => exclusive('Choose game source', () => chooseGameSource(input)));
   ipcMain.handle('save-multiplayer', (_event, input) => saveMultiplayer(input, { strict: false }));
   ipcMain.handle('forget-multiplayer-host', (_event, input) => {

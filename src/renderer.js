@@ -576,18 +576,20 @@ function showWizardStep(data) {
 // A waiting update always offers the same three ways to play: Update & play, Update only and Play now.
 // Update automatically picks which the big button does; ▾ beside it opens a menu with all of them,
 // the big button's marked Default. Pending HD setup offers Play now beside Finish HD setup the same way.
+// The menu also always has Play co-op (split screen for two), so it is there once the game is set up.
 let playMenuOpen = false;
 function renderPlayMenu(data) {
   const update = data.game.needsUpdate, hd = needsTextureDownload(data), auto = data.config.settings.autoUpdate;
   const next = data.game.availableVersion ? ` ${data.game.availableVersion}` : '';
-  const offered = data.binaryReady && data.romReady && wizardStep === 0 && (update || hd);
+  const offered = data.binaryReady && data.romReady && wizardStep === 0;
   $('play-more').hidden = !offered;
   $('play').classList.toggle('has-more', offered);
   $('play-more').disabled = Boolean(data.active) || setupPending;
   if (playMenuOpen && (!offered || $('play-more').disabled)) $('play-menu').hidePopover();
   const [kind, label, detail] = hd
     ? ['hd', 'Finish HD setup', update && auto ? `Update to${next} and set up HD, then start` : 'Set up HD visuals, then start']
-    : auto ? ['update', 'Update & play', `Install${next}, then start`] : ['play', 'Play', 'Start without updating'];
+    : update && auto ? ['update', 'Update & play', `Install${next}, then start`]
+      : ['play', 'Play', update ? 'Start without updating' : 'One player'];
   $('menu-default').dataset.kind = kind;
   $('menu-default-label').textContent = label;
   $('menu-default-detail').textContent = detail;
@@ -599,7 +601,13 @@ function renderPlayMenu(data) {
   const later = [update ? 'update' : '', hd ? 'HD visuals' : ''].filter(Boolean).join(' and ');
   $('menu-play-now-detail').textContent = `${later.charAt(0).toUpperCase()}${later.slice(1)} later`;
   $('play-menu-note').hidden = !update;
-  const others = Object.entries({ 'menu-update-play': 'Update & play', 'menu-update-only': 'Update only', 'menu-play-now': 'Play now' })
+  // co-op needs a game version that has it: Update & play brings one when there is one
+  const coop = Boolean(data.features?.coop), coopLater = !coop && update && auto;
+  $('menu-coop').disabled = !coop && !coopLater;
+  $('menu-coop-detail').textContent = coop || coopLater
+    ? `Split screen for two${coopLater ? ` (updates to${next} first)` : ''}: player 2 presses START on a controller`
+    : 'Needs a newer game version: update the game first';
+  const others = Object.entries({ 'menu-update-play': 'Update & play', 'menu-update-only': 'Update only', 'menu-play-now': 'Play now', 'menu-coop': 'Play co-op' })
     .filter(([id]) => !$(id).hidden).map(([, name]) => name);
   $('play-more-hint').hidden = !offered || Boolean(data.active);
   $('play-more-hint').textContent = `▾ for ${others.join(' or ')}`;
@@ -803,7 +811,7 @@ function refresh(data) {
   renderLanguages(data.languages);
   for (const key of ['arch', 'widescreen', 'resolution', 'volume', 'musicVolume', 'sfxVolume', 'frameRate', 'language', 'vsync', 'fullscreenMode', 'exclusiveResolution',
     'display', 'cameraSpeed', 'mouseSensitivity', 'msaa', 'anisotropic', 'sharpen', 'brightness', 'colorSpace', 'gameGamma', 'displayGamma', 'aspect', 'presentFilter', 'fsrMode',
-    'textureLoading', 'renderer'])
+    'textureLoading', 'renderer', 'coopSplit'])
     $(key).value = String(config.settings[key]);
   renderVolume();
   renderRanges();
@@ -835,7 +843,7 @@ function refresh(data) {
   $('update-channel-field').hidden = data.portable;
   $('update-channel-note').hidden = data.portable;
   renderGameSource(data);
-  for (const key of ['arch', 'widescreen', 'resolution', 'volume', 'musicVolume', 'sfxVolume', 'frameRate', 'language', 'vsync', 'skipMovies', 'skipIntro', 'pauseTracker', 'radar', 'autoSave', 'heatHaze', 'overlay', 'fullscreen', 'fullscreenMode', 'exclusiveResolution', 'display', 'invertCameraX', 'invertCameraY', 'invertFluddAimY', 'freeCamera', 'cstickAim', 'cstickOrbit', 'cameraSpeed', 'mouseCamera', 'closeCameraMouse', 'mouseSensitivity', 'rawMouse', 'msaa', 'fxaa', 'anisotropic', 'sharpen', 'brightness', 'colorSpace', 'gameGamma', 'displayGamma', 'aspect', 'presentFilter', 'hudEdges', 'textures', 'textureLoading', 'shaderWarmup', 'cutscenes', 'eclipse', 'eclipseSunshineMovies', 'autoUpdate', 'shareUsage', 'discordPresence', 'autoBackups', 'darkMode', 'updateChannel', 'buttonPrompts', 'promptPad', 'graphicsPreset', 'fsrMode', 'renderer', 'appleSilicon'])
+  for (const key of ['arch', 'widescreen', 'resolution', 'volume', 'musicVolume', 'sfxVolume', 'frameRate', 'language', 'vsync', 'skipMovies', 'skipIntro', 'pauseTracker', 'radar', 'autoSave', 'heatHaze', 'overlay', 'fullscreen', 'fullscreenMode', 'exclusiveResolution', 'display', 'invertCameraX', 'invertCameraY', 'invertFluddAimY', 'freeCamera', 'cstickAim', 'cstickOrbit', 'cameraSpeed', 'mouseCamera', 'closeCameraMouse', 'mouseSensitivity', 'rawMouse', 'msaa', 'fxaa', 'anisotropic', 'sharpen', 'brightness', 'colorSpace', 'gameGamma', 'displayGamma', 'aspect', 'presentFilter', 'hudEdges', 'textures', 'textureLoading', 'shaderWarmup', 'cutscenes', 'eclipse', 'eclipseSunshineMovies', 'autoUpdate', 'shareUsage', 'discordPresence', 'autoBackups', 'darkMode', 'updateChannel', 'buttonPrompts', 'promptPad', 'graphicsPreset', 'fsrMode', 'renderer', 'appleSilicon', 'coopSplit'])
     $(key).disabled = Boolean(data.active);
   // Turning one off stays possible once on, whatever the game version.
   if (!platform.arches.includes('arm64') || rosettaEclipse || !features.appleSilicon && config.settings.arch !== 'arm64')
@@ -1016,7 +1024,7 @@ function showError(error) { closeModal(); setMessage(errorText(error), true); }
 // Actions that build the game or need its build tools. Play only builds when
 // the game isn't set up, needs HD visuals, or updates automatically.
 function needsBuild(method) {
-  if (method === 'launchGame') return !current.binaryReady || !current.hdVisualsReady ||
+  if (method === 'launchGame' || method === 'playCoop') return !current.binaryReady || !current.hdVisualsReady ||
     Boolean(current.config.settings.autoUpdate && current.game.needsUpdate);
   return ['installPort', 'installEclipse', 'installTextures', 'build', 'setupGame', 'updateAndPlay', 'updatePort',
     'clean', 'cleanPreview'].includes(method);
@@ -1027,7 +1035,7 @@ async function action(method) {
   // In a folder too deep for Windows, explain instead of starting a build that would fail.
   if (current?.pathProblem && needsBuild(method)) { showPathProblem(); return; }
   try {
-    if (['installPort', 'installEclipse', 'installTextures', 'build', 'setupGame', 'launchGame', 'updateAndPlay', 'updatePort', 'play', 'playPrevious', 'clean', 'cleanPreview'].includes(method)) { closeModal(); showPage('play'); }
+    if (['installPort', 'installEclipse', 'installTextures', 'build', 'setupGame', 'launchGame', 'updateAndPlay', 'updatePort', 'play', 'playPrevious', 'playCoop', 'clean', 'cleanPreview'].includes(method)) { closeModal(); showPage('play'); }
     const result = await window.sms[method]();
     if (result && result.config) refresh(result);
     await sync();
@@ -1166,6 +1174,7 @@ function settingsValue() {
     sharpen: Number($('sharpen').value), brightness: Number($('brightness').value), aspect: $('aspect').value,
     colorSpace: $('colorSpace').value, gameGamma: $('gameGamma').value, displayGamma: $('displayGamma').value,
     presentFilter: $('presentFilter').value, fsrMode: $('fsrMode').value, renderer: $('renderer').value,
+    coopSplit: $('coopSplit').value,
     invertCameraX: $('invertCameraX').checked, invertCameraY: $('invertCameraY').checked, invertFluddAimY: $('invertFluddAimY').checked, hudEdges: $('hudEdges').checked, textures: $('textures').checked, cutscenes: $('cutscenes').checked,
     textureLoading: $('textureLoading').value, shaderWarmup: $('shaderWarmup').checked,
     eclipse: $('eclipse').checked, eclipseSunshineMovies: $('eclipseSunshineMovies').checked, autoUpdate: $('autoUpdate').checked, shareUsage: $('shareUsage').checked, discordPresence: $('discordPresence').checked, autoBackups: $('autoBackups').checked, darkMode: $('darkMode').checked, updateChannel: $('updateChannel').value,
@@ -1270,7 +1279,8 @@ for (const [id, run] of Object.entries({
   'menu-default': () => $('play').click(),
   'menu-update-play': () => runWizardAction('updateAndPlay'),
   'menu-update-only': updateOnly,
-  'menu-play-now': () => action('play')
+  'menu-play-now': () => action('play'),
+  'menu-coop': () => runWizardAction('playCoop')
 })) $(id).addEventListener('click', () => { $('play-menu').hidePopover(); run(); });
 // The invite opens in the browser, even while the game builds or runs.
 $('discord').addEventListener('click', () => window.sms.openDiscord().catch(error => setMessage(errorText(error))));
@@ -2068,7 +2078,7 @@ $('import-save-state').addEventListener('click', async () => {
 });
 $('open-save-states').addEventListener('click', () => window.sms.openSaveStates().catch(showError));
 $('open-custom-textures').addEventListener('click', () => window.sms.openCustomTextures().catch(showError));
-for (const key of ['arch', 'widescreen', 'resolution', 'volume', 'musicVolume', 'sfxVolume', 'frameRate', 'language', 'vsync', 'skipMovies', 'skipIntro', 'pauseTracker', 'radar', 'autoSave', 'heatHaze', 'overlay', 'fullscreen', 'fullscreenMode', 'exclusiveResolution', 'display', 'invertCameraX', 'invertCameraY', 'invertFluddAimY', 'freeCamera', 'cstickAim', 'cstickOrbit', 'cameraSpeed', 'mouseCamera', 'closeCameraMouse', 'mouseSensitivity', 'rawMouse', 'msaa', 'fxaa', 'anisotropic', 'sharpen', 'brightness', 'colorSpace', 'gameGamma', 'displayGamma', 'aspect', 'presentFilter', 'hudEdges', 'textures', 'textureLoading', 'shaderWarmup', 'cutscenes', 'eclipse', 'eclipseSunshineMovies', 'autoUpdate', 'shareUsage', 'discordPresence', 'autoBackups', 'darkMode', 'updateChannel', 'buttonPrompts', 'promptPad', 'hdr', 'hdrCalibration', 'hdrPaperWhite', 'hdrPeak', 'hdrContrast', 'hdrSaturation', 'hdrHighlights', 'fsrMode', 'renderer', 'appleSilicon'])
+for (const key of ['arch', 'widescreen', 'resolution', 'volume', 'musicVolume', 'sfxVolume', 'frameRate', 'language', 'vsync', 'skipMovies', 'skipIntro', 'pauseTracker', 'radar', 'autoSave', 'heatHaze', 'overlay', 'fullscreen', 'fullscreenMode', 'exclusiveResolution', 'display', 'invertCameraX', 'invertCameraY', 'invertFluddAimY', 'freeCamera', 'cstickAim', 'cstickOrbit', 'cameraSpeed', 'mouseCamera', 'closeCameraMouse', 'mouseSensitivity', 'rawMouse', 'msaa', 'fxaa', 'anisotropic', 'sharpen', 'brightness', 'colorSpace', 'gameGamma', 'displayGamma', 'aspect', 'presentFilter', 'hudEdges', 'textures', 'textureLoading', 'shaderWarmup', 'cutscenes', 'eclipse', 'eclipseSunshineMovies', 'autoUpdate', 'shareUsage', 'discordPresence', 'autoBackups', 'darkMode', 'updateChannel', 'buttonPrompts', 'promptPad', 'hdr', 'hdrCalibration', 'hdrPaperWhite', 'hdrPeak', 'hdrContrast', 'hdrSaturation', 'hdrHighlights', 'fsrMode', 'renderer', 'appleSilicon', 'coopSplit'])
   $(key).addEventListener('change', saveSettings);
 for (const key of ['volume', 'musicVolume', 'sfxVolume']) $(key).addEventListener('input', renderVolume);
 for (const key of ['cameraSpeed', 'mouseSensitivity', 'sharpen', 'brightness']) $(key).addEventListener('input', renderRanges);

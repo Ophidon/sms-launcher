@@ -71,7 +71,7 @@ async function renderer(data = state(), copyError = null, notes = { releases: []
     changelog: async () => notes, markChangelogSeen: async () => { changelogSeen.push(true); },
     play: async () => { calls.push('play'); }, launchGame: async () => { calls.push('launchGame'); },
     removeBuildTools: async () => { calls.push('removeBuildTools'); },
-    updateAndPlay: async () => { calls.push('updateAndPlay'); },
+    updateAndPlay: async () => { calls.push('updateAndPlay'); }, playCoop: async () => { calls.push('playCoop'); },
     updatePort: async () => {
       calls.push('updatePort'); data.game = { ...data.game, needsUpdate: false, installedVersion: data.game.availableVersion };
       achievements?.update?.('updatePort');
@@ -136,7 +136,7 @@ test('a waiting update makes Update & play the default, with Update only and Pla
   assert.equal(ui.elements.get('menu-default-detail').textContent, 'Install newer, then start');
   assert.deepEqual(offered(ui), ['menu-update-only', 'menu-play-now']);
   assert.equal(ui.elements.get('menu-play-now-detail').textContent, 'Update later');
-  assert.equal(ui.elements.get('play-more-hint').textContent, '▾ for Update only or Play now');
+  assert.equal(ui.elements.get('play-more-hint').textContent, '▾ for Update only or Play now or Play co-op');
   assert.equal(ui.elements.get('play-menu-note').hidden, false);
   ui.elements.get('play-menu').showPopover();
   assert.equal(ui.elements.get('play-more')['aria-expanded'], 'true');
@@ -152,8 +152,10 @@ test('Update only installs the update without starting the game', async () => {
   const ui = await renderer();
   await ui.click('menu-update-only');
   assert.deepEqual(ui.calls, ['updatePort']);
-  assert.equal(ui.elements.get('play-more').hidden, true);
-  assert.equal(ui.elements.get('play-more-hint').hidden, true);
+  // the menu stays for Play co-op alone
+  assert.equal(ui.elements.get('play-more').hidden, false);
+  assert.deepEqual(offered(ui), []);
+  assert.equal(ui.elements.get('play-more-hint').textContent, '▾ for Play co-op');
   assert.match(ui.elements.get('play').textContent, /▶ {2}Play/);
   assert.match(ui.elements.get('message-text').textContent, /Updated to game newer/);
 });
@@ -166,9 +168,27 @@ test('without automatic updates Play is the default and Update & play still upda
   assert.equal(ui.elements.get('menu-default-label').textContent, 'Play');
   assert.equal(ui.elements.get('task-status').textContent, 'Update ready');
   assert.deepEqual(offered(ui), ['menu-update-play', 'menu-update-only']);
-  assert.equal(ui.elements.get('play-more-hint').textContent, '▾ for Update & play or Update only');
+  assert.equal(ui.elements.get('play-more-hint').textContent, '▾ for Update & play or Update only or Play co-op');
   await ui.click('menu-update-play');
   assert.deepEqual(ui.calls, ['updateAndPlay']);
+});
+
+test('Play co-op starts the game for two, once the game version has co-op', async () => {
+  const data = state(); data.game.needsUpdate = false; data.features = { coop: false };
+  const ui = await renderer(data);
+  assert.equal(ui.elements.get('menu-coop').disabled, true);
+  assert.match(ui.elements.get('menu-coop-detail').textContent, /newer game version/);
+  // an update on its way brings co-op: Play co-op updates first
+  data.game.needsUpdate = true;
+  await ui.refresh();
+  assert.equal(ui.elements.get('menu-coop').disabled, false);
+  assert.match(ui.elements.get('menu-coop-detail').textContent, /updates to newer first/);
+  data.game.needsUpdate = false; data.features = { coop: true };
+  await ui.refresh();
+  assert.equal(ui.elements.get('menu-coop').disabled, false);
+  assert.equal(ui.elements.get('menu-coop-detail').textContent, 'Split screen for two: player 2 presses START on a controller');
+  await ui.click('menu-coop');
+  assert.deepEqual(ui.calls, ['playCoop']);
 });
 
 test('controller Back closes the menu before anything else', async () => {
@@ -234,10 +254,13 @@ test('installed play is unavailable before setup, without a disc, or while busy'
   assert.equal(ui.elements.get('play-more-hint').hidden, true);
 });
 
-test('pending HD setup offers installed play, while current complete installs show only Play', async () => {
+test('pending HD setup offers installed play, while current complete installs offer only Play co-op beside Play', async () => {
   const data = state(); data.game.needsUpdate = false; data.game.installedVersion = null;
   const ui = await renderer(data);
-  assert.equal(ui.elements.get('play-more').hidden, true);
+  assert.equal(ui.elements.get('play-more').hidden, false);
+  assert.deepEqual(offered(ui), []);
+  assert.equal(ui.elements.get('menu-default-label').textContent, 'Play');
+  assert.equal(ui.elements.get('menu-default-detail').textContent, 'One player');
   data.hdVisualsReady = false;
   await ui.refresh();
   assert.equal(ui.elements.get('play-more').hidden, false);
