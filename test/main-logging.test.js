@@ -155,9 +155,11 @@ test('Windows starts the game detached, not hidden, so its window shows', async 
 
 test('Back up automatically off skips the launcher\'s own backups, with a log line, but not Back up saves', t => {
   const runtime = main(t);
-  const home = process.env.HOME;
-  process.env.HOME = runtime.root; // backups go to ~/SMS Launcher Backups
-  t.after(() => { process.env.HOME = home; });
+  // Backups go to ~/SMS Launcher Backups: os.homedir() is HOME, or USERPROFILE on Windows.
+  const home = { HOME: process.env.HOME, USERPROFILE: process.env.USERPROFILE };
+  for (const key of Object.keys(home)) process.env[key] = runtime.root;
+  t.after(() => { for (const [key, value] of Object.entries(home)) if (value === undefined) delete process.env[key]; else process.env[key] = value; });
+  assert.equal(os.homedir(), runtime.root);
   const card = path.join(runtime.root, 'card-a');
   const backups = path.join(runtime.root, 'SMS Launcher Backups');
   fs.mkdirSync(card);
