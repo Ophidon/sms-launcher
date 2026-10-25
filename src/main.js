@@ -736,6 +736,7 @@ async function prepareBuildTools() {
   if (found.mode === 'private' || (!forcePrivate && found.ready)) return;
   preparingTools = true;
   const startedAt = Date.now();
+  log(`Downloading build tools to ${path.dirname(buildTools.rootFor(userData))}.`);
   active = { label: 'Download build tools', child: null, detail: 'Checking download…', percent: null, startedAt };
   broadcast('activity', { label: active.label, detail: active.detail, percent: null, startedAt });
   try {
@@ -1754,6 +1755,8 @@ function state() {
   const features = port.gameFeatures(repoReady ? config.repo : null);
   return {
     config, platform: info, repoReady, portable: Boolean(portableRoot), pathProblem: blockedPath || pathProblem(),
+    // Where the build tools download: the launcher's data folder, wherever the game is installed.
+    toolsFolder: path.dirname(buildTools.rootFor(app.getPath('userData'))),
     features,
     // A Mac with Apple Silicon playing through Rosetta moves to the native build, as a new setup has it,
     // once its game has that build (for Eclipse, once it builds Eclipse too).

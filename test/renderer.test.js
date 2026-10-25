@@ -893,3 +893,14 @@ test('the Achievements tab is always there: without achievements in the game its
   assert.match(ui.elements.get('achievements-get-error').textContent, /^Your game version has no achievements yet\. Update the game on Play, then try again\.$/);
   assert.equal(pageShown(ui, 'page-achievements'), false);
 });
+
+test('setup says where the build tools download, which is not the install location', async () => {
+  const folder = 'C:\\Users\\Player\\AppData\\Roaming\\sms-launcher\\build-tools';
+  const fresh = { ...state(), repoReady: false, binaryReady: false, tools: { ready: false }, toolsFolder: folder,
+    config: { ...state().config, completedSetup: false } };
+  const ui = await renderer(fresh);
+  assert.equal(ui.elements.get('tool-location-note').textContent,
+    `Build tools (a few GB) download to ${folder}, not to the install location.`);
+  const portable = await renderer({ ...fresh, portable: true });
+  assert.match(portable.elements.get('tool-location-note').textContent, /SMS-Launcher-Portable folder/);
+});
