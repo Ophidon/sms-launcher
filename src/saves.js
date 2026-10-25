@@ -68,6 +68,13 @@ function backupRoot(env = process.env, platform = process.platform) {
   return portableRoot ? path.join(portableRoot, 'Save Backups') : path.join(os.homedir(), 'SMS Launcher Backups');
 }
 
+// What sync tools and file browsers leave in a folder they look after (Syncthing's marker, ignore list, old versions
+// and partial downloads; Resilio Sync; macOS and Windows Explorer metadata): kept where it is, never a save.
+function isSyncMetadata(name) {
+  return ['.stfolder', '.stignore', '.stversions', '.sync', '.DS_Store', 'desktop.ini', 'Thumbs.db'].includes(name) ||
+    /^\.syncthing\..*\.tmp$/.test(name) || /^~syncthing~.*\.tmp$/.test(name) || name.startsWith('._');
+}
+
 function isCardFile(name) { return name === 'index.txt' || /\.(dat|stat)$/.test(name); }
 
 function cleanupWouldRemoveSaves(root, saveDir) {
@@ -81,6 +88,7 @@ function saveFiles(dir) {
   if (!fs.existsSync(dir)) return [];
   if (!fs.statSync(dir).isDirectory()) throw new Error(`Memory card path is not a folder: ${dir}`);
   return fs.readdirSync(dir, { withFileTypes: true }).filter(entry => {
+    if (isSyncMetadata(entry.name)) return false;
     if (entry.isSymbolicLink()) throw new Error(`Memory card contains a symbolic link: ${entry.name}`);
     if (!entry.isFile()) throw new Error(`Memory card contains an unexpected folder: ${entry.name}`);
     return isCardFile(entry.name);
@@ -99,6 +107,7 @@ function modSaveFiles(dir) {
   if (!fs.statSync(dir).isDirectory()) throw new Error(`Mod saves path is not a folder: ${dir}`);
   const walk = (folder, prefix) => {
     for (const entry of fs.readdirSync(folder, { withFileTypes: true })) {
+      if (isSyncMetadata(entry.name)) continue;
       if (entry.isSymbolicLink()) throw new Error(`Mod saves contain a symbolic link: ${prefix}${entry.name}`);
       if (entry.isDirectory()) walk(path.join(folder, entry.name), `${prefix}${entry.name}/`);
       else if (entry.isFile() && !entry.name.endsWith('.tmp')) out.push(`${prefix}${entry.name}`);
@@ -209,8 +218,16 @@ function restoreBackup(id, saveDir, destination = backupRoot()) {
         fs.mkdirSync(path.dirname(target), { recursive: true });
         fs.copyFileSync(path.join(folder, 'mods', ...file.name.split('/')), target);
       }
+      // a sync tool's marker and settings stay with the folder (Syncthing stops syncing a folder whose marker went)
+      let kept = 0;
+      try {
+        for (const name of fs.readdirSync(modDir).filter(isSyncMetadata)) {
+          fs.renameSync(path.join(modDir, name), path.join(staging, name));
+          kept++;
+        }
+      } catch (error) { if (error.code !== 'ENOENT') throw error; }
       fs.rmSync(modDir, { recursive: true, force: true });
-      if (mods.length) fs.renameSync(staging, modDir);
+      if (mods.length || kept) fs.renameSync(staging, modDir);
     } finally { fs.rmSync(staging, { recursive: true, force: true }); }
   }
   return { restored: manifest.files.length, restoredMods: mods ? mods.length : 0, previous: current.directory || null };

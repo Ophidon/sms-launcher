@@ -221,3 +221,64 @@ test('an older launcher\'s guest save is moved out of the card folder, so backup
     assert.equal(fs.readFileSync(path.join(root, 'multiplayer-guest', 'super_mario_sunshine.dat'), 'utf8'), 'host');
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
+
+test('a card folder synced with Syncthing backs up and restores, leaving the sync files where they are', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sms-save-sync-'));
+  const card = path.join(root, 'card-a');
+  const mods = path.join(root, 'card-a-mods');
+  const backups = path.join(root, 'backups');
+  try {
+    fs.mkdirSync(path.join(card, '.stfolder'), { recursive: true });
+    fs.writeFileSync(path.join(card, '.stfolder', 'syncthing-folder-1a2b3c.txt'), 'marker');
+    fs.mkdirSync(path.join(card, '.stversions'));
+    fs.writeFileSync(path.join(card, '.stversions', 'GMSE01~20261020-101010.dat'), 'old version');
+    fs.writeFileSync(path.join(card, '.stignore'), '// nothing');
+    fs.writeFileSync(path.join(card, '.syncthing.GMSE01.dat.tmp'), 'half synced');
+    fs.writeFileSync(path.join(card, '._GMSE01.dat'), 'AppleDouble');
+    fs.writeFileSync(path.join(card, '.DS_Store'), 'finder');
+    fs.writeFileSync(path.join(card, 'desktop.ini'), 'explorer');
+    fs.writeFileSync(path.join(card, 'GMSE01.dat'), 'first');
+    fs.writeFileSync(path.join(card, 'index.txt'), 'index');
+    fs.mkdirSync(path.join(mods, '.stfolder'), { recursive: true });
+    fs.mkdirSync(path.join(mods, 'randomizer'));
+    fs.writeFileSync(path.join(mods, 'randomizer', 'seed.bin'), 'seed 1');
+    fs.writeFileSync(path.join(mods, '.stignore'), '// mods');
+
+    const first = saves.backupSaves(card, backups);
+    assert.equal(first.count, 2, 'only the card files');
+    assert.equal(first.mods, 1, 'only the mod file');
+    assert.deepEqual(fs.readdirSync(path.join(first.directory, 'files')).sort(), ['GMSE01.dat', 'index.txt']);
+
+    fs.writeFileSync(path.join(card, 'GMSE01.dat'), 'second');
+    fs.writeFileSync(path.join(mods, 'randomizer', 'seed.bin'), 'seed 2');
+    saves.restoreBackup(first.id, card, backups);
+    assert.equal(fs.readFileSync(path.join(card, 'GMSE01.dat'), 'utf8'), 'first');
+    assert.equal(fs.readFileSync(path.join(mods, 'randomizer', 'seed.bin'), 'utf8'), 'seed 1');
+    assert.equal(fs.readFileSync(path.join(card, '.stfolder', 'syncthing-folder-1a2b3c.txt'), 'utf8'), 'marker');
+    assert.equal(fs.readFileSync(path.join(card, '.stversions', 'GMSE01~20261020-101010.dat'), 'utf8'), 'old version');
+    assert.equal(fs.readFileSync(path.join(card, '.stignore'), 'utf8'), '// nothing');
+    assert.equal(fs.statSync(path.join(mods, '.stfolder')).isDirectory(), true, 'the mods folder keeps its marker');
+    assert.equal(fs.readFileSync(path.join(mods, '.stignore'), 'utf8'), '// mods');
+
+    // other folders are still refused: the card folder may be pointing somewhere it shouldn't
+    fs.mkdirSync(path.join(card, 'Documents'));
+    assert.throws(() => saves.backupSaves(card, backups), /unexpected folder: Documents/);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test('a restore with no mods\' files keeps a synced mods folder\'s marker', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sms-save-sync-empty-'));
+  const card = path.join(root, 'card-a');
+  const mods = path.join(root, 'card-a-mods');
+  const backups = path.join(root, 'backups');
+  try {
+    fs.mkdirSync(card);
+    fs.writeFileSync(path.join(card, 'GMSE01.dat'), 'first');
+    const empty = saves.backupSaves(card, backups);
+    assert.equal(empty.mods, 0);
+    fs.mkdirSync(path.join(mods, '.stfolder'), { recursive: true });
+    fs.writeFileSync(path.join(mods, 'later.bin'), 'later');
+    saves.restoreBackup(empty.id, card, backups);
+    assert.deepEqual(fs.readdirSync(mods), ['.stfolder']);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});

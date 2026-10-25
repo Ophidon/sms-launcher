@@ -21,7 +21,8 @@
       "Achievements: Super Mario Eclipse has its own 128, from every Shine and Blue Coin of its new areas to the castle's Power Stars and its trickiest challenges. With Eclipse on, the Achievements tab shows Eclipse's, kept apart from Sunshine's.",
       "Players collide, a new switch under Host Game in the Online tab: players bump into each other and bounce off heads. You can also change it while you host, in the game's settings (Gameplay).",
       "Save backups now include mods' save data kept beside the memory card (the card-a-mods folder), and restoring a backup puts it back with your saves, so a mod's progress always matches the saves it goes with.",
-      "Fixed Windows paths with letters outside the English alphabet, such as a Cyrillic user name, showing as ���� in the activity log's game and build messages."
+      "Fixed Windows paths with letters outside the English alphabet, such as a Cyrillic user name, showing as ���� in the activity log's game and build messages.",
+      "Fixed Play, Update & play and save backups failing when your memory card folder is synced with Syncthing (\"Memory card contains an unexpected folder: .stfolder\"): Syncthing's own files, and those Finder and Windows Explorer leave behind, now stay in the folder and are left out of backups."
     ],
     "game": [
       "Aim with the C-stick now works while you spray in place too, not only in the close-up view Y opens: hold R all the way, or L to walk sideways, and the C-stick turns Mario and aims FLUDD up and down while the camera follows behind him. With L held, the control stick still walks him sideways, so you can move and aim at once. Turn it on under Settings → Gameplay.",
