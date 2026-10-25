@@ -73,7 +73,8 @@
       "Server mods can now draw an arena's edge on the ground that players can't cross and that can close in during a round. They can also make water scarce: FLUDD stops refilling from the sea or items, the server hands out water instead (the Splash Battle's water capsules), and it can take FLUDD off players, for example in a waiting lobby.",
       "Mod makers: a mod can now show its own screen when a file is chosen at file select (a randomizer's seed and options, say) before the game starts; mods that change where a file starts now apply their change once.",
       "Colour correction, on the Display page of the settings menu (off by default): Colour Correction shows the colours of the TVs the game was made for (NTSC-M, NTSC-J with Japan's bluer white, or PAL), and TV Gamma the darker midtones they had, as Dolphin's colour correction does, with OpenGL and Vulkan.",
-      "Invert FLUDD Aim Y, in the game's settings menu (Gameplay) too: the control stick's up and down when you spray in place now have their own switch, and Invert Camera Y only flips the camera."
+      "Invert FLUDD Aim Y, in the game's settings menu (Gameplay) too: the control stick's up and down when you spray in place now have their own switch, and Invert Camera Y only flips the camera.",
+      "Super Mario Eclipse: the Long Jump/Crouch Button setting in Better Sunshine Movement now works as on a console, so at L you crouch, long jump and ground pound with L, and Z centres the camera."
     ]
   },
   "releases": [
