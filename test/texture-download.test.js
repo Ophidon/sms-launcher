@@ -177,3 +177,94 @@ print(digest.hexdigest())
     await assert.rejects(run('missing'), /HTTP Error 404/);
     assert.equal(routeRequests('missing').length, 1);
   });
+
+test('a download stopped partway carries on from the kept part next time, unless the file changed',
+  { skip: !pythonReady && 'Python is needed to exercise the download wrapper' }, async t => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sms kept downloads '));
+    t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    const original = crypto.randomBytes(1024 * 1024), changed = crypto.randomBytes(1024 * 1024);
+    const sha = data => crypto.createHash('sha256').update(data).digest('hex');
+    const half = original.length / 2;
+    let version = 'v1', stall = true;
+    const requests = [];
+    const server = http.createServer((req, res) => {
+      const route = req.url.slice(1), payload = version === 'v1' ? original : changed;
+      const range = req.headers.range?.match(/^bytes=(\d+)-$/);
+      requests.push({ route, range: req.headers.range || null, ifRange: req.headers['if-range'] || null });
+      const current = req.headers['if-range'] === undefined || req.headers['if-range'] === `"${version}"`;
+      if (range && current && route !== 'no-range') {
+        const start = Number(range[1]);
+        res.writeHead(206, { 'Content-Length': payload.length - start, ETag: `"${version}"`,
+          'Content-Range': `bytes ${start}-${payload.length - 1}/${payload.length}` });
+        res.end(payload.subarray(start));
+        return;
+      }
+      res.writeHead(200, { 'Content-Length': payload.length, ETag: `"${version}"` });
+      // Half the file, then nothing: the player stops the launcher.
+      if (stall) res.write(payload.subarray(0, half));
+      else res.end(payload);
+    });
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    t.after(() => { server.closeAllConnections(); return new Promise(resolve => server.close(resolve)); });
+    const driver = path.join(root, 'driver.py');
+    fs.writeFileSync(driver, `import hashlib, sys, urllib.request
+sys.path.insert(0, ${JSON.stringify(path.resolve(__dirname, '..', 'scripts'))})
+import resume_downloads
+resume_downloads.install()
+with urllib.request.urlopen(sys.argv[1]) as response:
+    digest = hashlib.sha256()
+    while True:
+        chunk = response.read(65536)
+        if not chunk:
+            break
+        digest.update(chunk)
+print(digest.hexdigest())
+`);
+    const game = path.join(root, 'game');
+    const kept = path.join(game, 'mods', '.downloads', 'resume');
+    fs.mkdirSync(game);
+    const url = route => `http://127.0.0.1:${server.address().port}/${route}`;
+    const run = route => promisify(execFile)(python, [driver, url(route)], { cwd: game, timeout: 20000 });
+    const keptBytes = () => (fs.existsSync(kept) ? fs.readdirSync(kept) : [])
+      .filter(name => name.endsWith('.part')).reduce((sum, name) => sum + fs.statSync(path.join(kept, name)).size, 0);
+    // Starts a download and kills it, as Stop does, once half of it is on disk.
+    async function stopHalfway(route) {
+      stall = true;
+      const child = execFile(python, [driver, url(route)], { cwd: game });
+      const exited = new Promise(resolve => child.on('exit', resolve));
+      for (let waited = 0; keptBytes() < half; waited += 50) {
+        assert.ok(waited < 10000, 'the download was not kept');
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+      child.kill('SIGKILL');
+      await exited;
+      stall = false;
+    }
+    const of = route => requests.filter(seen => seen.route === route).map(({ range, ifRange }) => [range, ifRange]);
+
+    await stopHalfway('file');
+    const resumed = await run('file');
+    assert.equal(resumed.stdout.trim().split('\n').at(-1), sha(original));
+    assert.match(resumed.stdout, /carrying on from the .* downloaded before/);
+    assert.deepEqual(of('file'), [[null, null], [null, null], [`bytes=${half}-`, '"v1"']]);
+    // A finished download leaves nothing kept.
+    assert.deepEqual(fs.readdirSync(kept), []);
+
+    // The file changed on the server since: the download starts over.
+    await stopHalfway('changes');
+    version = 'v2';
+    const fresh = await run('changes');
+    assert.equal(fresh.stdout.trim().split('\n').at(-1), sha(changed));
+    assert.doesNotMatch(fresh.stdout, /carrying on/);
+    assert.deepEqual(of('changes'), [[null, null], [null, null]]);
+    assert.deepEqual(fs.readdirSync(kept), []);
+
+    // A server that can't resume sends the whole file to the ranged request: it starts over too.
+    version = 'v1';
+    await stopHalfway('no-range');
+    const whole = await run('no-range');
+    assert.equal(whole.stdout.trim().split('\n').at(-1), sha(original));
+    assert.doesNotMatch(whole.stdout, /carrying on/);
+    assert.deepEqual(of('no-range'), [[null, null], [null, null], [`bytes=${half}-`, '"v1"']]);
+    assert.deepEqual(fs.readdirSync(kept), []);
+  });
