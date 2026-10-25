@@ -142,6 +142,9 @@ function normalizeSettings(input = {}, platform = process.platform, hostArch = p
     overlay: Boolean(input.overlay),
     invertCameraX: input.invertCameraX !== false,
     invertCameraY: input.invertCameraY !== false,
+    // The control stick's up and down while FLUDD aims in place (R all the way, or L); until it is chosen, as
+    // Invert camera Y, which used to flip it too.
+    invertFluddAimY: input.invertFluddAimY == null ? input.invertCameraY !== false : input.invertFluddAimY !== false,
     // The camera stays where it is put instead of swinging back behind Mario; manual turning speed; mouse look.
     freeCamera: Boolean(input.freeCamera),
     // The C-stick turns (and aims FLUDD in) the close-up camera Y opens, as well as the control stick.
@@ -538,6 +541,7 @@ function buildEnvironment(settings, disc, root, { customTextures = null } = {}) 
     SMS_OVERLAY: settings.overlay ? '1' : '0',
     SMS_CAMERA_INVERT_X: settings.invertCameraX ? '1' : '0',
     SMS_CAMERA_INVERT_Y: settings.invertCameraY ? '1' : '0',
+    SMS_FLUDD_AIM_INVERT_Y: (settings.invertFluddAimY ?? settings.invertCameraY) ? '1' : '0',
     SMS_FREE_CAMERA: settings.freeCamera ? '1' : '0',
     SMS_CLOSE_CAMERA_CSTICK: settings.cstickAim ? '1' : '0',
     SMS_CSTICK_ORBIT: settings.cstickOrbit ? '1' : '0',

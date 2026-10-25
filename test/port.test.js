@@ -120,6 +120,17 @@ test('offers only platform-supported architectures and keeps builds separate', (
   const inverted = port.normalizeSettings({ invertCameraX: false, invertCameraY: false });
   assert.equal(port.buildEnvironment(inverted, '/my/disc.iso', '/port').SMS_CAMERA_INVERT_X, '0');
   assert.equal(port.buildEnvironment(inverted, '/my/disc.iso', '/port').SMS_CAMERA_INVERT_Y, '0');
+  // FLUDD's aim in place follows Invert camera Y until it is chosen, then keeps its own
+  assert.equal(settings.invertFluddAimY, true);
+  assert.equal(port.buildEnvironment(settings, '/my/disc.iso', '/port').SMS_FLUDD_AIM_INVERT_Y, '1');
+  assert.equal(inverted.invertFluddAimY, false);
+  assert.equal(port.buildEnvironment(inverted, '/my/disc.iso', '/port').SMS_FLUDD_AIM_INVERT_Y, '0');
+  const fluddOnly = port.normalizeSettings({ invertCameraY: false, invertFluddAimY: true });
+  assert.deepEqual([fluddOnly.invertCameraY, fluddOnly.invertFluddAimY], [false, true]);
+  assert.deepEqual([port.buildEnvironment(fluddOnly, '/my/disc.iso', '/port').SMS_CAMERA_INVERT_Y,
+    port.buildEnvironment(fluddOnly, '/my/disc.iso', '/port').SMS_FLUDD_AIM_INVERT_Y], ['0', '1']);
+  const cameraOnly = port.normalizeSettings({ invertCameraY: true, invertFluddAimY: false });
+  assert.equal(port.buildEnvironment(cameraOnly, '/my/disc.iso', '/port').SMS_FLUDD_AIM_INVERT_Y, '0');
   assert.equal(port.buildEnvironment(settings, '/my/disc.iso', '/port').SMS_TEXTURE_PACKS, '0');
   assert.equal(port.buildEnvironment({ ...settings, textures: true }, '/my/disc.iso', '/port').SMS_TEXTURE_PACKS,
     path.join('/port', 'mods', 'textures'));

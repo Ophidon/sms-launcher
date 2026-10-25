@@ -15,7 +15,7 @@ const KEYS = [
   'colorSpace', 'gameGamma', 'displayGamma',
   'frameRate', 'vsync', 'overlay',
   'hdr', 'hdrCalibration', 'hdrPaperWhite', 'hdrPeak', 'hdrContrast', 'hdrSaturation', 'hdrHighlights',
-  'skipMovies', 'volume', 'musicVolume', 'sfxVolume', 'invertCameraX', 'invertCameraY', 'freeCamera', 'cstickOrbit', 'cameraSpeed',
+  'skipMovies', 'volume', 'musicVolume', 'sfxVolume', 'invertCameraX', 'invertCameraY', 'invertFluddAimY', 'freeCamera', 'cstickOrbit', 'cameraSpeed',
   'mouseCamera', 'closeCameraMouse', 'mouseSensitivity', 'rawMouse',
   'softTrigger', 'rumbleStrength', 'buttonPrompts', 'promptPad'
 ];
