@@ -334,6 +334,35 @@ test('native unpacking reports what a failing tar said', posixOnly, async t => {
   await assert.rejects(tools.unpackNative(fake, [], () => {}), /failed \(tar exit code 2\)\. tar: msys64\/x: Path too long/);
 });
 
+test('native unpacking reports the files bsdtar could not write, not the last names it listed, and what to do', posixOnly, async t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sms-native-errors-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  // As Windows' tar.exe does: errors follow their file's name, long before it exits.
+  const bsdtar = (name, reason) => {
+    const fake = path.join(dir, name);
+    fs.writeFileSync(fake, `#!/bin/sh
+echo "x msys64/usr/bin/ok.exe" >&2
+for n in 1 2 3 4 5; do echo "x msys64/opt/deep/file$n.hpp: Can't create '\\\\?\\C:\\Users\\me\\Downloads\\SMS-Launcher-Portable\\build-tools\\file$n.hpp': ${reason}" >&2; done
+for n in 1 2 3 4 5 6; do echo "x msys64/opt/last$n.hpp" >&2; done
+echo "tar.exe: Error exit delayed from previous errors." >&2
+exit 1
+`, { mode: 0o755 });
+    return fake;
+  };
+  const folder = 'C:\\Users\\me\\Downloads\\SMS-Launcher-Portable\\build-tools';
+  const failure = async reason => {
+    try { await tools.unpackNative(bsdtar(`tar-${reason.length}`, reason), [], () => {}, { folder }); }
+    catch (error) { return error.message; }
+    assert.fail('tar failed');
+  };
+  const denied = await failure('Permission denied');
+  assert.match(denied, /^Unpacking the build tools failed \(tar exit code 1\)\. 5 files failed, the first: x msys64\/opt\/deep\/file1\.hpp: Can't create .*Permission denied \| x msys64\/opt\/deep\/file2\.hpp/);
+  assert.doesNotMatch(denied, /file4\.hpp|last\d|Error exit delayed/);
+  assert.match(denied, /Antivirus, or Windows Security's Controlled folder access, blocked writing them: allow C:\\Users\\me\\Downloads\\SMS-Launcher-Portable\\build-tools there/);
+  assert.match(await failure('Filename too long'), /Windows can't create a path of 260 characters or more, and C:\\Users\\me\\Downloads\\SMS-Launcher-Portable\\build-tools is too deep for the build tools: move the launcher to a short folder such as C:\\Games/);
+  assert.match(await failure('No space left on device'), /The drive holding C:\\Users\\me\\Downloads\\SMS-Launcher-Portable\\build-tools is full/);
+});
+
 test('Windows retries a rename that antivirus blocks for a moment', async () => {
   let calls = 0;
   const waits = [];

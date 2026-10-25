@@ -341,11 +341,30 @@ async function renameRetrying(from, to, { platform = process.platform, attempts 
   }
 }
 
-function unpackNative(tarPath, args, progress, { stallMs = 5 * 60 * 1000 } = {}) {
+// What to do about the files tar couldn't write, from what it said about them
+// (bsdtar: "x msys64/<file>: Can't create '…': <reason>"), naming the folder
+// the tools go to.
+function unpackAdvice(problems, folder) {
+  const said = problems.join('\n');
+  const where = folder || 'the build tools folder';
+  if (/no space|ENOSPC|disk (is )?full/i.test(said)) return `The drive holding ${where} is full: free up space on it, then try again.`;
+  if (/denied|EPERM|EACCES|virus|unwanted software|used by another process|locked/i.test(said))
+    return `Antivirus, or Windows Security's Controlled folder access, blocked writing them: allow ${where} there ` +
+      '(or move the launcher to a folder such as C:\\Games), then try again.';
+  if (/too long|ENAMETOOLONG|No such file or directory|cannot find the path/i.test(said))
+    return `Windows can't create a path of 260 characters or more, and ${where} is too deep for the build tools: ` +
+      'move the launcher to a short folder such as C:\\Games, then try again.';
+  return `Antivirus scanning or a long folder path can cause this: try again, or allow ${where} in your antivirus, ` +
+    'or move the launcher to a short folder such as C:\\Games.';
+}
+
+function unpackNative(tarPath, args, progress, { stallMs = 5 * 60 * 1000, folder = '' } = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(tarPath, args, { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
-    const recent = [];
-    let files = 0, pending = '', stalled = false, timer = null;
+    // recent: the last lines; problems: the first that say why a file failed
+    // (a file name alone has no ": "), which tar prints long before it exits.
+    const recent = [], problems = [];
+    let files = 0, failed = 0, pending = '', stalled = false, timer = null;
     const arm = () => {
       clearTimeout(timer);
       timer = setTimeout(() => { stalled = true; child.kill(); }, stallMs);
@@ -356,6 +375,7 @@ function unpackNative(tarPath, args, progress, { stallMs = 5 * 60 * 1000 } = {})
       for (const line of lines) {
         if (!line.trim()) continue;
         if (recent.push(line.trim()) > 20) recent.shift();
+        if (/:\s/.test(line) && !/Error exit delayed/i.test(line) && ++failed <= 3) problems.push(line.trim());
         if (++files % 1000 === 0) progress(null, `Unpacking build tools… ${files.toLocaleString()} files`);
       }
       arm();
@@ -371,7 +391,9 @@ function unpackNative(tarPath, args, progress, { stallMs = 5 * 60 * 1000 } = {})
         `(after ${files.toLocaleString()} files). Antivirus scanning or a long folder path can cause this; try again, ` +
         'or move the launcher to a short folder such as C:\\Games.' + (recent.length ? ` Last file: ${recent[recent.length - 1]}` : '')));
       if (code !== 0 || signal) return reject(new Error(`Unpacking the build tools failed (tar ${signal || `exit code ${code}`}).` +
-        (recent.length ? ` ${recent.slice(-5).join(' | ')}` : '')));
+        (problems.length ? ` ${failed > problems.length ? `${failed.toLocaleString()} files failed, the first: ` : ''}` +
+          `${problems.join(' | ').replace(/\.$/, '')}. ${unpackAdvice(problems, folder)}`
+          : recent.length ? ` ${recent.slice(-5).join(' | ')}. ${unpackAdvice([], folder)}` : ` ${unpackAdvice([], folder)}`)));
       resolve(files);
     });
   });
@@ -409,7 +431,7 @@ async function prepare(userData, { platform = process.platform, run, progress = 
       ? path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'tar.exe') : null;
     if (nativeTar && fs.existsSync(nativeTar) && commandWorks(nativeTar, ['--version'])) {
       // Windows includes bsdtar; its native extraction avoids slow per-file JS filesystem work.
-      await unpackNative(nativeTar, ['-xvzf', archive, '-C', staging, top], progress);
+      await unpackNative(nativeTar, ['-xvzf', archive, '-C', staging, top], progress, { folder: parent });
     } else {
       let entries = 0;
       await require('tar').x({ file: archive, cwd: staging, strict: true,

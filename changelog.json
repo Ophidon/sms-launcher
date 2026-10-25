@@ -24,7 +24,8 @@
       "Fixed Windows paths with letters outside the English alphabet, such as a Cyrillic user name, showing as ���� in the activity log's game and build messages.",
       "Fixed Play, Update & play and save backups failing when your memory card folder is synced with Syncthing (\"Memory card contains an unexpected folder: .stfolder\"): Syncthing's own files, and those Finder and Windows Explorer leave behind, now stay in the folder and are left out of backups.",
       "Back up automatically, under Saves (on by default): turn it off and the launcher no longer copies your saves to the backup folder before and after you play or before updates and cleanup. Back up saves still makes a backup whenever you ask, and restoring a backup or importing a Dolphin save still backs up your current saves first.",
-      "Setup now names the folder the build tools download to: the launcher's own data folder, not the install location you choose. The activity log says it too when they download."
+      "Setup now names the folder the build tools download to: the launcher's own data folder, not the install location you choose. The activity log says it too when they download.",
+      "Windows: when unpacking the build tools fails, the launcher now shows what Windows refused, such as \"Permission denied\" or a path that is too long, instead of the last files it unpacked, and says what to do: allow the build tools folder in your antivirus or Controlled folder access, move the launcher to a short folder such as C:\\Games, or free up space."
     ],
     "game": [
       "Aim with the C-stick now works while you spray in place too, not only in the close-up view Y opens: hold R all the way, or L to walk sideways, and the C-stick turns Mario and aims FLUDD up and down while the camera follows behind him. With L held, the control stick still walks him sideways, so you can move and aim at once. Turn it on under Settings → Gameplay.",
