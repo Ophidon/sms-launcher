@@ -33,6 +33,7 @@
       "Invert FLUDD aim Y, a new switch under Settings → Gameplay beside Invert camera Y: it flips the control stick's up and down when you spray in place (R all the way, or L to walk sideways), so FLUDD can aim one way while the camera turns the other. It starts the way Invert camera Y is set, so nothing changes until you change it."
     ],
     "game": [
+      "Fixed the music playing much quieter than the sound effects: it now plays at the GameCube's level, so if you turned Sound effects volume down to hear the music, you can turn it back up.",
       "Aim with the C-stick now works while you spray in place too, not only in the close-up view Y opens: hold R all the way, or L to walk sideways, and the C-stick turns Mario and aims FLUDD up and down while the camera follows behind him. With L held, the control stick still walks him sideways, so you can move and aim at once. Turn it on under Settings → Gameplay.",
       "Achievements: 148 achievements unlock as you play, each announced by a BADGE GET! banner with its icon, name and what you did.",
       "HD cutscenes play with HD textures off, when the launcher has them on.",
