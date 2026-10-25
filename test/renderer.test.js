@@ -896,7 +896,8 @@ test('the Achievements tab is always there: without achievements in the game its
 
 test('setup says where the build tools download, which is not the install location', async () => {
   const folder = 'C:\\Users\\Player\\AppData\\Roaming\\sms-launcher\\build-tools';
-  const fresh = { ...state(), repoReady: false, binaryReady: false, tools: { ready: false }, toolsFolder: folder,
+  // Windows, as in the report: the note must not depend on the computer running the test (a Mac without Apple's tools says that instead)
+  const fresh = { ...state(), platform: port.platformInfo('win32'), repoReady: false, binaryReady: false, tools: { ready: false }, toolsFolder: folder,
     config: { ...state().config, completedSetup: false } };
   const ui = await renderer(fresh);
   assert.equal(ui.elements.get('tool-location-note').textContent,
